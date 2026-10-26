@@ -1,0 +1,444 @@
+/* ============================================================
+   Buscaminas Quantum — estilos del juego
+   ============================================================ */
+
+.minesweeper { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+
+.stat-score .pill-value { color: var(--warning); }
+.stat-timer .pill-value { color: var(--secondary); }
+.stat-mines .pill-value { color: var(--danger); }
+
+/* ── Game Body ─────────────────────────────── */
+.game-body {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+/* ── Side Panels ───────────────────────────── */
+.panel {
+    width: 230px;
+    min-width: 230px;
+    background: var(--bg-surface);
+    padding: 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.panel-left {
+    border-right: 1px solid var(--border);
+}
+
+.panel-right {
+    border-left: 1px solid var(--border);
+}
+
+.panel-section {
+    margin-bottom: 20px;
+}
+
+.panel-heading {
+    font-family: var(--font-title);
+    font-size: 0.8em;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+}
+
+/* ── Powers ─────────────────────────────────── */
+#powers-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.power-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all var(--transition);
+    color: var(--text);
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+}
+
+.power-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent, rgba(var(--primary-rgb), 0.05));
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.power-btn:hover:not(.disabled)::before {
+    opacity: 1;
+}
+
+.power-btn:hover:not(.disabled) {
+    border-color: rgba(var(--primary-rgb), 0.4);
+    background: var(--bg-hover);
+}
+
+.power-btn.active {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.15);
+    box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.2), inset 0 0 20px rgba(var(--primary-rgb), 0.05);
+}
+
+.power-btn.active::before {
+    opacity: 1;
+    background: linear-gradient(135deg, rgba(var(--primary-rgb), 0.1), transparent);
+}
+
+.power-btn.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.power-icon {
+    font-size: 1.4em;
+    flex-shrink: 0;
+}
+
+.power-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.power-name {
+    font-weight: 600;
+    font-size: 0.85em;
+    color: var(--text);
+}
+
+.power-charges {
+    font-size: 0.75em;
+    color: var(--text-muted);
+}
+
+/* ── Combo Display ─────────────────────────── */
+.combo-display {
+    text-align: center;
+    padding: 12px;
+    background: var(--bg-card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+}
+
+.combo-multiplier {
+    font-family: var(--font-title);
+    font-size: 2.2em;
+    font-weight: 900;
+    color: var(--text-muted);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    line-height: 1.2;
+}
+
+.combo-multiplier.active {
+    color: var(--warning);
+    text-shadow: 0 0 20px rgba(var(--warning-rgb), 0.5);
+}
+
+.combo-multiplier.mega {
+    color: var(--accent);
+    text-shadow: 0 0 30px rgba(var(--accent-rgb), 0.6);
+    animation: comboPop 0.4s ease;
+}
+
+.combo-bar-wrap {
+    height: 6px;
+    background: var(--bg-dark);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.combo-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--warning), var(--accent));
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.combo-label {
+    font-size: 0.8em;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+/* ── Board Area ────────────────────────────── */
+.board-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    gap: 16px;
+    min-width: 0;
+}
+
+/* ── Difficulty Selector ───────────────────── */
+.difficulty-selector {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.diff-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 10px 18px;
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all var(--transition);
+    min-width: 100px;
+    color: var(--text);
+}
+
+.diff-btn:hover {
+    border-color: rgba(var(--primary-rgb), 0.4);
+    background: var(--bg-hover);
+}
+
+.diff-btn.active {
+    border-color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.15);
+    box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.15);
+}
+
+.diff-emoji {
+    font-size: 1.3em;
+}
+
+.diff-name {
+    font-weight: 600;
+    font-size: 0.85em;
+}
+
+.diff-detail {
+    font-size: 0.7em;
+    color: var(--text-muted);
+}
+
+/* ── Board ─────────────────────────────────── */
+.board-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: var(--bg-surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.3), 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+#board {
+    display: grid;
+    grid-template-columns: repeat(var(--cols), var(--cell-size));
+    gap: 2px;
+    position: relative;
+    z-index: 1;
+}
+
+#fx-canvas {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+    border-radius: 16px;
+}
+
+.board-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+/* ── Board Cells ───────────────────────────── */
+.cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-card);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    font-weight: 700;
+    font-size: calc(var(--cell-size) * 0.42);
+    font-family: var(--font-title);
+    transition: all 0.12s ease;
+    user-select: none;
+    position: relative;
+}
+
+.cell:hover:not(.revealed):not(.flagged) {
+    background: var(--bg-hover);
+    border-color: rgba(var(--primary-rgb), 0.35);
+    transform: scale(1.08);
+    z-index: 2;
+    box-shadow: 0 0 12px rgba(var(--primary-rgb), 0.15);
+}
+
+.cell.revealed {
+    background: var(--bg-dark);
+    cursor: default;
+    border-color: rgba(255,255,255,0.02);
+    animation: cellReveal 0.25s ease;
+}
+
+.cell.revealed:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.cell.flagged {
+    background: rgba(var(--warning-rgb), 0.08);
+    border-color: rgba(var(--warning-rgb), 0.2);
+}
+
+.cell.mine {
+    background: rgba(var(--danger-rgb), 0.15);
+    border-color: rgba(var(--danger-rgb), 0.3);
+}
+
+.cell.mine-hit {
+    background: var(--danger) !important;
+    color: #fff !important;
+    border-color: var(--danger) !important;
+    animation: shake 0.5s ease;
+    box-shadow: 0 0 30px rgba(var(--danger-rgb), 0.6);
+    z-index: 5;
+}
+
+.cell.defused {
+    background: rgba(var(--success-rgb), 0.15);
+    border-color: rgba(var(--success-rgb), 0.3);
+}
+
+.cell.power-orb-found {
+    animation: sparkle 0.6s ease;
+}
+
+/* Cell Number Colors */
+.cell[data-number="1"] { color: #4fc3f7; }
+.cell[data-number="2"] { color: #81c784; }
+.cell[data-number="3"] { color: #ff8a65; }
+.cell[data-number="4"] { color: #7986cb; }
+.cell[data-number="5"] { color: #e57373; }
+.cell[data-number="6"] { color: #4dd0e1; }
+.cell[data-number="7"] { color: #ba68c8; }
+.cell[data-number="8"] { color: #90a4ae; }
+
+/* Power Effect Classes */
+.cell.scanner-highlight {
+    border-color: var(--secondary) !important;
+    box-shadow: 0 0 12px rgba(var(--secondary-rgb), 0.3);
+    animation: scannerPulse 0.8s ease;
+}
+
+.cell.xray-mine {
+    background: rgba(var(--danger-rgb), 0.12) !important;
+    border-color: rgba(var(--danger-rgb), 0.4) !important;
+    box-shadow: 0 0 10px rgba(var(--danger-rgb), 0.2);
+    animation: pulse-glow 1s ease-in-out infinite;
+}
+
+.cell.shield-active {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 15px rgba(var(--primary-rgb), 0.3);
+}
+
+/* ── Stat Rows (right panel) ───────────────── */
+.stat-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--bg-card);
+    border-radius: 8px;
+    font-size: 0.85em;
+}
+
+.stat-row span:first-child {
+    color: var(--text-dim);
+}
+
+.stat-row span:last-child {
+    color: var(--text);
+    font-weight: 600;
+    font-family: var(--font-title);
+    font-size: 0.9em;
+}
+
+.power-btn.passive { cursor: help; }
+.power-btn.passive.disabled { opacity: .35; }
+.btn.active { border-color: var(--primary); color: var(--text); background: rgba(var(--primary-rgb), .18); }
+.board-actions { flex-wrap: wrap; }
+
+/* Tablero con scroll propio si no cabe */
+.board-wrapper { max-width: 100%; overflow: auto; }
+.board-area { overflow: auto; }
+
+/* Paneles apilados en pantallas medianas (antes se ocultaban y se perdían los poderes) */
+@media (max-width: 1200px) {
+    .minesweeper .game-body { flex-direction: column; overflow-y: auto; }
+    .minesweeper .panel { width: 100%; min-width: 0; flex-direction: row; flex-wrap: wrap; gap: 16px; padding: 14px 16px; overflow: visible; }
+    .minesweeper .panel-left { order: 1; border-right: none; border-bottom: 1px solid var(--border); }
+    .minesweeper .board-area { order: 2; flex: none; padding: 12px; }
+    .minesweeper .panel-right { order: 3; border-left: none; border-top: 1px solid var(--border); }
+    .minesweeper .panel-section { margin-bottom: 0; flex: 1 1 220px; }
+    .minesweeper #powers-container { flex-direction: row; flex-wrap: wrap; }
+    .minesweeper .power-btn { flex: 1 1 140px; }
+}
+@media (max-width: 600px) {
+    .diff-btn { padding: 8px 10px; min-width: 70px; }
+    .diff-name { font-size: .75em; } .diff-detail { font-size: .65em; }
+    .board-wrapper { padding: 8px; }
+}
+
+/* Móvil / tablet: poderes compactos para que el tablero quede a la vista */
+@media (max-width: 1200px) {
+    .minesweeper .panel-left .panel-heading, .minesweeper .panel-right .panel-heading { margin-bottom: 8px; }
+    .minesweeper .panel-left { gap: 10px; padding: 10px 12px; }
+    .minesweeper .panel-left .panel-section:first-child .panel-heading { display: none; }
+    .minesweeper .power-btn { flex: 1 1 110px; padding: 8px 10px; }
+    .minesweeper .combo-display { padding: 6px 14px; display: flex; align-items: center; gap: 12px; }
+    .minesweeper .combo-multiplier { font-size: 1.4em; min-width: 54px; }
+    .minesweeper .combo-bar-wrap { flex: 1; margin: 0; }
+    .minesweeper .combo-label { display: none; }
+}
+@media (max-width: 700px) {
+    .minesweeper .power-btn { flex: 1 1 calc(33% - 8px); }
+    .minesweeper .power-charges { font-size: .68em; }
+    .minesweeper .panel-left .panel-section:last-child .panel-heading { display: none; }
+    .minesweeper .panel-left .panel-section:last-child { flex-basis: 100%; }
+}
