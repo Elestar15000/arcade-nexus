@@ -71,6 +71,28 @@
                     </section>
 
                     <section class="section card-surface">
+                        <h2 class="section-title"><span>🧩</span> Tetris Fusion</h2>
+                        ${C.choiceRow('tetris.defaultMode', 'Modo inicial', '', [
+                            { value: 'fusion', label: 'Fusión' }, { value: 'cascade', label: 'Cascada' },
+                            { value: 'chaos', label: 'Caos' }, { value: 'sprint', label: 'Sprint' }])}
+                        ${C.switchRow('tetris.ghost', 'Pieza fantasma', 'Muestra dónde caerá la pieza')}
+                    </section>
+
+                    <section class="section card-surface">
+                        <h2 class="section-title"><span>🟡</span> Pac-Man Nexus</h2>
+                        ${C.choiceRow('pacman.defaultMode', 'Modo inicial', '', [
+                            { value: 'classic', label: 'Clásico' }, { value: 'nexus', label: 'Nexus' }, { value: 'horde', label: 'Horda' }])}
+                    </section>
+
+                    <section class="section card-surface">
+                        <h2 class="section-title"><span>🐍</span> Snake Neón</h2>
+                        ${C.choiceRow('snake.defaultMode', 'Modo inicial', '', [
+                            { value: 'classic', label: 'Clásico' }, { value: 'evolve', label: 'Evolución' },
+                            { value: 'rival', label: 'Rival' }, { value: 'zone', label: 'Zona' }])}
+                        ${C.switchRow('snake.grid', 'Mostrar cuadrícula', 'Ayuda a calcular distancias')}
+                    </section>
+
+                    <section class="section card-surface">
                         <h2 class="section-title"><span>💾</span> Datos</h2>
                         <p class="muted">Todo se guarda en este navegador. Haz copias de seguridad para no perder tu progreso.</p>
                         <div class="btn-row">

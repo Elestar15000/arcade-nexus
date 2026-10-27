@@ -19,8 +19,6 @@
 
     /** Juegos anunciados pero aún no disponibles. */
     const COMING_SOON = [
-        { id: 'snake', name: 'Snake Neón', emoji: '🐍', tags: ['Arcade'] },
-        { id: 'tetris', name: 'Tetris Fusion', emoji: '🧩', tags: ['Puzzle'] },
         { id: 'pong', name: 'Pong Turbo', emoji: '🏓', tags: ['Arcade', 'Multijugador'] }
     ];
 

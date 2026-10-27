@@ -9,13 +9,14 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   "recordarme", modo invitado, exportar/importar copias de seguridad en JSON y migración automática
   del perfil de la versión anterior.
 - **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días.
-- **Más de 55 logros** (generales, Buscaminas, Wordle y Kernel Defense) con rareza, progreso y XP.
+- **Más de 85 logros** (generales, Buscaminas, Wordle, Kernel Defense, Tetris, Pac-Man y Snake) con rareza, progreso y XP.
 - **Rankings** entre los perfiles del navegador (general y por juego/modo/métrica).
 - **Ajustes** por usuario: tema (4), partículas, reducir animaciones, sonido y volumen, comportamiento
   de la barra lateral y opciones propias de cada juego.
 - **Barra lateral desplegable**: se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`,
   se pliega sola al jugar (configurable) y recuerda su estado.
-- **Juegos**: Buscaminas Quantum (mejorado), **Wordle ES** y **Kernel Defense** (tower defense).
+- **Juegos**: Buscaminas Quantum (mejorado), **Wordle ES**, **Kernel Defense** (tower defense), **Tetris Fusion**,
+  **Pac-Man Nexus** y **Snake Neón**.
 
 ## Wordle ES
 
@@ -42,19 +43,48 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
 - La lógica (`data.js`, `engine.js`) no usa el DOM: `node tests/td_sim.js` simula una partida con un bot para
   calibrar el equilibrio (`TD.BUDGET_K`, `TD.ROUND_BONUS_K`).
 
+## Tetris Fusion
+
+- Tetris moderno (SRS con kicks, reserva, pieza fantasma, T-Spin, combos y back-to-back).
+- **Bloques de poder** en las piezas: 💥 Bomba (5×5), ⚡ Rayo (columna), ❄️ Hielo (congela la caída) y ⭐ Estrella (×2); se activan
+  al limpiar su línea y pueden encadenarse.
+- **Energía** que se carga limpiando líneas: ⏪ Rebobinar (deshace la última pieza) y 🧹 Purga (borra las 3 filas de abajo).
+- Modos: **Fusión**, **Cascada** (los bloques caen solos tras limpiar y las reacciones en cadena multiplican), **Caos**
+  (evento aleatorio cada 18 piezas: marea, espejo, prisa, calma, lluvia de poderes) y **Sprint** de 40 líneas.
+
+## Pac-Man Nexus
+
+- **8 enemigos** con IA propia: Cazador, Emboscador, Flanqueador y Errático (los clásicos) más Espectro (casi invisible),
+  Saltarín (se teletransporta), Sombra (sigue tu rastro) y Blindado (inmune a las píldoras de poder).
+- **7 poderes** que se recogen en el mapa y se guardan en 2 ranuras: ⚡ Turbo, 🧲 Imán, 👻 Fase, ❄️ Hielo, 🛡️ Escudo, 💥 Onda y 🌀 Salto.
+- Modos: **Clásico** (4 fantasmas, sin poderes), **Nexus** (poderes y enemigos nuevos nivel a nivel) y **Horda** (los 8 desde el inicio).
+
+## Snake Neón
+
+- **Energía**: mantén `Espacio` para el ⚡ Turbo (el doble de rápido y puntos ×1,5) y usa 🦘 **Salto** (`Z`) para saltar 3 casillas
+  por encima de tu cuerpo, rocas o rivales (el aterrizaje debe estar libre).
+- **Frutas y poderes**: 🌟 dorada, 🍄 seta (+puntos pero invierte los controles), 👻 Fantasma, 🧲 Imán, 🐢 Lento, 💰 Doble,
+  ✂️ Tijeras (la cola cortada se convierte en fragmentos) y 💣 Bomba (destruye rocas y corta rivales).
+- **Racha**: comer seguido sube el multiplicador hasta ×3. **Portales** 🌀 (el cuerpo también los atraviesa) y rocas que aparecen con el tiempo.
+- Modos: **Clásico**, **Evolución**, **Rival** (serpientes enemigas con IA por BFS que compiten por la comida, te cierran el paso y,
+  si chocan con tu cuerpo, mueren y sueltan fragmentos; cara a cara gana la más larga) y **Zona** (la lava avanza desde los bordes y
+  quema la cola; se avisa antes).
+- Controles: flechas/WASD, deslizar en móvil, botones táctiles.
+
 ## Estructura
 
 ```
 index.html
 assets/
-  css/        base · layout · components · pages · games/{minesweeper,wordle,towerdefense}
+  css/        base · layout · components · pages · games/{minesweeper,wordle,towerdefense,arcade,tetris,pacman,snake}
   data/       words-es.js (diccionario)
 src/
   core/       namespace, utils, events, storage, hash, schema, audio
   services/   settings, users, progress, achievements, leaderboard
   ui/         toast, modal, fx, particles, components, sidebar, router, auth, pages/*
   games/      registry.js · minesweeper/ · wordle/{dictionary,game}.js
-              towerdefense/{data,engine,game}.js  app.js      arranque
+              towerdefense/{data,engine,game}.js
+              shared/kit.js (canvas, bucle, táctil) · tetris/ · pacman/ · snake/   app.js  arranque
 tests/        pruebas E2E (Playwright)
 ```
 
@@ -80,6 +110,7 @@ python3 tests/e2e_smoke.py      # flujo completo + capturas
 python3 tests/e2e_data.py       # migración, copias de seguridad, borrado
 python3 tests/e2e_minesweeper.py
 python3 tests/e2e_towerdefense.py
+python3 tests/e2e_arcade.py     # Tetris, Pac-Man y Snake
 node tests/td_sim.js            # simulación de equilibrio (sin navegador)
 ```
 

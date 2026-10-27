@@ -26,7 +26,12 @@
         'minesweeper.longPressFlag': true,
         'wordle.hardMode': false,
         'wordle.colorblind': false,
-        'wordle.defaultMode': 'random' // random | daily
+        'wordle.defaultMode': 'random', // random | daily
+        'tetris.defaultMode': 'fusion', // fusion | cascade | chaos | sprint
+        'tetris.ghost': true,
+        'pacman.defaultMode': 'nexus',  // classic | nexus | horde
+        'snake.defaultMode': 'evolve',  // classic | evolve | rival | zone
+        'snake.grid': true
     };
 
     const gameStats = () => ({
