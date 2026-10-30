@@ -69,6 +69,70 @@
             return api;
         },
 
+        /* ── Guardado de partida en curso ───────────────────────
+           Serializa el estado "de datos" de la instancia (primitivos, arrays,
+           objetos planos y Sets) y lo guarda por usuario y juego. Al montar,
+           si hay partida guardada se restaura en pausa. */
+        autosave(game, { id, exclude = [], restore, every = 3000 }) {
+            const store = Nexus.storage;
+            const SKIP = new Set(['root', 'destroyed', 'timers', 'loop', 'fit', 'ctx', 'canvas', 'stage', 'overlay', 'resultModal',
+                'particles', 'floaters', 'shake', 't', 'run', 'keys', 'toastT', ...exclude]);
+            const pack = (v, depth = 0) => {
+                if (depth > 8) return undefined;
+                if (v === null || typeof v === 'string' || typeof v === 'boolean') return v;
+                if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
+                if (Array.isArray(v)) return v.map(x => { const r = pack(x, depth + 1); return r === undefined ? null : r; });
+                if (v instanceof Set) return { __set: Array.from(v).map(x => pack(x, depth + 1)) };
+                if (v && Object.getPrototypeOf(v) === Object.prototype) {
+                    const o = {};
+                    for (const k of Object.keys(v)) { const r = pack(v[k], depth + 1); if (r !== undefined) o[k] = r; }
+                    return o;
+                }
+                return undefined;
+            };
+            const unpack = (v) => {
+                if (Array.isArray(v)) return v.map(unpack);
+                if (v && typeof v === 'object') {
+                    if (v.__set) return new Set(v.__set.map(unpack));
+                    const o = {}; for (const k of Object.keys(v)) o[k] = unpack(v[k]); return o;
+                }
+                return v;
+            };
+            const key = () => { const u = Nexus.services.users.current(); return u ? `run:${u.id}:${id}` : null; };
+            const api = {
+                /** Guarda si la partida está en juego/pausa; la borra si ha terminado o se está en el menú. */
+                save() {
+                    const k = key(); if (!k || game.destroyed) return;
+                    if (game.state === 'over' || game.state === 'menu') { store.remove(k); return; }
+                    if (game.state !== 'playing' && game.state !== 'paused') return;   // estados transitorios: conserva el último guardado
+                    const snap = {};
+                    for (const name of Object.keys(game)) {
+                        if (SKIP.has(name) || name[0] === '_' || typeof game[name] === 'function') continue;
+                        const v = pack(game[name]); if (v !== undefined) snap[name] = v;
+                    }
+                    snap.state = 'paused';
+                    store.set(k, { v: 1, at: Date.now(), mode: game.mode && game.mode.id, snap });
+                },
+                clear() { const k = key(); if (k) store.remove(k); },
+                /** Devuelve la partida guardada (o null). */
+                load() {
+                    const k = key(); if (!k) return null;
+                    const r = store.get(k);
+                    if (!r || r.v !== 1 || !r.snap) return null;
+                    if (Date.now() - r.at > 7 * 864e5) { store.remove(k); return null; }
+                    return { mode: r.mode, snap: unpack(r.snap) };
+                },
+                apply(snap) { for (const k of Object.keys(snap)) game[k] = snap[k]; },
+                stop() { api.save(); clearInterval(timer); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('pagehide', onHide); }
+            };
+            const onVis = () => { if (document.hidden) api.save(); };
+            const onHide = () => api.save();
+            const timer = setInterval(() => api.save(), every);
+            document.addEventListener('visibilitychange', onVis);
+            window.addEventListener('pagehide', onHide);
+            return api;
+        },
+
         /** Bucle de animación con paso máximo; se detiene solo si la pestaña se oculta (llama a onHide). */
         loop(update, draw, onHide) {
             let raf = 0, last = 0, running = false;

@@ -3,11 +3,12 @@
    Forma de los datos guardados + normalización + migración.
 
    Claves en localStorage (prefijo nexus:v2:):
-     users            → [{ id, name, avatar, color, salt, hash, createdAt, lastLoginAt }]
-     data:<userId>    → datos de juego de ese usuario (ver userData())
-     session          → { userId }           (si "recordarme")
+     session          → { token, id, name }   (sesión persistente)
+     cache:<userId>   → { user, data, serverAt, dirty }  copia local de los datos del usuario
+     lastUser         → último nombre de usuario (para rellenar el login)
+     run:<userId>:<g> → partida en curso de un juego (se restaura al recargar)
+     ldb              → base de datos del modo local (sin servidor)
      ui               → preferencias de interfaz globales (sidebar…)
-     meta             → { schema: 2, legacyMigrated: bool }
    ============================================================ */
 (function () {
     'use strict';
@@ -52,7 +53,7 @@
         history: [],        // últimas partidas (más reciente primero)
         achievements: {},   // { [idLogro]: timestamp }
         settings: {},       // sólo se guardan los valores cambiados
-        meta: { playTime: 0, daysPlayed: 0, dayStreak: 0, bestDayStreak: 0, lastDay: null },
+        meta: { playTime: 0, daysPlayed: 0, dayStreak: 0, bestDayStreak: 0, lastDay: null, updatedAt: 0 },
         saves: {}           // partidas en curso por juego (p. ej. Wordle)
     });
 
@@ -70,32 +71,9 @@
         return d;
     }
 
-    /** Convierte el perfil de la v1 (clave "nexus-arcade-profile") al nuevo formato. */
-    function fromLegacy(old) {
-        const d = userData();
-        if (!old || typeof old !== 'object') return d;
-        d.xp.level = Math.max(1, old.level | 0 || 1);
-        d.xp.xp = Math.max(0, old.xp | 0);
-        d.xp.total = Math.max(0, old.totalXP | 0);
-        const ms = old.stats && old.stats.minesweeper;
-        if (ms) {
-            const g = gameStats();
-            g.played = ms.totalGames | 0;
-            g.wins = ms.totalWins | 0;
-            g.losses = Math.max(0, g.played - g.wins);
-            g.bestScore = ms.bestScore | 0;
-            g.bestTime = ms.bestTime == null ? null : ms.bestTime;
-            g.totalScore = ms.totalScore | 0;
-            g.streak = ms.currentStreak | 0;
-            g.bestStreak = ms.winStreak | 0;
-            d.stats.minesweeper = g;
-        }
-        return d;
-    }
-
     Nexus.schema = {
         VERSION: SCHEMA_VERSION,
         DEFAULT_SETTINGS,
-        gameStats, modeStats, userData, normalize, fromLegacy
+        gameStats, modeStats, userData, normalize
     };
 })();

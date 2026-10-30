@@ -42,12 +42,12 @@
                 <section class="hero" style="--game-accent:${esc(featured.accent || 'var(--primary)')}">
                     <div class="hero-bg"></div>
                     <div class="hero-content">
-                        <span class="hero-badge">${last ? '▶ SIGUE JUGANDO' : '⭐ DESTACADO'}</span>
+                        <span class="hero-badge">${last ? 'Sigue jugando' : 'Destacado'}</span>
                         <p class="hero-greeting">${esc(greeting())}, <strong>${esc(user.name)}</strong></p>
-                        <h2 class="hero-title">${esc(featured.name.toUpperCase())}</h2>
+                        <h2 class="hero-title">${esc(featured.name)}</h2>
                         <p class="hero-desc">${esc(featured.description)}</p>
                         <div class="hero-actions">
-                            <a class="btn btn-primary btn-glow" href="#/game/${esc(featured.id)}"><span>▶</span> JUGAR AHORA</a>
+                            <a class="btn btn-primary btn-glow" href="#/game/${esc(featured.id)}"><span>▶</span> Jugar ahora</a>
                             <a class="btn btn-ghost" href="#/library">Ver biblioteca</a>
                         </div>
                         <div class="hero-stats-row">
@@ -66,11 +66,6 @@
                 </section>
 
                 <div class="page-body">
-                    ${users.isGuest() ? `
-                    <div class="banner banner-info">
-                        <span>👤 Estás jugando como <strong>invitado</strong>: nada de lo que hagas se guardará.</span>
-                        <a class="btn btn-primary btn-sm" href="#/profile">Guardar mi progreso</a>
-                    </div>` : ''}
 
                     <div class="quick-row">
                         ${wordle ? `
@@ -78,13 +73,13 @@
                             <span class="quick-emoji">📅</span>
                             <span class="quick-text"><strong>Reto diario de Wordle</strong>
                                 <small>${dailyDone ? '✅ Ya lo has jugado hoy. ¡Vuelve mañana!' : 'Una palabra nueva cada día, igual para todos.'}</small></span>
-                            <span class="quick-go">${dailyDone ? 'Ver' : 'Jugar'} →</span>
+                            <span class="quick-go">${dailyDone ? 'Ver' : 'Jugar'}</span>
                         </a>` : ''}
                         <a class="quick-card" href="#/profile">
                             <span class="quick-emoji">${esc(lv.rank.icon)}</span>
                             <span class="quick-text"><strong>${esc(lv.rank.name)} · Nivel ${lv.level}</strong>
                                 ${C.progressBar(lv.pct)}<small>${formatNumber(lv.xp)} / ${formatNumber(lv.next)} XP para el siguiente nivel</small></span>
-                            <span class="quick-go">Perfil →</span>
+                            <span class="quick-go">Ver perfil</span>
                         </a>
                     </div>
 

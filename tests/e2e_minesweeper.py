@@ -1,5 +1,7 @@
 """Lógica del Buscaminas: escudo, victoria y registro. python3 tests/e2e_minesweeper.py"""
 import sys, pathlib
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from helpers import register
 from playwright.sync_api import sync_playwright
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 bad=[]
@@ -7,8 +9,7 @@ def check(c,m): print(('PASS ' if c else 'FAIL ')+m); (not c) and bad.append(m)
 with sync_playwright() as p:
     b=p.chromium.launch(); page=b.new_page(viewport={'width':1366,'height':800}); errs=[]
     page.on('pageerror', lambda e: errs.append(str(e)))
-    page.goto(f'file://{ROOT}/index.html'); page.wait_for_selector('#auth-screen:not([hidden])')
-    page.click('#auth-add'); page.fill('#pf-name','Tester'); page.click('.modal-buttons .btn-primary'); page.wait_for_selector('#shell:not([hidden])')
+    page.goto(f'file://{ROOT}/index.html'); register(page, 'Tester', 'secreta1')
     page.evaluate("""() => { const g = Nexus.games.registry.get('minesweeper'); const m = g.mount; g.mount = (r) => (window.__ms = m(r)); }""")
     page.goto(f'file://{ROOT}/index.html#/game/minesweeper'); page.wait_for_timeout(500)
     # poderes antes de la primera casilla

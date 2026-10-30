@@ -192,9 +192,6 @@
                 <div class="unlock-row rarity-${esc(a.rarity)}"><span class="unlock-icon">${esc(a.icon)}</span>
                     <span><strong>${esc(a.name)}</strong><small>${esc(a.desc)}</small></span></div>`).join('') + '</div>');
         }
-        if (r.guest) {
-            parts.push('<p class="modal-note">👤 Estás jugando como invitado: esta partida no se guarda. Crea un perfil para conservar tu progreso.</p>');
-        }
 
         if (r.levelUp) Nexus.audio.play('levelup');
         else if (r.unlocked && r.unlocked.length) Nexus.audio.play('achievement');

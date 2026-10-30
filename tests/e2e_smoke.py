@@ -1,5 +1,7 @@
 """Prueba E2E de humo: python3 tests/e2e_smoke.py  (requiere playwright + chromium)"""
 import sys, pathlib, json
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from helpers import register, login
 from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -21,16 +23,13 @@ with sync_playwright() as p:
     page.wait_for_selector('#auth-screen:not([hidden])')
     page.screenshot(path=str(OUT / '01_auth_empty.png'))
 
-    # Crear perfil con contraseña
-    page.click('#auth-add')
-    page.fill('#pf-name', 'Ana')
-    page.click('.avatar-opt >> nth=3')
-    page.fill('#pf-pass', 'abcd'); page.fill('#pf-pass2', 'abcd')
-    page.click('.modal-buttons .btn-primary')
+    # Crear cuenta con contraseña
+    page.click('.auth-tab[data-tab=register]')
+    page.fill('#au-name', 'Ana'); page.fill('#au-pass', 'abcd12'); page.fill('#au-pass2', 'abcd12')
+    page.click('#au-submit')
     page.wait_for_selector('#shell:not([hidden])')
-    check(page.inner_text('#user-name') == 'Ana', 'login tras crear perfil')
-    check(page.evaluate("Nexus.services.users.get(Nexus.services.users.current().id).hasPassword"), 'perfil con contraseña')
-    check('hash' not in json.dumps(page.evaluate("Nexus.services.users.list()")), 'list() no expone hash')
+    check(page.inner_text('#user-name') == 'Ana', 'sesión iniciada tras registrarse')
+    check('hash' not in json.dumps(page.evaluate("Nexus.services.users.current()")), 'el usuario activo no expone hash')
     page.wait_for_timeout(500)
     page.screenshot(path=str(OUT / '02_home.png'))
 
@@ -135,28 +134,26 @@ with sync_playwright() as p:
     page.goto(f'file://{ROOT}/index.html#/achievements'); page.wait_for_timeout(300)
     page.screenshot(path=str(OUT / '32_achievements.png'))
 
-    # Logout + login con contraseña errónea / correcta, segundo usuario, invitado
+    # Cierre de sesión + login con contraseña errónea / correcta; datos aislados; XSS
     page.click('#btn-switch-user'); page.wait_for_selector('#auth-screen:not([hidden])')
-    page.click('.profile-pick[data-id]')
-    page.fill('.modal input', 'mala'); page.click('.modal-buttons .btn-primary')
-    check(page.locator('.modal .field-error:visible').count() == 1, 'contraseña errónea rechazada')
-    page.fill('.modal input', 'abcd'); page.click('.modal-buttons .btn-primary')
-    page.wait_for_selector('#shell:not([hidden])')
+    page.screenshot(path=str(OUT / '40_auth.png'))
+    page.fill('#au-name', 'Ana'); page.fill('#au-pass', 'mala'); page.click('#au-submit'); page.wait_for_timeout(400)
+    check(page.locator('#au-error').inner_text().strip() != '', 'contraseña errónea rechazada')
+    page.fill('#au-pass', 'abcd12'); page.click('#au-submit'); page.wait_for_selector('#shell:not([hidden])')
     check(page.inner_text('#user-name') == 'Ana', 'login con contraseña correcta')
+    check(page.evaluate("Nexus.services.progress.stats('wordle').played") >= 1, 'el progreso se conserva al volver a entrar')
     page.click('#btn-switch-user'); page.wait_for_selector('#auth-screen:not([hidden])')
-    page.screenshot(path=str(OUT / '40_auth_list.png'))
-    page.click('#auth-add'); page.fill('#pf-name', '<b>Bob</b>'); page.click('.modal-buttons .btn-primary')
-    page.wait_for_selector('#shell:not([hidden])')
-    check('<b>' in page.inner_text('#user-name') and page.locator('#user-name b').count() == 0, 'nombres con HTML se escapan (XSS)')
+    page.click('.auth-tab[data-tab=register]'); page.fill('#au-name', '<b>Bob</b>'); page.fill('#au-pass', 'abcd12'); page.fill('#au-pass2', 'abcd12'); page.click('#au-submit'); page.wait_for_timeout(300)
+    check(page.locator('#au-error').inner_text().strip() != '' and page.locator('#shell:not([hidden])').count() == 0, 'nombres con HTML no se admiten')
+    page.fill('#au-name', 'Bob'); page.click('#au-submit'); page.wait_for_selector('#shell:not([hidden])')
     check(page.evaluate("Nexus.services.progress.stats('wordle').played") == 0, 'datos aislados entre usuarios')
-    page.click('#btn-switch-user'); page.click('#auth-guest'); page.wait_for_selector('#shell:not([hidden])')
-    check(page.evaluate("Nexus.services.users.isGuest()"), 'modo invitado')
 
     # Móvil
     m = b.new_context(viewport={'width': 390, 'height': 780}, has_touch=True).new_page()
     m.on('pageerror', lambda e: logs.append('PAGEERROR m ' + str(e)))
     m.goto('file://' + str(ROOT / 'index.html')); m.wait_for_selector('#auth-screen:not([hidden])')
-    m.click('#auth-guest'); m.wait_for_selector('#shell:not([hidden])'); m.wait_for_timeout(400)
+    m.screenshot(path=str(OUT / '49_mobile_auth.png'))
+    register(m, 'Movil', 'abcd12'); m.wait_for_timeout(400)
     check(m.evaluate("document.getElementById('sidebar').getBoundingClientRect().right") <= 0, 'móvil: cajón cerrado por defecto')
     m.click('#sidebar-toggle'); m.wait_for_timeout(450)
     check(m.evaluate("document.getElementById('sidebar').getBoundingClientRect().left") >= 0, 'móvil: cajón se abre')

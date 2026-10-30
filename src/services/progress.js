@@ -114,7 +114,7 @@
             const data = users.data();
             const result = {
                 xp: 0, levelUp: false, newLevel: 1, records: { score: false, time: false },
-                unlocked: [], saved: !!data && !users.isGuest(), guest: users.isGuest()
+                unlocked: [], saved: !!data
             };
             if (!data) return result;
 
@@ -185,6 +185,7 @@
             result.levelUp = result.newLevel > levelBefore;
 
             users.saveData();
+            users.flush();      // el ranking global se actualiza al terminar cada partida
             Nexus.bus.emit('progress:update', { game: p.game, result });
             return result;
         }

@@ -94,7 +94,7 @@
             }
 
             if (unlocked.length) {
-                if (!users.isGuest()) users.saveData();
+                users.saveData();
                 // Tras una partida los logros se listan en el modal de resultados; el toast
                 // sólo se usa para los que se desbloquean fuera de una partida.
                 if (!event) {
@@ -106,10 +106,10 @@
             return unlocked;
         },
 
-        /** Re-evalúa en silencio al iniciar sesión (p. ej. tras importar datos). */
+        /** Re-evalúa en silencio al iniciar sesión (p. ej. tras sincronizar con el servidor). */
         evaluateSilently() {
             const data = Nexus.services.users.data();
-            if (!data || Nexus.services.users.isGuest()) return;
+            if (!data) return;
             this.check(null);
         }
     };

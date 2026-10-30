@@ -81,6 +81,22 @@
             this.showMenu();
             this.unsubProgress = Nexus.bus.on('progress:update', () => this.updateRecords());
             this.updateRecords();
+            this.run = Kit.autosave(this, { id: 'snake', exclude: ['mode', 'prev'] });
+            this.resumeSaved();
+        }
+
+        /** Restaura una partida interrumpida (recarga o cierre) en pausa. */
+        resumeSaved() {
+            const saved = this.run.load();
+            if (!saved || !Array.isArray(saved.snap.snake) || !saved.snap.snake.length) return;
+            this.mode = MODES.find(m => m.id === saved.mode) || this.mode;
+            this.run.apply(saved.snap);
+            this.prev = this.snake.map(s => ({ ...s }));
+            this.alpha = 1;
+            this.state = 'playing';
+            this.pause();
+            this.updateModeUI(); this.updatePills(); this.updateSide();
+            this.toast && this.toast('Partida recuperada');
         }
 
         // ── Plantilla ───────────────────────────────────────
@@ -824,6 +840,7 @@
         die(reason) {
             if (this.state === 'over') return;
             this.state = 'over';
+            if (this.run) this.run.clear();
             this.turboHeld = false; this.turboOn = false;
             this.shake = 1;
             const h = this.snake[0];
@@ -1106,6 +1123,7 @@
         }
 
         destroy() {
+            if (this.run) this.run.stop();
             this.destroyed = true;
             this.loop.destroy();
             this.fit.destroy();

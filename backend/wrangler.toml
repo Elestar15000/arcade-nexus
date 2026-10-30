@@ -1,0 +1,12 @@
+name = "nexus-arcade-api"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+[vars]
+GITHUB_REPO = "TU_USUARIO/nexus-arcade-data"   # repo PRIVADO con los datos
+GITHUB_BRANCH = "main"
+ALLOWED_ORIGIN = "https://TU_USUARIO.github.io"  # varios: separados por comas
+
+# Secrets (NO van aquí; se crean con `wrangler secret put`):
+#   GITHUB_TOKEN   token fine-grained con Contents: Read and write sólo sobre el repo de datos
+#   SESSION_SECRET cadena aleatoria larga (p. ej. `openssl rand -hex 32`)

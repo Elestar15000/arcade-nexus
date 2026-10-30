@@ -5,18 +5,31 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
 
 ## Qué incluye
 
-- **Perfiles locales**: varios usuarios, avatar y color, contraseña opcional (hash SHA-256 con sal),
-  "recordarme", modo invitado, exportar/importar copias de seguridad en JSON y migración automática
-  del perfil de la versión anterior.
-- **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días.
-- **Más de 85 logros** (generales, Buscaminas, Wordle, Kernel Defense, Tetris, Pac-Man y Snake) con rareza, progreso y XP.
-- **Rankings** entre los perfiles del navegador (general y por juego/modo/métrica).
-- **Ajustes** por usuario: tema (4), partículas, reducir animaciones, sonido y volumen, comportamiento
+- **Cuentas con contraseña obligatoria**: registro e inicio de sesión (sin modo invitado), avatar y color. Usuario
+  `A-Z a-z 0-9 _ -` (3–16, único sin distinguir mayúsculas) y contraseña de 6–64 caracteres.
+- **Datos en el servidor de GitHub**: con el backend de `backend/` (Cloudflare Worker + repo privado de GitHub) las cuentas
+  y el progreso viven en GitHub y los **rankings son globales**. Sin backend configurado funciona en **modo local**
+  (cuentas y ranking sólo de este navegador), útil para desarrollo.
+- **Sesión local y partidas persistentes**: al recargar sigues dentro de tu cuenta y las partidas de Tetris, Pac-Man y Snake
+  (y las de Wordle) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
+  segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
+- **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días. No hay exportación de datos.
+- **81 logros** (generales, Buscaminas, Wordle, Tetris, Pac-Man y Snake) con rareza, progreso y XP.
+- **Rankings globales** (general y por juego/modo/métrica).
+- **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
   de la barra lateral y opciones propias de cada juego.
 - **Barra lateral desplegable**: se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`,
   se pliega sola al jugar (configurable) y recuerda su estado.
-- **Juegos**: Buscaminas Quantum (mejorado), **Wordle ES**, **Kernel Defense** (tower defense), **Tetris Fusion**,
-  **Pac-Man Nexus** y **Snake Neón**.
+- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Tetris Fusion**, **Pac-Man Nexus** y **Snake Neón**.
+
+## Activar cuentas y rankings globales
+
+1. Despliega el Worker siguiendo [`backend/README.md`](backend/README.md) (repo privado de datos + token + Worker).
+2. Pon su URL en `config.js`: `window.NEXUS_CONFIG = { API_URL: 'https://nexus-arcade-api.<cuenta>.workers.dev' };`
+3. Publica el sitio en GitHub Pages. Con `API_URL` vacío la web funciona en modo local.
+
+Avisos: el cliente es de confianza (los rankings no son a prueba de trampas), las contraseñas no se pueden recuperar y las
+cuentas del modo local no se migran al servidor.
 
 ## Wordle ES
 
@@ -26,22 +39,6 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   (misma palabra para todos cada día).
 - Modo difícil, alto contraste para daltonismo, teclado físico y en pantalla, compartir resultado,
   partida en curso guardada en el perfil.
-
-## Kernel Defense (tower defense de programación)
-
-- **Un único mapa** (la placa base: bus de datos, chips, entrada INTERNET y CORE) y **rondas infinitas**: se juega
-  hasta que el CORE cae. Pasada la ronda 40 todas las amenazas ganan vida y velocidad sin límite; cada 10 rondas
-  (desde la 20) llega un jefe **Zero-Day**.
-- **Amenazas**: Virus (Bug, Macro virus, Gusano) y Malware (Spyware, Adware, Rootkit, Ransomware, Troyano, Botnet,
-  Cryptolocker, Zero-Day). Se descomponen en capas y algunas son inmunes (Rootkit → Java, Ransomware → Rust,
-  Troyano → Python hasta Cython).
-- **4 torres-lenguaje**: Python 🐍, Java ☕, C++ ⚙️ y Rust 🦀. Cada una tiene 4 niveles y, **en cada nivel, 3 opciones**:
-  rama A, rama B o híbrida (AB). Las ramas se combinan libremente (atajos `Q` `W` `E`), estrategias de objetivo y venta al 70 %.
-- Velocidad 1×/2×/3×, pausa, ronda automática, atajos de teclado, autoguardado al terminar cada ronda.
-- Puntuación = ronda × 100 + amenazas/5. Al ser infinito no hay victoria: cada partida cuenta como récord de puntuación
-  (`recordGame({ endless: true })`).
-- La lógica (`data.js`, `engine.js`) no usa el DOM: `node tests/td_sim.js` simula una partida con un bot para
-  calibrar el equilibrio (`TD.BUDGET_K`, `TD.ROUND_BONUS_K`).
 
 ## Tetris Fusion
 
@@ -76,16 +73,17 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
 ```
 index.html
 assets/
-  css/        base · layout · components · pages · games/{minesweeper,wordle,towerdefense,arcade,tetris,pacman,snake}
+  css/        base · layout · components · pages · games/{minesweeper,wordle,arcade,tetris,pacman,snake}
   data/       words-es.js (diccionario)
 src/
-  core/       namespace, utils, events, storage, hash, schema, audio
+  core/       namespace, utils, events, storage, hash, schema, audio, backend (servidor / local)
   services/   settings, users, progress, achievements, leaderboard
   ui/         toast, modal, fx, particles, components, sidebar, router, auth, pages/*
   games/      registry.js · minesweeper/ · wordle/{dictionary,game}.js
-              towerdefense/{data,engine,game}.js
               shared/kit.js (canvas, bucle, táctil) · tetris/ · pacman/ · snake/   app.js  arranque
-tests/        pruebas E2E (Playwright)
+backend/      Cloudflare Worker (API sobre repo privado de GitHub) + README de despliegue
+config.js     URL del backend (API_URL)
+tests/        pruebas E2E (Playwright) y prueba del Worker (Node)
 ```
 
 ## Añadir un juego
@@ -99,19 +97,20 @@ tests/        pruebas E2E (Playwright)
 
 ## Datos y privacidad
 
-Todo se guarda en `localStorage` bajo el prefijo `nexus:v2:`. La contraseña de un perfil es una
-comodidad local, no seguridad real: quien tenga acceso al navegador puede leer los datos.
+- Con backend: cuentas y progreso en un repo **privado** de GitHub (contraseñas con PBKDF2-SHA256, 100.000 iteraciones y sal; el token de
+  GitHub sólo existe como *secret* del Worker). Sesión de 30 días firmada con HMAC.
+- En el navegador se guarda la sesión, una caché de tus datos y la partida en curso (`localStorage`, prefijo `nexus:v2:`).
+- Cerrar sesión borra la sesión y la caché; la cuenta sólo se elimina desde Perfil → «Eliminar cuenta».
 
 ## Pruebas
 
 ```
 pip install playwright && playwright install chromium
-python3 tests/e2e_smoke.py      # flujo completo + capturas
-python3 tests/e2e_data.py       # migración, copias de seguridad, borrado
+python3 tests/e2e_smoke.py        # flujo completo + capturas
+python3 tests/e2e_accounts.py     # registro/login, sesión, partidas persistentes, ranking, borrar cuenta
 python3 tests/e2e_minesweeper.py
-python3 tests/e2e_towerdefense.py
-python3 tests/e2e_arcade.py     # Tetris, Pac-Man y Snake
-node tests/td_sim.js            # simulación de equilibrio (sin navegador)
+python3 tests/e2e_arcade.py       # Tetris, Pac-Man y Snake
+node tests/worker_test.mjs        # API del Worker contra un GitHub falso en memoria
 ```
 
-Las fuentes (Inter, Orbitron) se cargan de Google Fonts; sin conexión se usan fuentes del sistema.
+Las fuentes (Bricolage Grotesque, Manrope) se cargan de Google Fonts; sin conexión se usan fuentes del sistema.

@@ -111,6 +111,23 @@
             this.showMenu();
             this.unsubProgress = Nexus.bus.on('progress:update', () => this.updateRecords());
             this.updateRecords();
+            this.run = Kit.autosave(this, { id: 'pacman', exclude: ['mode', 'bfs', 'theme', 'wallImg'] });
+            this.resumeSaved();
+        }
+
+        /** Restaura una partida interrumpida (recarga o cierre) en pausa. */
+        resumeSaved() {
+            const saved = this.run.load();
+            const sn = saved && saved.snap;
+            if (!sn || !sn.level || !sn.pac || !Array.isArray(sn.ghosts) || !Array.isArray(sn.cells)) return;
+            this.mode = MODES.find(m => m.id === saved.mode) || this.mode;
+            this.initRun();
+            this.loadLevel(sn.level, true);      // reconstruye laberinto, rutas y dibujo
+            this.run.apply(sn);                  // y encima el estado guardado
+            this.state = 'playing';
+            this.pause();
+            this.updateAll();
+            this.toast && this.toast('Partida recuperada');
         }
 
         // ── Plantilla ───────────────────────────────────────
@@ -824,6 +841,7 @@
         gameOver() {
             if (this.state === 'over') return;
             this.state = 'over';
+            if (this.run) this.run.clear();
             Nexus.audio.play('lose');
             const xp = Math.min(600, Math.round(this.score / 20) + this.stats.eaten * 3);
             const kinds = Object.keys(this.stats.kinds).length;
@@ -1074,6 +1092,7 @@
         }
 
         destroy() {
+            if (this.run) this.run.stop();
             this.destroyed = true;
             this.loop.destroy();
             this.fit.destroy();

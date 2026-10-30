@@ -103,6 +103,20 @@
             this.showMenu();
             this.unsubProgress = Nexus.bus.on('progress:update', () => this.updateRecords());
             this.updateRecords();
+            this.run = Kit.autosave(this, { id: 'tetris', exclude: ['mode'] });
+            this.resumeSaved();
+        }
+
+        /** Restaura una partida interrumpida (recarga o cierre) en pausa. */
+        resumeSaved() {
+            const saved = this.run.load();
+            if (!saved || !saved.snap.board || !saved.snap.piece) return;
+            this.mode = MODES.find(m => m.id === saved.mode) || this.mode;
+            this.run.apply(saved.snap);
+            this.state = 'playing';
+            this.pause();
+            this.updatePills(); this.updateSide();
+            this.toast && this.toast('Partida recuperada');
         }
 
         // ── Plantilla ───────────────────────────────────────
@@ -729,6 +743,7 @@
         gameOver(won, reason) {
             if (this.state === 'over') return;
             this.state = 'over';
+            if (this.run) this.run.clear();
             this.dir = 0; this.softDrop = false; this.pending = null; this.flash = null;
             this.piece = this.piece && won ? null : this.piece;
             Nexus.audio.play(won ? 'win' : 'lose');
@@ -955,6 +970,7 @@
         }
 
         destroy() {
+            if (this.run) this.run.stop();
             this.destroyed = true;
             this.loop.destroy();
             this.fit.destroy();

@@ -5,7 +5,7 @@
 (function () {
     'use strict';
 
-    const { esc, $, $$, download } = Nexus.util;
+    const { esc, $, $$ } = Nexus.util;
     const C = Nexus.ui.components;
     const S = () => Nexus.services.settings;
 
@@ -15,12 +15,11 @@
         render(root) {
             const themes = S().THEMES;
             const users = Nexus.services.users;
-            const guest = users.isGuest();
 
             root.innerHTML = `
                 <div class="page-body narrow">
                     <div class="page-head"><div><h2 class="page-title">Ajustes</h2>
-                        <p class="page-sub">${guest ? 'Como invitado, los ajustes sólo duran esta sesión.' : 'Se guardan en tu perfil y se aplican al instante.'}</p></div></div>
+                        <p class="page-sub">Se guardan en tu cuenta y se aplican al instante.</p></div></div>
 
                     <section class="section card-surface">
                         <h2 class="section-title"><span>🎨</span> Apariencia</h2>
@@ -93,12 +92,9 @@
                     </section>
 
                     <section class="section card-surface">
-                        <h2 class="section-title"><span>💾</span> Datos</h2>
-                        <p class="muted">Todo se guarda en este navegador. Haz copias de seguridad para no perder tu progreso.</p>
+                        <h2 class="section-title"><span>☁️</span> Cuenta y datos</h2>
+                        <p class="muted" id="st-sync"></p>
                         <div class="btn-row">
-                            <button class="btn btn-ghost" id="st-export-all" type="button" ${guest ? 'disabled' : ''}>📤 Exportar todos los perfiles</button>
-                            <button class="btn btn-ghost" id="st-import" type="button">📥 Importar copia</button>
-                            <input type="file" id="st-file" accept="application/json,.json" hidden />
                             <button class="btn btn-ghost" id="st-reset" type="button">↺ Restablecer ajustes</button>
                         </div>
                     </section>
@@ -131,29 +127,24 @@
             });
 
             $('#st-test-sound', root).addEventListener('click', () => Nexus.audio.play('win'));
-            $('#st-export-all', root).addEventListener('click', () => {
-                download('nexus-arcade-copia-completa.json', JSON.stringify(users.exportAll(), null, 2));
-                Nexus.ui.toast('Copia exportada', { type: 'success' });
-            });
-            $('#st-import', root).addEventListener('click', () => $('#st-file', root).click());
-            $('#st-file', root).addEventListener('change', (e) => {
-                const file = e.target.files[0]; if (!file) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                    try {
-                        const names = users.importBackup(JSON.parse(reader.result));
-                        Nexus.ui.toast(`Importado: ${names.join(', ')}`, { type: 'success' });
-                    } catch (err) { Nexus.ui.toast(err.message, { type: 'error', duration: 5000 }); }
-                };
-                reader.readAsText(file);
-                e.target.value = '';
-            });
             $('#st-reset', root).addEventListener('click', async () => {
                 const ok = await Nexus.ui.modal.confirm({ title: 'Restablecer ajustes', message: 'Todos los ajustes volverán a sus valores por defecto.', confirmLabel: 'Restablecer' });
                 if (ok) { S().reset(); syncControls(); Nexus.ui.toast('Ajustes restablecidos', { type: 'success' }); }
             });
 
+            const syncEl = $('#st-sync', root);
+            const SYNC = { synced: 'Tu cuenta está sincronizada con el servidor.', pending: 'Hay cambios pendientes de guardar…', syncing: 'Guardando…',
+                offline: 'Sin conexión: tus cambios se guardarán al volver.', error: 'No se pudieron guardar los últimos cambios.', idle: '' };
+            const paintSync = () => {
+                syncEl.textContent = Nexus.backend.kind === 'local'
+                    ? 'Modo local: tus datos se guardan sólo en este navegador.'
+                    : (SYNC[users.sync] || '');
+            };
+            paintSync();
+            const off = Nexus.bus.on('sync:state', paintSync);
+
             syncControls();
+            return () => { if (off) off(); };
         }
     };
 })();

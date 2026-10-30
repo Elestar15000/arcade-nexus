@@ -1,105 +1,103 @@
 /* ============================================================
    NEXUS ARCADE · ui/pages/profile.js — Perfil
-   Editar nombre/avatar/color, contraseña, exportar y borrar.
+   Avatar y color, contraseña, estado de sincronización,
+   reinicio de progreso y borrado de la cuenta.
    ============================================================ */
 (function () {
     'use strict';
 
-    const { esc, $, formatNumber, formatDuration, formatDate, download } = Nexus.util;
+    const { esc, $, formatNumber, formatDuration, formatDate } = Nexus.util;
     const C = Nexus.ui.components;
     const users = () => Nexus.services.users;
+
+    /** Ejecuta una operación asíncrona de un modal mostrando el error en línea. */
+    async function attempt(api, err, fn) {
+        try { await fn(); api.close(true); return true; }
+        catch (e) { err.textContent = e.message || 'No se pudo completar la operación.'; err.hidden = false; return false; }
+    }
 
     function openEdit(user, rerender) {
         const body = document.createElement('div');
         body.innerHTML = `
-            <label class="field"><span class="field-label">Nombre</span>
-                <input class="input" id="pe-name" maxlength="${users().limits.NAME_MAX}" autocomplete="off" value="${esc(user.name)}" /></label>
             <div data-slot="picker"></div>
-            <p class="field-error" role="alert" hidden></p>`;
+            <p class="field-hint">El nombre de usuario (<strong>${esc(user.name)}</strong>) no se puede cambiar.</p>
+            <p class="form-error" role="alert" hidden></p>`;
         const picker = C.avatarColorPicker(user.avatar, user.color);
         $('[data-slot="picker"]', body).replaceWith(picker.el);
-        const err = $('.field-error', body);
+        const err = $('.form-error', body);
 
-        const m = Nexus.ui.modal.open({
-            title: 'Editar perfil', icon: '✏️', className: 'modal-form', body,
+        Nexus.ui.modal.open({
+            title: 'Editar avatar', icon: '✏️', className: 'modal-form', body,
             actions: [
                 { label: 'Cancelar', kind: 'ghost' },
-                { label: 'Guardar', kind: 'primary', keepOpen: true, onClick: (api) => {
-                    try {
-                        users().update(user.id, { name: $('#pe-name', body).value, ...picker.get() });
-                        api.close(true);
-                        Nexus.ui.toast('Perfil actualizado', { type: 'success' });
-                        rerender();
-                    } catch (e) { err.textContent = e.message; err.hidden = false; return false; }
+                { label: 'Guardar', kind: 'primary', keepOpen: true, onClick: async (api) => {
+                    err.hidden = true;
+                    const ok = await attempt(api, err, () => users().updateProfile(picker.get()));
+                    if (ok) { Nexus.ui.toast('Avatar actualizado', { type: 'success' }); rerender(); }
+                    return false;
                 } }
             ]
         });
-        body.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); m.el.querySelector('.btn-primary').click(); } });
     }
 
-    function openPassword(user, rerender, removing) {
+    function openPassword(rerender) {
         const body = document.createElement('div');
         body.innerHTML = `
-            ${user.hasPassword ? `<label class="field"><span class="field-label">Contraseña actual</span>
-                <input class="input" id="pw-cur" type="password" autocomplete="current-password" /></label>` : ''}
-            ${removing ? '' : `
-            <label class="field"><span class="field-label">Nueva contraseña</span>
+            <label class="field"><span class="field-label">Contraseña actual</span>
+                <input class="input" id="pw-cur" type="password" autocomplete="current-password" /></label>
+            <label class="field"><span class="field-label">Nueva contraseña <small>(mínimo ${users().limits.PASS_MIN} caracteres)</small></span>
                 <input class="input" id="pw-new" type="password" autocomplete="new-password" /></label>
-            <label class="field"><span class="field-label">Repetir contraseña</span>
-                <input class="input" id="pw-new2" type="password" autocomplete="new-password" /></label>`}
-            <p class="field-error" role="alert" hidden></p>`;
-        const err = $('.field-error', body);
+            <label class="field"><span class="field-label">Repite la nueva contraseña</span>
+                <input class="input" id="pw-new2" type="password" autocomplete="new-password" /></label>
+            <p class="form-error" role="alert" hidden></p>`;
+        const err = $('.form-error', body);
 
         const m = Nexus.ui.modal.open({
-            title: removing ? 'Quitar contraseña' : (user.hasPassword ? 'Cambiar contraseña' : 'Añadir contraseña'),
-            icon: '🔐', className: 'modal-sm', body,
+            title: 'Cambiar contraseña', icon: '🔐', className: 'modal-sm', body,
             actions: [
                 { label: 'Cancelar', kind: 'ghost' },
-                { label: 'Guardar', kind: removing ? 'danger' : 'primary', keepOpen: true, onClick: (api) => {
-                    const cur = $('#pw-cur', body) ? $('#pw-cur', body).value : '';
-                    const n1 = removing ? '' : $('#pw-new', body).value;
-                    const n2 = removing ? '' : $('#pw-new2', body).value;
-                    if (!removing && !n1) { err.textContent = 'Escribe la nueva contraseña.'; err.hidden = false; return false; }
-                    if (n1 !== n2) { err.textContent = 'Las contraseñas no coinciden.'; err.hidden = false; return false; }
-                    try {
-                        users().setPassword(user.id, cur, n1);
-                        api.close(true);
-                        Nexus.ui.toast(removing ? 'Contraseña eliminada' : 'Contraseña guardada', { type: 'success' });
-                        rerender();
-                    } catch (e) { err.textContent = e.message; err.hidden = false; return false; }
+                { label: 'Guardar contraseña', kind: 'primary', keepOpen: true, onClick: async (api) => {
+                    const cur = $('#pw-cur', body).value, n1 = $('#pw-new', body).value, n2 = $('#pw-new2', body).value;
+                    err.hidden = true;
+                    const fail = (t) => { err.textContent = t; err.hidden = false; return false; };
+                    if (!cur) return fail('Escribe tu contraseña actual.');
+                    if (n1 !== n2) return fail('Las contraseñas nuevas no coinciden.');
+                    const ok = await attempt(api, err, () => users().changePassword(cur, n1));
+                    if (ok) Nexus.ui.toast('Contraseña actualizada', { type: 'success' });
+                    return false;
                 } }
             ]
         });
         body.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); m.el.querySelector('.modal-buttons .btn:last-child').click(); } });
     }
 
-    async function deleteProfile(user) {
-        const ok = await Nexus.ui.modal.confirm({
-            title: 'Eliminar perfil', icon: '🗑️', danger: true, confirmLabel: 'Eliminar para siempre',
-            message: `Se borrarán el perfil "${user.name}", su progreso, logros y estadísticas. Esta acción no se puede deshacer.`
+    function openDelete() {
+        const body = document.createElement('div');
+        body.innerHTML = `
+            <p class="modal-text left">Se borrarán tu cuenta, tu progreso, tus logros y tu puesto en el ranking. No se puede deshacer.</p>
+            <label class="field"><span class="field-label">Escribe tu contraseña para confirmar</span>
+                <input class="input" id="del-pw" type="password" autocomplete="current-password" /></label>
+            <p class="form-error" role="alert" hidden></p>`;
+        const err = $('.form-error', body);
+        const m = Nexus.ui.modal.open({
+            title: 'Eliminar cuenta', icon: '🗑️', className: 'modal-sm', body,
+            actions: [
+                { label: 'Cancelar', kind: 'ghost' },
+                { label: 'Eliminar para siempre', kind: 'danger', keepOpen: true, onClick: async (api) => {
+                    const pw = $('#del-pw', body).value;
+                    err.hidden = true;
+                    if (!pw) { err.textContent = 'Escribe tu contraseña.'; err.hidden = false; return false; }
+                    const ok = await attempt(api, err, () => users().deleteAccount(pw));
+                    if (ok) Nexus.ui.toast('Cuenta eliminada', { icon: '🗑️' });
+                    return false;
+                } }
+            ]
         });
-        if (!ok) return;
-        let pw = '';
-        if (user.hasPassword) {
-            pw = await Nexus.ui.modal.prompt({
-                title: 'Confirma tu contraseña', label: 'Contraseña', type: 'password', confirmLabel: 'Eliminar',
-                validate: (v) => users().verify(user.id, v) ? null : 'Contraseña incorrecta.'
-            });
-            if (pw === null) return;
-        }
-        try { users().remove(user.id, pw); Nexus.ui.toast('Perfil eliminado', { icon: '🗑️' }); }
-        catch (e) { Nexus.ui.toast(e.message, { type: 'error' }); }
+        body.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); m.el.querySelector('.modal-buttons .btn:last-child').click(); } });
     }
 
-    function saveGuestProgress() {
-        const guestData = users().data();
-        Nexus.ui.auth.openCreateProfile((user, pw) => {
-            users().login(user.id, pw, { remember: true });
-            users().adoptData(guestData);
-            Nexus.ui.toast('¡Perfil creado! Tu progreso de invitado se ha guardado.', { type: 'success' });
-            Nexus.ui.router.render();
-        });
-    }
+    const SYNC_TEXT = { synced: '✅ Sincronizada con el servidor', pending: '⏳ Cambios pendientes de guardar', syncing: '🔄 Guardando…',
+        offline: '📡 Sin conexión: se guardará al volver', error: '⚠️ Error al guardar', idle: '' };
 
     Nexus.ui.pages.profile = {
         title: 'Perfil',
@@ -111,7 +109,7 @@
             const data = U.data();
             const lv = Nexus.services.progress.level();
             const A = Nexus.services.achievements;
-            const guest = U.isGuest();
+            const local = Nexus.backend.kind === 'local';
             const recent = Object.entries(data.achievements).filter(([id]) => A.get(id)).sort((a, b) => b[1] - a[1]).slice(0, 6);
 
             root.innerHTML = `
@@ -119,16 +117,13 @@
                     <section class="profile-hero card-surface" style="--user-color:${esc(user.color)}">
                         ${C.avatar(user, 'xl')}
                         <div class="profile-hero-info">
-                            <h2>${esc(user.name)}${guest ? ' <span class="chip">Invitado</span>' : ''}</h2>
-                            <p class="muted">${esc(lv.rank.icon)} ${esc(lv.rank.name)} · Nivel ${lv.level}${guest ? '' : ` · Miembro desde ${esc(formatDate(user.createdAt))}`}</p>
+                            <h2>${esc(user.name)}</h2>
+                            <p class="muted">${esc(lv.rank.icon)} ${esc(lv.rank.name)} · Nivel ${lv.level} · Miembro desde ${esc(formatDate(user.createdAt))}</p>
                             ${C.progressBar(lv.pct)}
                             <small class="muted">${formatNumber(lv.xp)} / ${formatNumber(lv.next)} XP · ${formatNumber(lv.total)} XP totales · ${esc(formatDuration(data.meta.playTime))} jugados</small>
                         </div>
-                        ${guest ? '<button class="btn btn-primary" id="pf-save-guest">💾 Guardar mi progreso</button>'
-                            : '<button class="btn btn-ghost" id="pf-edit">✏️ Editar perfil</button>'}
+                        <button class="btn btn-ghost" id="pf-edit" type="button">✏️ Editar avatar</button>
                     </section>
-
-                    ${guest ? `<div class="banner banner-info"><span>👤 Como invitado, tu progreso vive sólo en esta sesión. Crea un perfil y se conservará todo lo que has conseguido hasta ahora.</span></div>` : ''}
 
                     <section class="section card-surface">
                         <div class="section-head"><h2 class="section-title"><span>🏅</span> Logros destacados</h2>
@@ -137,49 +132,39 @@
                             : C.empty('🏅', 'Sin logros aún', 'Juega para empezar tu colección.')}
                     </section>
 
-                    ${guest ? '' : `
                     <section class="section card-surface">
-                        <h2 class="section-title"><span>🔐</span> Seguridad</h2>
-                        <p class="muted">${user.hasPassword ? 'Tu perfil está protegido con contraseña.' : 'Tu perfil no tiene contraseña: cualquiera que use este navegador puede entrar.'}</p>
+                        <h2 class="section-title"><span>🔐</span> Cuenta y seguridad</h2>
+                        <p class="muted" id="pf-sync">${local ? 'Modo local: tu cuenta vive sólo en este navegador.' : esc(SYNC_TEXT[U.sync] || '')}</p>
                         <div class="btn-row">
-                            <button class="btn btn-ghost" id="pf-pass">${user.hasPassword ? 'Cambiar contraseña' : 'Añadir contraseña'}</button>
-                            ${user.hasPassword ? '<button class="btn btn-ghost" id="pf-pass-rm">Quitar contraseña</button>' : ''}
+                            <button class="btn btn-ghost" id="pf-pass" type="button">Cambiar contraseña</button>
+                            <button class="btn btn-ghost" id="pf-logout" type="button">Cerrar sesión</button>
                         </div>
-                    </section>
-
-                    <section class="section card-surface">
-                        <h2 class="section-title"><span>💾</span> Tus datos</h2>
-                        <p class="muted">Descarga una copia de este perfil (progreso, logros, ajustes) para guardarla o moverla a otro navegador.</p>
-                        <div class="btn-row"><button class="btn btn-ghost" id="pf-export">📤 Exportar perfil</button></div>
                     </section>
 
                     <section class="section card-surface danger-zone">
                         <h2 class="section-title"><span>⚠️</span> Zona de peligro</h2>
                         <div class="btn-row">
-                            <button class="btn btn-danger-ghost" id="pf-reset">Reiniciar progreso</button>
-                            <button class="btn btn-danger-ghost" id="pf-delete">Eliminar perfil</button>
+                            <button class="btn btn-danger-ghost" id="pf-reset" type="button">Reiniciar progreso</button>
+                            <button class="btn btn-danger-ghost" id="pf-delete" type="button">Eliminar cuenta</button>
                         </div>
-                    </section>`}
+                    </section>
                 </div>`;
 
             const on = (id, fn) => { const el = $('#' + id, root); if (el) el.addEventListener('click', fn); };
             on('pf-edit', () => openEdit(user, rerender));
-            on('pf-save-guest', saveGuestProgress);
-            on('pf-pass', () => openPassword(user, rerender, false));
-            on('pf-pass-rm', () => openPassword(user, rerender, true));
-            on('pf-export', () => {
-                const safe = user.name.replace(/[^\w-]+/g, '_');
-                download(`nexus-arcade-${safe}.json`, JSON.stringify(U.exportUser(user.id), null, 2));
-                Nexus.ui.toast('Perfil exportado', { type: 'success' });
-            });
+            on('pf-pass', () => openPassword(rerender));
+            on('pf-logout', () => Nexus.app.logout());
             on('pf-reset', async () => {
                 const ok = await Nexus.ui.modal.confirm({
                     title: 'Reiniciar progreso', icon: '♻️', danger: true, confirmLabel: 'Reiniciar',
-                    message: 'Se borrarán tus estadísticas, historial, XP y logros. Tus ajustes y tu perfil se mantienen.'
+                    message: 'Se borrarán tus estadísticas, historial, XP y logros (también en el ranking). Tus ajustes y tu cuenta se mantienen.'
                 });
                 if (ok) { U.resetProgress(); Nexus.ui.toast('Progreso reiniciado', { icon: '♻️' }); rerender(); }
             });
-            on('pf-delete', () => deleteProfile(user));
+            on('pf-delete', openDelete);
+
+            const off = Nexus.bus.on('sync:state', () => { const el = $('#pf-sync', root); if (el && !local) el.textContent = SYNC_TEXT[U.sync] || ''; });
+            return () => off();
         }
     };
 })();

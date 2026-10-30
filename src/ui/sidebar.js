@@ -109,8 +109,19 @@
             $('#user-xp-text').textContent = `${Nexus.util.formatNumber(lv.xp)} / ${Nexus.util.formatNumber(lv.next)} XP`;
             const chip = $('#topbar-level');
             if (chip) chip.textContent = `Nv. ${lv.level}`;
-            card.title = Nexus.services.users.isGuest() ? 'Invitado (no se guarda el progreso)' : `${user.name} · ver perfil`;
-            $('#btn-switch-user').title = Nexus.services.users.isGuest() ? 'Salir del modo invitado' : 'Cambiar de usuario';
+            card.title = `${user.name} · ver perfil`;
+            this.renderSync();
+        },
+
+        renderSync() {
+            const dot = $('#sync-dot');
+            if (!dot) return;
+            const st = Nexus.services.users.sync;
+            const labels = { synced: 'Guardado en el servidor', pending: 'Cambios pendientes de guardar', syncing: 'Guardando…',
+                offline: 'Sin conexión: se guardará al volver', error: 'Error al guardar', idle: '' };
+            const local = Nexus.backend.kind === 'local';
+            dot.dataset.state = st;
+            dot.title = (local ? 'Modo local · ' : '') + (labels[st] || '');
         },
 
         // ── Plegar / desplegar ──────────────────────────────

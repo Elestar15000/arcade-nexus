@@ -2,7 +2,7 @@
    NEXUS ARCADE · core/storage.js
    Capa de persistencia sobre localStorage:
    - Claves con prefijo y versión (nexus:v2:*) para no chocar con
-     otras apps ni con la versión anterior (nexus-arcade-profile).
+     otras apps ni con versiones anteriores.
    - JSON seguro (try/catch) y caída a memoria si el navegador
      bloquea el almacenamiento (modo privado, cuota, etc.).
    - Almacenamiento de sesión separado (sessionStorage).

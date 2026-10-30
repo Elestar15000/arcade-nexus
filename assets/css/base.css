@@ -1,68 +1,74 @@
 /* ============================================================
    NEXUS ARCADE · base.css
-   Variables de diseño, temas, reset y animaciones.
+   Tokens de diseño, temas, reset y animaciones.
+   Identidad: azul medianoche + amarillo "botón de recreativa".
+   Bordes de 2 px, sombras duras desplazadas y teclas que se hunden
+   al pulsar. Cuatro temas redefinen toda la paleta.
    ============================================================ */
 
 :root {
-    --bg-darkest: #06060f;
-    --bg-dark: #0a0a1a;
-    --bg-surface: #12122a;
-    --bg-card: #1a1a3e;
-    --bg-hover: #22224a;
+    --bg-darkest: #0b0e1f;
+    --bg-dark: #0f1329;
+    --bg-surface: #151a36;
+    --bg-card: #1d2345;
+    --bg-hover: #272e58;
 
-    --primary: #6c5ce7;  --primary-rgb: 108, 92, 231;
-    --primary-light: #a29bfe;
-    --primary-dark: #5641d4;
-    --secondary: #00cec9; --secondary-rgb: 0, 206, 201;
-    --secondary-light: #55efc4;
-    --accent: #fd79a8;    --accent-rgb: 253, 121, 168;
-    --warning: #fdcb6e;   --warning-rgb: 253, 203, 110;
-    --danger: #ff6b6b;    --danger-rgb: 255, 107, 107;
-    --success: #00b894;   --success-rgb: 0, 184, 148;
+    --primary: #ffd23f;  --primary-rgb: 255, 210, 63;
+    --primary-light: #ffe27a;
+    --primary-dark: #c79a00;
+    --on-primary: #1c1500;
+    --secondary: #3de0f5; --secondary-rgb: 61, 224, 245;
+    --secondary-light: #8df0fb;
+    --accent: #ff6b8b;    --accent-rgb: 255, 107, 139;
+    --warning: #ffb74d;   --warning-rgb: 255, 183, 77;
+    --danger: #ff5c6c;    --danger-rgb: 255, 92, 108;
+    --success: #38d996;   --success-rgb: 56, 217, 150;
 
-    --text: #e8e8ff;
-    --text-dim: #9898bb;
-    --text-muted: #6d6d90;
-    --border: rgba(255, 255, 255, 0.06);
-    --border-light: rgba(255, 255, 255, 0.1);
-    --glass: rgba(255, 255, 255, 0.03);
-    --shadow: rgba(0, 0, 0, 0.5);
+    --text: #f3f4ff;
+    --text-dim: #aab0d6;
+    --text-muted: #7a82ad;
+    --border: rgba(255, 255, 255, 0.09);
+    --border-light: rgba(255, 255, 255, 0.16);
+    --edge: #2a3262;                 /* sombra dura de tarjetas y teclas */
+    --glass: rgba(255, 255, 255, 0.04);
+    --shadow: rgba(3, 5, 18, 0.6);
 
-    --font-title: 'Orbitron', 'Segoe UI', system-ui, sans-serif;
-    --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    --font-title: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+    --font-body: 'Manrope', 'Segoe UI', system-ui, sans-serif;
 
     --cell-size: 36px;
     --cols: 9;
     --radius: 12px;
-    --radius-lg: 20px;
+    --radius-lg: 18px;
     --radius-sm: 6px;
-    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
-    --sidebar-w: 264px;
+    --sidebar-w: 256px;
     --sidebar-w-collapsed: 76px;
     --topbar-h: 64px;
 }
 
 /* ── Temas (se eligen en Ajustes) ─────────────────────────── */
 [data-theme="ocean"] {
-    --bg-darkest: #050b14; --bg-dark: #08121f; --bg-surface: #0e1d31; --bg-card: #14294a; --bg-hover: #1b365f;
-    --primary: #0984e3; --primary-rgb: 9, 132, 227; --primary-light: #74b9ff; --primary-dark: #0652a8;
-    --secondary: #00cec9; --secondary-rgb: 0, 206, 201;
-    --accent: #a29bfe; --accent-rgb: 162, 155, 254;
+    --bg-darkest: #061620; --bg-dark: #0a1d2b; --bg-surface: #0f2739; --bg-card: #163450; --bg-hover: #1e4466;
+    --primary: #4fd1ff; --primary-rgb: 79, 209, 255; --primary-light: #9be5ff; --primary-dark: #1c9bcd; --on-primary: #04222f;
+    --secondary: #8affc1; --secondary-rgb: 138, 255, 193; --secondary-light: #c2ffe0;
+    --accent: #ff9f7a; --accent-rgb: 255, 159, 122;
+    --edge: #1d4262;
 }
 [data-theme="sunset"] {
-    --bg-darkest: #0f0707; --bg-dark: #170b0b; --bg-surface: #211212; --bg-card: #2e1919; --bg-hover: #3b2222;
-    --primary: #e17055; --primary-rgb: 225, 112, 85; --primary-light: #fab1a0; --primary-dark: #c0482f;
-    --secondary: #fdcb6e; --secondary-rgb: 253, 203, 110;
-    --accent: #fd79a8; --accent-rgb: 253, 121, 168;
-    --text-dim: #bb9a98; --text-muted: #8c6d6b;
+    --bg-darkest: #1a0c14; --bg-dark: #220f1a; --bg-surface: #2d1423; --bg-card: #3b1b2e; --bg-hover: #4a2339;
+    --primary: #ff7a59; --primary-rgb: 255, 122, 89; --primary-light: #ffa68e; --primary-dark: #d04a28; --on-primary: #2a0d05;
+    --secondary: #ffd166; --secondary-rgb: 255, 209, 102; --secondary-light: #ffe49c;
+    --accent: #ff4d8d; --accent-rgb: 255, 77, 141;
+    --text-dim: #d1a9b8; --text-muted: #9c7185; --edge: #54263f;
 }
 [data-theme="forest"] {
-    --bg-darkest: #050f0a; --bg-dark: #08160e; --bg-surface: #0e2217; --bg-card: #153023; --bg-hover: #1c3d2e;
-    --primary: #00b894; --primary-rgb: 0, 184, 148; --primary-light: #55efc4; --primary-dark: #008c70;
-    --secondary: #a3cb38; --secondary-rgb: 163, 203, 56;
-    --accent: #fdcb6e; --accent-rgb: 253, 203, 110;
-    --text-dim: #98bba5; --text-muted: #6d9080;
+    --bg-darkest: #08140e; --bg-dark: #0c1c13; --bg-surface: #12281b; --bg-card: #1a3626; --bg-hover: #234733;
+    --primary: #b6f03c; --primary-rgb: 182, 240, 60; --primary-light: #d3f98b; --primary-dark: #85b81a; --on-primary: #12200a;
+    --secondary: #4fe3a8; --secondary-rgb: 79, 227, 168; --secondary-light: #95f1cc;
+    --accent: #ffd166; --accent-rgb: 255, 209, 102;
+    --text-dim: #a3c4b0; --text-muted: #6f9380; --edge: #27503a;
 }
 
 /* ── Reset ────────────────────────────────────────────────── */
@@ -82,26 +88,26 @@ body {
     height: 100vh;
     height: 100dvh;
     width: 100vw;
-    line-height: 1.5;
+    line-height: 1.55;
 }
 body.no-scroll { overflow: hidden; }
 
-::selection { background: var(--primary); color: #fff; }
+::selection { background: var(--primary); color: var(--on-primary); }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(var(--primary-rgb), .45); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+::-webkit-scrollbar-thumb { background: var(--edge); border-radius: 6px; border: 2px solid var(--bg-darkest); }
+::-webkit-scrollbar-thumb:hover { background: var(--bg-hover); }
 
 a { text-decoration: none; color: inherit; }
 button { font-family: inherit; color: inherit; }
 input, select, textarea { font-family: inherit; }
-h1, h2, h3 { line-height: 1.2; }
+h1, h2, h3 { line-height: 1.15; font-family: var(--font-title); letter-spacing: -0.01em; }
 
-:focus-visible { outline: 2px solid var(--primary-light); outline-offset: 2px; }
+:focus-visible { outline: 3px solid var(--secondary); outline-offset: 2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-#bg-particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+#bg-particles { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .55; }
 #app { position: relative; z-index: 1; height: 100vh; height: 100dvh; width: 100vw; }
 
 /* ── Reducir animaciones (ajuste propio + preferencia del sistema) ─── */

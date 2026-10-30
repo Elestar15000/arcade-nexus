@@ -1,6 +1,6 @@
 /* ============================================================
    NEXUS ARCADE · ui/pages/rankings.js — Rankings
-   Clasificaciones entre los perfiles de este navegador.
+   Clasificaciones globales (descargadas del servidor).
    ============================================================ */
 (function () {
     'use strict';
@@ -23,13 +23,14 @@
             root.innerHTML = `
                 <div class="page-body">
                     <div class="page-head"><div><h2 class="page-title">Rankings</h2>
-                        <p class="page-sub">Compara tu marca con los demás perfiles de este navegador</p></div></div>
+                        <p class="page-sub" id="rk-sub">Cargando clasificación…</p></div>
+                        <button class="btn btn-ghost btn-sm" id="rk-refresh" type="button">↻ Actualizar</button></div>
                     <div class="tabs" role="tablist">
                         ${tabs.map(t => `<button class="tab" role="tab" data-tab="${esc(t.id)}">${esc(t.label)}</button>`).join('')}
                     </div>
                     <div id="rk-filters"></div>
                     <div id="rk-table" class="card-surface"></div>
-                    <p class="muted small center">Los invitados no aparecen en los rankings porque no se guarda su progreso.</p>
+                    <p class="muted small center" id="rk-note"></p>
                 </div>`;
 
             const who = (u) => `<span class="player">${C.avatar(u, 'sm')}<span class="player-name">${esc(u.name)}${me && u.id === me.id ? ' <em>(tú)</em>' : ''}</span></span>`;
@@ -87,7 +88,31 @@
             $$('.tab', root).forEach(t => t.addEventListener('click', () => {
                 state.tab = t.dataset.tab; state.mode = 'all'; state.metric = null; draw();
             }));
-            draw();
+
+            let alive = true;
+            const sub = $('#rk-sub', root), note = $('#rk-note', root), btn = $('#rk-refresh', root);
+            const local = Nexus.backend.kind === 'local';
+            note.textContent = local
+                ? 'Modo local: sólo aparecen las cuentas de este navegador. Configura el servidor (config.js) para tener un ranking global.'
+                : 'Las marcas se envían al terminar cada partida. Ranking global de todos los jugadores registrados.';
+            const fetchBoard = async (force) => {
+                btn.disabled = true;
+                if (!L.players.length) $('#rk-table', root).innerHTML = '<div class="loading-block"><span class="spinner"></span> Cargando clasificación…</div>';
+                try {
+                    await L.load(force);
+                    if (!alive) return;
+                    sub.textContent = `${L._all().length} jugador${L._all().length === 1 ? '' : 'es'} · actualizado ${Nexus.util.timeAgo(L.updatedAt)}`;
+                    draw();
+                } catch (e) {
+                    if (!alive) return;
+                    sub.textContent = 'No se pudo cargar la clasificación';
+                    if (L.players.length) draw();
+                    else $('#rk-table', root).innerHTML = C.empty('📡', 'Sin conexión con el servidor', e.message || 'Inténtalo de nuevo en unos segundos.');
+                } finally { if (alive) btn.disabled = false; }
+            };
+            btn.addEventListener('click', () => fetchBoard(true));
+            fetchBoard(false);
+            return () => { alive = false; };
         }
     };
 })();

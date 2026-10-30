@@ -1,7 +1,7 @@
 /* ============================================================
    NEXUS ARCADE · app.js
    Punto de entrada: conecta servicios y UI, restaura la sesión
-   y decide si mostrar la selección de perfil o la aplicación.
+   y decide si mostrar el acceso (login) o la aplicación.
    ============================================================ */
 (function () {
     'use strict';
@@ -44,14 +44,13 @@
         Nexus.bus.on('user:logout', showAuth);
         // Aviso de nivel al subir (los logros ya tienen el suyo)
         Nexus.bus.on('settings:change', () => Nexus.ui.sidebar.renderUser());
+        Nexus.bus.on('user:update', () => Nexus.ui.sidebar.renderUser());
+        Nexus.bus.on('sync:state', () => Nexus.ui.sidebar.renderSync());
+        // Datos traídos del servidor (otro dispositivo): refresca la página abierta
+        Nexus.bus.on('progress:update', (e) => { if (e && e.synced) { Nexus.ui.sidebar.renderUser(); Nexus.ui.router.render(); } });
 
-        const migrated = users.migrateLegacy();
-        if (!users.restoreSession()) {
-            showAuth();
-            if (migrated) {
-                Nexus.ui.toast(`Hemos recuperado tu perfil anterior como "${migrated.name}".`, { type: 'success', duration: 5000 });
-            }
-        }
+        // Sesión persistente: si la hay, se entra directamente sin pasar por el login
+        if (!users.restoreSession()) showAuth();
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

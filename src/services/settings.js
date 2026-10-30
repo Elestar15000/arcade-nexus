@@ -9,10 +9,10 @@
     const DEFAULTS = Nexus.schema.DEFAULT_SETTINGS;
 
     const THEMES = [
-        { id: 'neon',   name: 'Neón',      colors: ['#6c5ce7', '#00cec9'] },
-        { id: 'ocean',  name: 'Océano',    colors: ['#0984e3', '#00cec9'] },
-        { id: 'sunset', name: 'Atardecer', colors: ['#e17055', '#fdcb6e'] },
-        { id: 'forest', name: 'Bosque',    colors: ['#00b894', '#a3cb38'] }
+        { id: 'neon',   name: 'Recreativa', colors: ['#ffd23f', '#3de0f5'] },
+        { id: 'ocean',  name: 'Océano',     colors: ['#4fd1ff', '#8affc1'] },
+        { id: 'sunset', name: 'Atardecer',  colors: ['#ff7a59', '#ffd166'] },
+        { id: 'forest', name: 'Bosque',     colors: ['#b6f03c', '#4fe3a8'] }
     ];
 
     const Settings = {

@@ -1,7 +1,9 @@
 """Tetris Fusion, Pac-Man Nexus y Snake Neón: biblioteca, partida por teclado, fin de partida,
 guardado de récord/logros, ajustes y vista móvil.
 python3 tests/e2e_arcade.py"""
-import pathlib
+import pathlib, sys
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from helpers import register
 from playwright.sync_api import sync_playwright
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SHOTS = pathlib.Path('/tmp/shots'); SHOTS.mkdir(exist_ok=True)
@@ -12,8 +14,7 @@ with sync_playwright() as p:
     b = p.chromium.launch(); page = b.new_page(viewport={'width': 1366, 'height': 800}); errs = []
     page.on('pageerror', lambda e: errs.append(str(e)))
     page.on('console', lambda m: m.type == 'error' and 'ERR_' not in m.text and errs.append(m.text))
-    page.goto(f'file://{ROOT}/index.html'); page.wait_for_selector('#auth-screen:not([hidden])')
-    page.click('#auth-add'); page.fill('#pf-name', 'Tester'); page.click('.modal-buttons .btn-primary'); page.wait_for_selector('#shell:not([hidden])')
+    page.goto(f'file://{ROOT}/index.html'); register(page, 'Tester', 'secreta1')
     page.evaluate("""() => { for (const id of ['snake','tetris','pacman']) { const g = Nexus.games.registry.get(id); const m = g.mount; g.mount = (r) => (window['__'+id] = m(r)); } }""")
 
     # Biblioteca
@@ -71,11 +72,8 @@ with sync_playwright() as p:
     # Móvil
     m = b.new_page(viewport={'width': 390, 'height': 800}, has_touch=True, is_mobile=True)
     m.on('pageerror', lambda e: errs.append(str(e)))
-    m.goto(f'file://{ROOT}/index.html'); m.wait_for_selector('#auth-screen:not([hidden])')
-    m.click('#auth-guest') if m.locator('#auth-guest').count() else None
-    m.wait_for_timeout(300)
-    if m.locator('#shell:not([hidden])').count() == 0:
-        m.click('#auth-add'); m.fill('#pf-name', 'Mov'); m.click('.modal-buttons .btn-primary'); m.wait_for_selector('#shell:not([hidden])')
+    m.goto(f'file://{ROOT}/index.html')
+    register(m, 'Mov', 'secreta1')
     m.goto(f'file://{ROOT}/index.html#/game/snake'); m.wait_for_timeout(500)
     m.click('[data-do=start]'); m.wait_for_timeout(300)
     check(m.locator('#sn-touch').is_visible(), 'Snake móvil: controles táctiles visibles')

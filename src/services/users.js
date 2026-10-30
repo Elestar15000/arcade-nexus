@@ -1,22 +1,23 @@
 /* ============================================================
    NEXUS ARCADE · services/users.js
-   Gestión de usuarios locales:
-   - Varios perfiles en el mismo navegador, con avatar y color.
-   - Contraseña opcional (hash con sal, ver core/hash.js).
-   - Sesión opcional recordada ("Recordarme").
-   - Modo invitado: juega sin guardar nada en disco.
-   - Exportar / importar perfiles (copia de seguridad en JSON).
-   - Migración automática del perfil de la versión 1.
+   Cuentas y sesión del jugador:
+   - Registro / inicio de sesión contra Nexus.backend (servidor
+     global o modo local). Contraseña obligatoria.
+   - Sesión persistente en este navegador: al recargar se entra
+     directamente con los datos en caché y se sincroniza en segundo
+     plano.
+   - Los datos de juego se guardan al instante en local y se envían
+     al servidor agrupados (2,5 s) o de inmediato con flush().
+   - Si hay cambios sin enviar (sin conexión), se reintentan solos.
    ============================================================ */
 (function () {
     'use strict';
 
-    const { esc, uid } = Nexus.util;
-    const hash = Nexus.core.hash;
     const store = Nexus.storage;
+    const B = () => Nexus.backend;
 
-    const NAME_MIN = 2, NAME_MAX = 16, PASS_MIN = 4;
-    const LEGACY_KEY = 'nexus-arcade-profile';
+    const NAME_MIN = 3, NAME_MAX = 16, PASS_MIN = 6, PASS_MAX = 64;
+    const PUSH_DELAY = 2500, RETRY_EVERY = 20000;
 
     const AVATARS = ['🎮', '🕹️', '👾', '🤖', '🦊', '🐱', '🐼', '🦁', '🐸', '🐙',
         '🦄', '🐲', '🚀', '⚡', '🔥', '💎', '🎯', '🧠', '👑', '🌟'];
@@ -24,305 +25,248 @@
 
     class UserService {
         constructor() {
-            this._current = null;   // registro de usuario activo
+            this._user = null;      // { id, name, avatar, color, createdAt }
             this._data = null;      // datos de juego del usuario activo
-            this._guest = false;
+            this._token = null;
+            this._serverAt = 0;     // updatedAt del servidor sobre el que se basan los datos locales
+            this._dirty = false;    // hay cambios sin enviar
+            this._timer = null;
+            this._pushing = null;
+            this.sync = 'idle';     // idle | pending | syncing | synced | offline | error
             this.AVATARS = AVATARS;
             this.COLORS = COLORS;
-            this.limits = { NAME_MIN, NAME_MAX, PASS_MIN };
+            this.limits = { NAME_MIN, NAME_MAX, PASS_MIN, PASS_MAX };
+
+            window.addEventListener('online', () => this.flush());
+            window.addEventListener('pagehide', () => this.flush({ keepalive: true }));
+            document.addEventListener('visibilitychange', () => { if (document.hidden) this.flush({ keepalive: true }); });
+            setInterval(() => { if (this._dirty && this._token && this.sync !== 'syncing') this.flush(); }, RETRY_EVERY);
         }
 
         // ── Lectura ─────────────────────────────────────────
-        _records() { return store.get('users', []); }
-        _saveRecords(list) { return store.set('users', list); }
-
-        /** Perfiles públicos (sin hash ni sal). */
-        list() {
-            return this._records().map(u => this._public(u));
-        }
-
-        get(id) {
-            const u = this._records().find(x => x.id === id);
-            return u ? this._public(u) : null;
-        }
-
-        _public(u) {
-            return {
-                id: u.id, name: u.name, avatar: u.avatar, color: u.color,
-                hasPassword: !!u.hash, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt
-            };
-        }
-
-        current() { return this._current ? this._public(this._current) : null; }
-        isGuest() { return this._guest; }
-        isLoggedIn() { return !!this._current; }
+        current() { return this._user; }
+        isLoggedIn() { return !!this._user; }
         data() { return this._data; }
+        lastUsername() { return store.get('lastUser', ''); }
 
-        /** Carga los datos de cualquier usuario (para rankings). No toca la sesión. */
-        loadData(id) {
-            return Nexus.schema.normalize(store.get('data:' + id, null));
-        }
-
-        // ── Validación ──────────────────────────────────────
-        validateName(name, ignoreId) {
-            name = (name || '').trim().replace(/\s+/g, ' ');
-            if (name.length < NAME_MIN) return `El nombre debe tener al menos ${NAME_MIN} caracteres.`;
-            if (name.length > NAME_MAX) return `El nombre no puede superar ${NAME_MAX} caracteres.`;
-            if (/^invitado$/i.test(name)) return 'Ese nombre está reservado.';
-            const taken = this._records().some(u => u.id !== ignoreId && u.name.toLowerCase() === name.toLowerCase());
-            if (taken) return 'Ya existe un perfil con ese nombre.';
+        // ── Validación (misma que el servidor) ──────────────
+        validateName(name) {
+            name = (name || '').trim();
+            if (!/^[A-Za-z0-9_-]+$/.test(name)) return 'Usa sólo letras, números, guion y guion bajo (sin espacios ni acentos).';
+            if (name.length < NAME_MIN) return `El usuario debe tener al menos ${NAME_MIN} caracteres.`;
+            if (name.length > NAME_MAX) return `El usuario no puede superar ${NAME_MAX} caracteres.`;
+            if (B().RESERVED.includes(name.toLowerCase())) return 'Ese nombre está reservado.';
             return null;
         }
-
         validatePassword(pw) {
-            if (pw && pw.length < PASS_MIN) return `La contraseña debe tener al menos ${PASS_MIN} caracteres.`;
+            if (!pw) return 'Escribe una contraseña.';
+            if (pw.length < PASS_MIN) return `La contraseña debe tener al menos ${PASS_MIN} caracteres.`;
+            if (pw.length > PASS_MAX) return `La contraseña no puede superar ${PASS_MAX} caracteres.`;
             return null;
         }
+        /** 0–4 según longitud y variedad de caracteres. */
+        passwordStrength(pw) {
+            if (!pw) return 0;
+            let s = 0;
+            if (pw.length >= 6) s++;
+            if (pw.length >= 10) s++;
+            if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
+            if (/\d/.test(pw) && /[^A-Za-z0-9]/.test(pw)) s++;
+            else if (/\d/.test(pw) || /[^A-Za-z0-9]/.test(pw)) s += pw.length >= 8 ? 1 : 0;
+            return Math.min(4, s);
+        }
 
-        // ── Crear / editar / borrar ─────────────────────────
-        create({ name, avatar, color, password }) {
+        // ── Alta e inicio de sesión ─────────────────────────
+        async register({ name, password, avatar, color }) {
+            name = (name || '').trim();
             const err = this.validateName(name) || this.validatePassword(password);
             if (err) throw new Error(err);
-            name = name.trim().replace(/\s+/g, ' ');
-
-            const rec = {
-                id: uid(), name,
+            const res = await B().register({
+                name, password,
                 avatar: AVATARS.includes(avatar) ? avatar : AVATARS[0],
-                color: COLORS.includes(color) ? color : COLORS[0],
-                salt: null, hash: null,
-                createdAt: Date.now(), lastLoginAt: null
-            };
-            if (password) {
-                rec.salt = hash.randomSalt();
-                rec.hash = hash.hashPassword(password, rec.salt);
+                color: COLORS.includes(color) ? color : COLORS[0]
+            });
+            this._begin(res);
+            return this._user;
+        }
+
+        async login(name, password) {
+            name = (name || '').trim();
+            if (!name || !password) throw new Error('Escribe tu usuario y tu contraseña.');
+            const res = await B().login({ name, password });
+            this._begin(res);
+            return this._user;
+        }
+
+        _begin(res) {
+            const id = res.user.id;
+            let data = Nexus.schema.normalize(res.data);
+            const cache = store.get('cache:' + id);
+            this._dirty = false;
+            // Cambios locales sin enviar (p. ej. se cerró sin conexión): conserva los más avanzados.
+            if (cache && cache.dirty && cache.data) {
+                const local = Nexus.schema.normalize(cache.data);
+                if (local.xp.total >= data.xp.total) { data = local; this._dirty = true; }
             }
-            const list = this._records();
-            list.push(rec);
-            this._saveRecords(list);
-            store.set('data:' + rec.id, Nexus.schema.userData());
-            return this._public(rec);
+            this._user = res.user; this._token = res.token; this._data = data; this._serverAt = res.updatedAt || 0;
+            store.set('session', { token: res.token, id, name: res.user.name });
+            store.set('lastUser', res.user.name);
+            this._writeCache();
+            this._setSync(this._dirty ? 'pending' : 'synced');
+            if (this._dirty) this.flush();
+            Nexus.services.settings.apply();
+            Nexus.bus.emit('user:login', this._user);
         }
 
-        update(id, patch) {
-            const list = this._records();
-            const rec = list.find(u => u.id === id);
-            if (!rec) throw new Error('Usuario no encontrado.');
-            if (patch.name !== undefined) {
-                const err = this.validateName(patch.name, id);
-                if (err) throw new Error(err);
-                rec.name = patch.name.trim().replace(/\s+/g, ' ');
-            }
-            if (patch.avatar && AVATARS.includes(patch.avatar)) rec.avatar = patch.avatar;
-            if (patch.color && COLORS.includes(patch.color)) rec.color = patch.color;
-            this._saveRecords(list);
-            if (this._current && this._current.id === id) {
-                this._current = rec;
-                Nexus.bus.emit('user:update', this.current());
-            }
-            return this._public(rec);
-        }
-
-        /** Cambia o elimina (newPassword vacío) la contraseña. Exige la actual si existe. */
-        setPassword(id, currentPassword, newPassword) {
-            const list = this._records();
-            const rec = list.find(u => u.id === id);
-            if (!rec) throw new Error('Usuario no encontrado.');
-            if (rec.hash && !this._check(rec, currentPassword)) throw new Error('La contraseña actual no es correcta.');
-            const err = this.validatePassword(newPassword);
-            if (err) throw new Error(err);
-            if (newPassword) {
-                rec.salt = hash.randomSalt();
-                rec.hash = hash.hashPassword(newPassword, rec.salt);
-            } else {
-                rec.salt = null; rec.hash = null;
-            }
-            this._saveRecords(list);
-            if (this._current && this._current.id === id) this._current = rec;
-            Nexus.bus.emit('user:update', this.current());
-        }
-
-        remove(id, password) {
-            const list = this._records();
-            const rec = list.find(u => u.id === id);
-            if (!rec) return;
-            if (rec.hash && !this._check(rec, password)) throw new Error('La contraseña no es correcta.');
-            // Si es el usuario activo, se descartan sus datos en memoria antes de cerrar sesión
-            // (logout() guarda los datos y los reescribiría tras borrarlos).
-            if (this._current && this._current.id === id) this._data = null;
-            this._saveRecords(list.filter(u => u.id !== id));
-            store.remove('data:' + id);
-            const sess = store.get('session');
-            if (sess && sess.userId === id) store.remove('session');
-            if (this._current && this._current.id === id) this.logout();
-        }
-
-        _check(rec, password) {
-            if (!rec.hash) return true;
-            return hash.hashPassword(password || '', rec.salt) === rec.hash;
-        }
-
-        // ── Sesión ──────────────────────────────────────────
-        verify(id, password) {
-            const rec = this._records().find(u => u.id === id);
-            return !!rec && this._check(rec, password);
-        }
-
-        login(id, password, { remember = false } = {}) {
-            const list = this._records();
-            const rec = list.find(u => u.id === id);
-            if (!rec) throw new Error('Usuario no encontrado.');
-            if (!this._check(rec, password)) throw new Error('Contraseña incorrecta.');
-
-            rec.lastLoginAt = Date.now();
-            this._saveRecords(list);
-            this._current = rec;
-            this._guest = false;
-            this._data = this.loadData(id);
-
-            store.removeSession('session');
-            store.remove('session');
-            if (remember) store.set('session', { userId: id });
-            else store.setSession('session', { userId: id });
-
-            this._afterLogin();
-        }
-
-        loginGuest() {
-            this._current = { id: 'guest', name: 'Invitado', avatar: '👤', color: '#9898bb', createdAt: Date.now() };
-            this._guest = true;
-            this._data = Nexus.schema.normalize(null);
-            store.removeSession('session');
-            store.remove('session');
-            this._afterLogin();
-        }
-
-        /** Restaura la sesión anterior si existe y el usuario sigue existiendo. */
+        /** Entra con la sesión guardada usando la caché local; sincroniza en segundo plano. */
         restoreSession() {
-            const sess = store.getSession('session') || store.get('session');
-            if (!sess || !sess.userId) return false;
-            const rec = this._records().find(u => u.id === sess.userId);
-            if (!rec) return false;
-            this._current = rec; this._guest = false;
-            this._data = this.loadData(rec.id);
-            this._afterLogin();
+            const s = store.get('session');
+            if (!s || !s.token || !s.id) return false;
+            const cache = store.get('cache:' + s.id);
+            if (!cache || !cache.user || !cache.data) { store.remove('session'); return false; }
+            this._user = cache.user; this._token = s.token; this._serverAt = cache.serverAt || 0;
+            this._data = Nexus.schema.normalize(cache.data);
+            this._dirty = !!cache.dirty;
+            this._setSync(this._dirty ? 'pending' : 'synced');
+            Nexus.services.settings.apply();
+            Nexus.bus.emit('user:login', this._user);
+            this.refresh();
             return true;
         }
 
+        /** Compara con el servidor: adopta sus datos si son más nuevos o envía los locales. */
+        async refresh() {
+            const token = this._token;
+            if (!token) return;
+            try {
+                this._setSync('syncing');
+                const r = await B().session(token);
+                if (this._token !== token) return;
+                this._user = r.user;
+                const server = Nexus.schema.normalize(r.data);
+                if (this._dirty) {
+                    if (server.xp.total > this._data.xp.total) this._adopt(server, r.updatedAt);
+                    else { this._serverAt = r.updatedAt; this._writeCache(); this.flush(); return; }
+                } else if (r.updatedAt !== this._serverAt) this._adopt(server, r.updatedAt);
+                this._writeCache();
+                this._setSync('synced');
+                Nexus.bus.emit('user:update', this._user);
+            } catch (e) {
+                if (e.status === 401) this._expire();
+                else this._setSync(this._dirty ? 'pending' : 'offline');
+            }
+        }
+
+        _adopt(data, at) {
+            this._data = data; this._serverAt = at; this._dirty = false;
+            Nexus.services.settings.apply();
+            Nexus.bus.emit('progress:update', { synced: true });
+        }
+
+        _expire() {
+            Nexus.ui && Nexus.ui.toast && Nexus.ui.toast('Tu sesión ha caducado. Vuelve a iniciar sesión.', { type: 'error', duration: 6000 });
+            this.logout();
+        }
+
         logout() {
-            if (!this._current) return;
-            this.saveData();
-            this._current = null; this._data = null; this._guest = false;
-            store.removeSession('session');
+            if (!this._user) return;
+            if (this._dirty) this.flush({ keepalive: true });
+            const id = this._user.id;
+            if (!this._dirty) store.remove('cache:' + id);
+            this._user = null; this._data = null; this._token = null; this._dirty = false;
+            clearTimeout(this._timer);
             store.remove('session');
+            this._setSync('idle');
             Nexus.bus.emit('user:logout');
         }
 
-        _afterLogin() {
-            Nexus.services.settings.apply();
-            Nexus.bus.emit('user:login', this.current());
+        // ── Datos y sincronización ──────────────────────────
+        _writeCache() {
+            if (!this._user) return;
+            store.set('cache:' + this._user.id, { user: this._user, data: this._data, serverAt: this._serverAt, dirty: this._dirty });
         }
 
-        // ── Datos del usuario activo ────────────────────────
+        _setSync(state) {
+            if (this.sync === state) return;
+            this.sync = state;
+            Nexus.bus.emit('sync:state', state);
+        }
+
+        /** Guarda en local al instante y programa el envío al servidor. */
         saveData() {
-            if (!this._current || this._guest || !this._data) return true;
-            return store.set('data:' + this._current.id, this._data);
+            if (!this._user || !this._data) return true;
+            this._data.meta.updatedAt = Date.now();
+            this._dirty = true;
+            this._writeCache();
+            this._setSync('pending');
+            clearTimeout(this._timer);
+            this._timer = setTimeout(() => this.flush(), PUSH_DELAY);
+            return true;
         }
 
-        /** Sustituye los datos del usuario activo (p. ej. al convertir un invitado en perfil). */
-        adoptData(data) {
-            if (!this._current || this._guest) return;
-            this._data = Nexus.schema.normalize(data);
-            this.saveData();
-            Nexus.bus.emit('progress:update', { adopted: true });
+        /** Envía ya los cambios pendientes. Devuelve una promesa que no rechaza. */
+        async flush({ keepalive = false } = {}) {
+            clearTimeout(this._timer);
+            if (this._pushing) { try { await this._pushing; } catch (e) { /* ya gestionado */ } }
+            if (!this._token || !this._dirty || !this._data) return;
+            const token = this._token, data = this._data, stamp = data.meta.updatedAt;
+            this._pushing = (async () => {
+                try {
+                    this._setSync('syncing');
+                    const small = keepalive && JSON.stringify(data).length < 60000;
+                    const r = await B().saveData(token, data, small);
+                    if (this._token !== token) return;
+                    this._serverAt = r.updatedAt;
+                    if (data.meta.updatedAt === stamp) this._dirty = false;
+                    this._writeCache();
+                    this._setSync(this._dirty ? 'pending' : 'synced');
+                    if (this._dirty) this._timer = setTimeout(() => this.flush(), PUSH_DELAY);
+                } catch (e) {
+                    if (e.status === 401) this._expire();
+                    else if (e.offline || e.status === 0) this._setSync('offline');
+                    else { this._setSync('error'); if (Nexus.ui && Nexus.ui.toast) Nexus.ui.toast(e.message, { type: 'error' }); }
+                } finally { this._pushing = null; }
+            })();
+            await this._pushing;
         }
 
-        /** Borra el progreso (stats, logros, XP) pero conserva el perfil. */
+        // ── Cuenta ──────────────────────────────────────────
+        async updateProfile(patch) {
+            const clean = {};
+            if (AVATARS.includes(patch.avatar)) clean.avatar = patch.avatar;
+            if (COLORS.includes(patch.color)) clean.color = patch.color;
+            const r = await B().profile(this._token, clean);
+            this._user = Object.assign({}, this._user, r.user);
+            this._writeCache();
+            Nexus.bus.emit('user:update', this._user);
+            return this._user;
+        }
+
+        async changePassword(current, next) {
+            const err = this.validatePassword(next);
+            if (err) throw new Error(err);
+            const r = await B().password(this._token, { current, next });
+            this._token = r.token;
+            store.set('session', { token: r.token, id: this._user.id, name: this._user.name });
+        }
+
+        async deleteAccount(password) {
+            await B().deleteAccount(this._token, password);
+            const id = this._user.id;
+            this._dirty = false;
+            store.remove('cache:' + id);
+            this.logout();
+        }
+
+        /** Borra el progreso (stats, logros, XP) pero conserva la cuenta y los ajustes. */
         resetProgress() {
             if (!this._data) return;
             const settings = this._data.settings;
             this._data = Nexus.schema.userData();
             this._data.settings = settings;
             this.saveData();
+            this.flush();
             Nexus.bus.emit('progress:update', { reset: true });
-        }
-
-        // ── Exportar / importar ─────────────────────────────
-        exportUser(id) {
-            const rec = this._records().find(u => u.id === id);
-            if (!rec) throw new Error('Usuario no encontrado.');
-            const data = (this._current && this._current.id === id && !this._guest)
-                ? this._data : this.loadData(id);
-            return {
-                format: 'nexus-arcade-backup', version: Nexus.schema.VERSION,
-                exportedAt: new Date().toISOString(),
-                users: [{ profile: rec, data }]
-            };
-        }
-
-        exportAll() {
-            return {
-                format: 'nexus-arcade-backup', version: Nexus.schema.VERSION,
-                exportedAt: new Date().toISOString(),
-                users: this._records().map(rec => ({ profile: rec, data: this.loadData(rec.id) }))
-            };
-        }
-
-        /**
-         * Importa una copia de seguridad. Nunca sobreescribe: si el nombre ya existe
-         * se añade un sufijo, y siempre se genera un id nuevo.
-         * @returns {string[]} nombres de los perfiles importados
-         */
-        importBackup(json) {
-            if (!json || json.format !== 'nexus-arcade-backup' || !Array.isArray(json.users)) {
-                throw new Error('El archivo no es una copia de seguridad válida de Nexus Arcade.');
-            }
-            const imported = [];
-            const list = this._records();
-            for (const entry of json.users) {
-                const p = entry && entry.profile;
-                if (!p || typeof p.name !== 'string') continue;
-
-                let base = p.name.trim().replace(/\s+/g, ' ').slice(0, NAME_MAX) || 'Jugador';
-                let name = base, n = 2;
-                const taken = (nm) => list.some(u => u.name.toLowerCase() === nm.toLowerCase()) || /^invitado$/i.test(nm);
-                while (taken(name)) {
-                    const suffix = ` ${n++}`;
-                    name = base.slice(0, NAME_MAX - suffix.length) + suffix;
-                }
-                const rec = {
-                    id: uid(), name,
-                    avatar: AVATARS.includes(p.avatar) ? p.avatar : AVATARS[0],
-                    color: COLORS.includes(p.color) ? p.color : COLORS[0],
-                    salt: typeof p.salt === 'string' ? p.salt : null,
-                    hash: typeof p.hash === 'string' ? p.hash : null,
-                    createdAt: Number(p.createdAt) || Date.now(), lastLoginAt: null
-                };
-                if (!rec.hash || !rec.salt) { rec.hash = null; rec.salt = null; }
-                list.push(rec);
-                store.set('data:' + rec.id, Nexus.schema.normalize(entry.data));
-                imported.push(name);
-            }
-            if (!imported.length) throw new Error('La copia no contiene ningún perfil.');
-            this._saveRecords(list);
-            return imported;
-        }
-
-        // ── Migración desde la v1 ───────────────────────────
-        /** Si existe el perfil antiguo y aún no hay usuarios, lo convierte en un perfil nuevo. */
-        migrateLegacy() {
-            const meta = store.get('meta', {});
-            if (meta.legacyMigrated) return null;
-            const old = store.getLegacy(LEGACY_KEY);
-            meta.legacyMigrated = true; meta.schema = Nexus.schema.VERSION;
-            store.set('meta', meta);
-            if (!old || this._records().length > 0) return null;
-
-            let name = (typeof old.name === 'string' && old.name.trim()) || 'Jugador';
-            name = name.slice(0, NAME_MAX);
-            if (this.validateName(name)) name = 'Jugador';
-            const user = this.create({ name, avatar: AVATARS[0], color: COLORS[0] });
-            store.set('data:' + user.id, Nexus.schema.normalize(Nexus.schema.fromLegacy(old)));
-            return user;
         }
     }
 
