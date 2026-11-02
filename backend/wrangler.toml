@@ -3,9 +3,9 @@ main = "worker.js"
 compatibility_date = "2024-09-23"
 
 [vars]
-GITHUB_REPO = "TU_USUARIO/nexus-arcade-data"   # repo PRIVADO con los datos
+GITHUB_REPO = "Elestar15000/arcade-nexus-data"   # repo PRIVADO con los datos
 GITHUB_BRANCH = "main"
-ALLOWED_ORIGIN = "https://TU_USUARIO.github.io"  # varios: separados por comas
+ALLOWED_ORIGIN = "https://elestar15000.github.io/arcade-nexus"  # varios: separados por comas
 
 # Secrets (NO van aquí; se crean con `wrangler secret put`):
 #   GITHUB_TOKEN   token fine-grained con Contents: Read and write sólo sobre el repo de datos
