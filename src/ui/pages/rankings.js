@@ -92,6 +92,12 @@
             let alive = true;
             const sub = $('#rk-sub', root), note = $('#rk-note', root), btn = $('#rk-refresh', root);
             const local = Nexus.backend.kind === 'local';
+            if (local) {
+                const warn = document.createElement('div');
+                warn.className = 'rk-warn';
+                warn.innerHTML = '<strong>⚠️ Ranking global desactivado.</strong> Esta web aún no está conectada al servidor, por eso sólo ves las cuentas de este navegador. Los datos de otros jugadores no se guardan hasta activar el backend (ver <code>backend/README.md</code>).';
+                note.parentNode.insertBefore(warn, note);
+            }
             note.textContent = local
                 ? 'Modo local: sólo aparecen las cuentas de este navegador. Configura el servidor (config.js) para tener un ranking global.'
                 : 'Las marcas se envían al terminar cada partida. Ranking global de todos los jugadores registrados.';

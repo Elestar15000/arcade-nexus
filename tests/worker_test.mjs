@@ -74,6 +74,15 @@ ok(r.json.players[0].stats.snake.bestScore === 1e9, 'bestScore saneado al tope 1
 const b = (await call('POST', '/api/register', { name: 'Beto', password: 'secreta2' })).json.token;
 await call('PUT', '/api/data', { data: data(50, 9) }, b);
 r = await call('GET', '/api/leaderboard'); ok(r.json.players.length === 2 && r.json.players[0].name === 'Beto' || r.json.players[0].name === 'Ana_01', 'dos jugadores en el ranking');
+{ // Pasapalabra: las marcas por dificultad de cada jugador llegan al ranking global
+    const d = data(50, 9); d.stats.pasapalabra = { played: 3, wins: 2, bestScore: 4100, bestTime: 90, bestStreak: 2, extra: { perfects: 1 },
+        byMode: { daily: { played: 1, wins: 1, bestScore: 2500, bestTime: 120 }, pro: { played: 2, wins: 1, bestScore: 4100, bestTime: 90 } } };
+    await call('PUT', '/api/data', { data: d }, b);
+    r = await call('GET', '/api/leaderboard');
+    const bp = r.json.players.find(p => p.name === 'Beto');
+    ok(bp.stats.pasapalabra && bp.stats.pasapalabra.byMode.pro.bestScore === 4100 && bp.stats.pasapalabra.byMode.daily.wins === 1, 'ranking global incluye Pasapalabra por modo');
+    ok(!r.json.players.find(p => p.name === 'Ana_01').stats.pasapalabra, 'quien no ha jugado no aparece en el ranking de ese juego');
+}
 
 forceConflicts = 2; r = await call('PUT', '/api/data', { data: data(77, 4) }, b);
 ok(r.status === 200, 'conflicto de escritura en ranking reintentado');

@@ -4,7 +4,22 @@ GitHub Pages sólo sirve ficheros estáticos, así que las cuentas y los ranking
 pequeño intermediario. Este Worker guarda todo en un **repo privado** de GitHub; el token de GitHub
 vive únicamente como *secret* del Worker (nunca en el navegador).
 
-## Puesta en marcha
+## Activación automática con GitHub Actions (recomendada)
+
+El repositorio incluye `.github/workflows/deploy.yml`: en cada `push` a `main` publica la web en GitHub Pages y despliega el Worker,
+y escribe solo la URL del Worker en `config.js`. Configuración única:
+
+1. **Repo de datos** privado y vacío (p. ej. `nexus-arcade-data`) con un primer commit en `main`.
+2. **Token de GitHub** (fine-grained, sólo ese repo, *Contents: Read and write*).
+3. **Cuenta gratuita de Cloudflare** → *API token* con la plantilla «Edit Cloudflare Workers» y tu *Account ID*.
+4. En el repo de la web → *Settings → Secrets and variables → Actions*:
+   - **Secrets**: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `DATA_TOKEN` (el token del paso 2) y `SESSION_SECRET` (`openssl rand -hex 32`).
+   - **Variable**: `DATA_REPO` = `tu-usuario/nexus-arcade-data`.
+5. *Settings → Pages → Source*: **GitHub Actions**. Haz un push (o *Actions → Deploy → Run workflow*).
+
+Si falta algún dato, la web se publica igualmente en modo local (sin ranking global) y el log lo avisa.
+
+## Puesta en marcha manual
 
 1. **Repo de datos**: crea un repositorio **privado** vacío (p. ej. `nexus-arcade-data`) con un primer commit en `main` (basta un README).
 2. **Token**: GitHub → Settings → Developer settings → *Fine-grained tokens* → acceso **sólo a ese repo**, permiso *Contents: Read and write*.
