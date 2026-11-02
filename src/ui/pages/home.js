@@ -34,6 +34,10 @@
             const dailyState = wordle && data.saves.wordle && data.saves.wordle.daily;
             const dailyDone = !!(dailyState && dailyState.date === dayKey() && dailyState.status !== 'playing');
 
+            const pasa = Nexus.games.registry.get('pasapalabra');
+            const ppDaily = pasa && data.saves.pasapalabra && data.saves.pasapalabra.runs && data.saves.pasapalabra.runs.daily;
+            const ppDone = !!(ppDaily && ppDaily.date === dayKey() && ppDaily.status === 'over');
+
             const unlockedIds = Object.entries(data.achievements).sort((a, b) => b[1] - a[1]).slice(0, 4);
             const recent = progress.history(5);
             const achievements = Nexus.services.achievements;
@@ -74,6 +78,13 @@
                             <span class="quick-text"><strong>Reto diario de Wordle</strong>
                                 <small>${dailyDone ? '✅ Ya lo has jugado hoy. ¡Vuelve mañana!' : 'Una palabra nueva cada día, igual para todos.'}</small></span>
                             <span class="quick-go">${dailyDone ? 'Ver' : 'Jugar'}</span>
+                        </a>` : ''}
+                        ${pasa ? `
+                        <a class="quick-card" href="#/game/pasapalabra">
+                            <span class="quick-emoji">🎡</span>
+                            <span class="quick-text"><strong>Rosco diario de Pasapalabra</strong>
+                                <small>${ppDone ? '✅ Ya lo has jugado hoy. ¡Vuelve mañana!' : '25 letras contra el reloj, igual para todos.'}</small></span>
+                            <span class="quick-go">${ppDone ? 'Ver' : 'Jugar'}</span>
                         </a>` : ''}
                         <a class="quick-card" href="#/profile">
                             <span class="quick-emoji">${esc(lv.rank.icon)}</span>

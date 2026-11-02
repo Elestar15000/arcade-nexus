@@ -28,6 +28,7 @@
         'wordle.hardMode': false,
         'wordle.colorblind': false,
         'wordle.defaultMode': 'random', // random | daily
+        'pasapalabra.defaultMode': 'daily', // daily | basic | medium | hard | pro
         'tetris.defaultMode': 'fusion', // fusion | cascade | chaos | sprint
         'tetris.ghost': true,
         'pacman.defaultMode': 'nexus',  // classic | nexus | horde

@@ -70,6 +70,13 @@
                     </section>
 
                     <section class="section card-surface">
+                        <h2 class="section-title"><span>🎡</span> Pasapalabra</h2>
+                        ${C.choiceRow('pasapalabra.defaultMode', 'Modo inicial', 'Rosco que se abre al entrar', [
+                            { value: 'daily', label: 'Diaria' }, { value: 'basic', label: 'Básico' }, { value: 'medium', label: 'Medio' },
+                            { value: 'hard', label: 'Difícil' }, { value: 'pro', label: 'Profesional' }])}
+                    </section>
+
+                    <section class="section card-surface">
                         <h2 class="section-title"><span>🧩</span> Tetris Fusion</h2>
                         ${C.choiceRow('tetris.defaultMode', 'Modo inicial', '', [
                             { value: 'fusion', label: 'Fusión' }, { value: 'cascade', label: 'Cascada' },

@@ -11,16 +11,16 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   y el progreso viven en GitHub y los **rankings son globales**. Sin backend configurado funciona en **modo local**
   (cuentas y ranking sólo de este navegador), útil para desarrollo.
 - **Sesión local y partidas persistentes**: al recargar sigues dentro de tu cuenta y las partidas de Tetris, Pac-Man y Snake
-  (y las de Wordle) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
+  (y las de Wordle y Pasapalabra) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
 - **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días. No hay exportación de datos.
-- **81 logros** (generales, Buscaminas, Wordle, Tetris, Pac-Man y Snake) con rareza, progreso y XP.
+- **92 logros** (generales, Buscaminas, Wordle, Pasapalabra, Tetris, Pac-Man y Snake) con rareza, progreso y XP.
 - **Rankings globales** (general y por juego/modo/métrica).
 - **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
   de la barra lateral y opciones propias de cada juego.
 - **Barra lateral desplegable**: se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`,
   se pliega sola al jugar (configurable) y recuerda su estado.
-- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Tetris Fusion**, **Pac-Man Nexus** y **Snake Neón**.
+- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus** y **Snake Neón**.
 
 ## Activar cuentas y rankings globales
 
@@ -39,6 +39,24 @@ cuentas del modo local no se migran al servidor.
   (misma palabra para todos cada día).
 - Modo difícil, alto contraste para daltonismo, teclado físico y en pantalla, compartir resultado,
   partida en curso guardada en el perfil.
+
+## Pasapalabra
+
+- Rosco de **25 letras** (A–Z con Ñ, sin K ni W) contra el reloj: acierta, falla o di «pasapalabra» (botón o escribiéndolo) para dejar la
+  letra para la siguiente vuelta. «Empieza por…», salvo Ñ y X que son «Contiene la…». Tildes ignoradas; la Ñ se acepta también con N.
+- **Rosco diario**: el mismo para todos los jugadores cada día (se genera de forma determinista a partir de la fecha) y un solo intento.
+- **Roscos aleatorios** ilimitados con 4 dificultades, cada una con su propio banco de definiciones (100 por nivel, 4 por letra):
+
+  | Dificultad | Tiempo | Pistas | Otros |
+  |---|---|---|---|
+  | 🌱 Básico | 4:00 | 3 | tolera una errata en palabras de 6+ letras |
+  | ⚔️ Medio | 3:00 | 1 | tolera una errata |
+  | 🔥 Difícil | 2:30 | 0 | ortografía exacta |
+  | 💀 Profesional | 2:00 | 0 | no muestra la longitud; cada fallo resta 10 s |
+
+- Se gana con **18 aciertos**; las 25 dan un rosco perfecto (+500). La puntuación se multiplica por la dificultad (×1 a ×2).
+- El reloj se basa en una hora de fin absoluta guardada en la cuenta: recargar o salir de la página **no detiene el tiempo**.
+- Banco: `src/games/pasapalabra/bank.js` (formato `LETRA|definición|respuesta|alternativas`). `node tests/pasapalabra_bank_test.mjs` valida que cada respuesta empiece/contenga su letra y que haya 4 por letra y nivel.
 
 ## Tetris Fusion
 
@@ -73,13 +91,14 @@ cuentas del modo local no se migran al servidor.
 ```
 index.html
 assets/
-  css/        base · layout · components · pages · games/{minesweeper,wordle,arcade,tetris,pacman,snake}
+  css/        base · layout · components · pages · games/{minesweeper,wordle,pasapalabra,arcade,tetris,pacman,snake}
   data/       words-es.js (diccionario)
 src/
   core/       namespace, utils, events, storage, hash, schema, audio, backend (servidor / local)
   services/   settings, users, progress, achievements, leaderboard
   ui/         toast, modal, fx, particles, components, sidebar, router, auth, pages/*
   games/      registry.js · minesweeper/ · wordle/{dictionary,game}.js
+              pasapalabra/{bank,game}.js
               shared/kit.js (canvas, bucle, táctil) · tetris/ · pacman/ · snake/   app.js  arranque
 backend/      Cloudflare Worker (API sobre repo privado de GitHub) + README de despliegue
 config.js     URL del backend (API_URL)
@@ -109,6 +128,8 @@ pip install playwright && playwright install chromium
 python3 tests/e2e_smoke.py        # flujo completo + capturas
 python3 tests/e2e_accounts.py     # registro/login, sesión, partidas persistentes, ranking, borrar cuenta
 python3 tests/e2e_minesweeper.py
+python3 tests/e2e_pasapalabra.py  # rosco diario, dificultades, persistencia
+node tests/pasapalabra_bank_test.mjs  # valida el banco de definiciones
 python3 tests/e2e_arcade.py       # Tetris, Pac-Man y Snake
 node tests/worker_test.mjs        # API del Worker contra un GitHub falso en memoria
 ```
