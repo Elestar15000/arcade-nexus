@@ -45,9 +45,9 @@
     // Kicks SRS (x, y con y hacia ARRIBA en la tabla original → se invierte al usar)
     const KICKS_JLSTZ = {
         '0>1': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]], '1>0': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
-        '1>2': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],     '2>1': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
-        '2>3': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],    '3>2': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
-        '3>0': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],  '0>3': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]]
+        '1>2': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]], '2>1': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+        '2>3': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]], '3>2': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
+        '3>0': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]], '0>3': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]]
     };
     const KICKS_I = {
         '0>1': [[0, 0], [-2, 0], [1, 0], [-2, -1], [1, 2]], '1>0': [[0, 0], [2, 0], [-1, 0], [2, 1], [-1, -2]],
@@ -57,25 +57,25 @@
     };
 
     const POWERS = {
-        bomb:  { icon: '💥', name: 'Bomba',  weight: 30, desc: 'Destruye un área de 5×5 a su alrededor.' },
-        bolt:  { icon: '⚡', name: 'Rayo',   weight: 25, desc: 'Destruye toda su columna.' },
-        ice:   { icon: '❄️', name: 'Hielo',  weight: 20, desc: 'Congela la caída durante 6 s.' },
-        star:  { icon: '⭐', name: 'Estrella', weight: 25, desc: 'Duplica los puntos de las 3 próximas limpiezas.' }
+        bomb: { icon: '💥', name: 'Bomba', weight: 30, desc: 'Destruye un área de 5×5 a su alrededor.' },
+        bolt: { icon: '⚡', name: 'Rayo', weight: 25, desc: 'Destruye toda su columna.' },
+        ice: { icon: '❄️', name: 'Hielo', weight: 20, desc: 'Congela la caída durante 6 s.' },
+        star: { icon: '⭐', name: 'Estrella', weight: 25, desc: 'Duplica los puntos de las 3 próximas limpiezas.' }
     };
 
     const MODES = [
-        { id: 'fusion',  emoji: '🔮', label: 'Fusión',  desc: 'Bloques de poder, energía y habilidades. Sin fin.', powerChance: 0.20 },
+        { id: 'fusion', emoji: '🔮', label: 'Fusión', desc: 'Bloques de poder, energía y habilidades. Sin fin.', powerChance: 0.20 },
         { id: 'cascade', emoji: '🌊', label: 'Cascada', desc: 'Tras limpiar, cada bloque cae solo: encadena reacciones.', powerChance: 0.16, cascade: true },
-        { id: 'chaos',   emoji: '🌪️', label: 'Caos',    desc: 'Cada 18 piezas ocurre un evento: marea, espejo, prisa…', powerChance: 0.28, events: true },
-        { id: 'sprint',  emoji: '🏁', label: 'Sprint',  desc: `Limpia ${SPRINT_LINES} líneas lo más rápido posible.`, powerChance: 0.16, sprint: true }
+        { id: 'chaos', emoji: '🌪️', label: 'Caos', desc: 'Cada 18 piezas ocurre un evento: marea, espejo, prisa…', powerChance: 0.28, events: true },
+        { id: 'sprint', emoji: '🏁', label: 'Sprint', desc: `Limpia ${SPRINT_LINES} líneas lo más rápido posible.`, powerChance: 0.16, sprint: true }
     ];
 
     const EVENTS = [
-        { id: 'tide',  icon: '🌊', name: 'Marea',  text: 'Sube una fila de basura' },
+        { id: 'tide', icon: '🌊', name: 'Marea', text: 'Sube una fila de basura' },
         { id: 'mirror', icon: '🪞', name: 'Espejo', text: 'Izquierda y derecha invertidas (10 s)', dur: 10 },
-        { id: 'rush',  icon: '🐇', name: 'Prisa',  text: 'Las piezas caen el doble de rápido (10 s)', dur: 10 },
-        { id: 'calm',  icon: '🐢', name: 'Calma',  text: 'Las piezas caen más despacio (12 s)', dur: 12 },
-        { id: 'rain',  icon: '🎁', name: 'Lluvia', text: 'Las próximas 5 piezas traen un poder' }
+        { id: 'rush', icon: '🐇', name: 'Prisa', text: 'Las piezas caen el doble de rápido (10 s)', dur: 10 },
+        { id: 'calm', icon: '🐢', name: 'Calma', text: 'Las piezas caen más despacio (12 s)', dur: 12 },
+        { id: 'rain', icon: '🎁', name: 'Lluvia', text: 'Las próximas 5 piezas traen un poder' }
     ];
 
     const DAS = 0.16, ARR = 0.04, LOCK_DELAY = 0.5, MAX_RESETS = 15;
@@ -123,10 +123,12 @@
         build() {
             this.root.innerHTML = `
             <div class="game ax-game tetris" style="--ax-accent:#a855f7">
-                ${Kit.header({ emoji: '🧩', title: 'Tetris Fusion', pills: [
+                ${Kit.header({
+                emoji: '🧩', title: 'Tetris Fusion', pills: [
                     { id: 'score', icon: '💎', init: '0', title: 'Puntos' },
                     { id: 'lines', icon: '📏', init: '0', title: 'Líneas' },
-                    { id: 'time', icon: '⏱️', init: '00:00', title: 'Tiempo' }] })}
+                    { id: 'time', icon: '⏱️', init: '00:00', title: 'Tiempo' }]
+            })}
                 <div class="ax-body">
                     <div class="ax-stage-wrap" id="tt-wrap">
                         <div class="ax-stage" id="tt-stage">
@@ -458,7 +460,7 @@
             if (this.mode.cascade) this.cellGravity();
 
             // Nivel
-            this.level = 1 + Math.floor(this.lines / 10);
+            this.level = 1 + Math.floor(this.lines / 5);
             this.flash = null;
             this.updatePills(); this.updateSide();
 
@@ -564,10 +566,17 @@
 
         // ── Bucle ───────────────────────────────────────────
         gravityInterval() {
-            let g = Math.pow(0.8 - (this.level - 1) * 0.007, this.level - 1);
-            g = Math.max(g, 0.02);
+            const baseByLevel = Math.max(0.08, 0.8 * Math.pow(0.88, this.level - 1));
+            const pieceFactor = Math.pow(0.995, this.piecesLocked);
+            const lineFactor = Math.pow(0.988, this.lines);
+
+            let g = baseByLevel * pieceFactor * lineFactor;
+
+            g = Math.max(g, 0.035);
+
             if (this.fx.rush > 0) g /= 2;
             if (this.fx.calm > 0) g *= 2;
+
             return g;
         }
 
@@ -619,9 +628,11 @@
             } else this.fall = 0;
 
             // Retardo de bloqueo
+            // Retardo de bloqueo adaptativo al ritmo actual
             if (this.collides(this.piece, 0, 1)) {
                 this.lockT += dt;
-                if (this.lockT >= LOCK_DELAY) this.lock();
+                const dynamicLockDelay = Math.max(0.18, Math.min(LOCK_DELAY, interval * 1.5));
+                if (this.lockT >= dynamicLockDelay) this.lock();
             }
         }
 
@@ -659,10 +670,12 @@
         }
 
         handleKey(k, down, repeat) {
-            const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down', ArrowUp: 'cw', ' ': 'drop',
+            const map = {
+                ArrowLeft: 'left', ArrowRight: 'right', ArrowDown: 'down', ArrowUp: 'cw', ' ': 'drop',
                 a: 'left', d: 'right', s: 'down', w: 'cw', A: 'left', D: 'right', S: 'down', W: 'cw',
                 x: 'cw', X: 'cw', z: 'ccw', Z: 'ccw', c: 'hold', C: 'hold', Shift: 'hold',
-                q: 'rewind', Q: 'rewind', e: 'purge', E: 'purge' };
+                q: 'rewind', Q: 'rewind', e: 'purge', E: 'purge'
+            };
             if (down && (k === 'p' || k === 'P' || k === 'Escape')) {
                 if (this.state === 'playing') this.pause(); else if (this.state === 'paused') this.resume();
                 return true;
@@ -987,32 +1000,58 @@
     const ev = (c) => (c.event && c.event.game === 'tetris') ? c.event : null;
     const tt = (c) => c.stats('tetris');
     A.register([
-        { id: 'tt_sprint', game: 'tetris', name: 'Línea de meta', desc: 'Completa un Sprint de 40 líneas.', icon: '🏁', rarity: 'common',
-            test: (c) => (tt(c).byMode.sprint || {}).wins > 0 },
-        { id: 'tt_sprint_fast', game: 'tetris', name: 'Velocista', desc: 'Completa un Sprint en menos de 2 min 30 s.', icon: '⚡', rarity: 'epic',
-            test: (c) => { const e = ev(c); return !!e && e.mode === 'sprint' && e.won && e.time < 150; } },
-        { id: 'tt_tetris', game: 'tetris', name: '¡Tetris!', desc: 'Limpia 4 líneas a la vez.', icon: '🧱', rarity: 'common',
-            test: (c) => { const e = ev(c); return !!e && e.extra.maxLines >= 4; } },
-        { id: 'tt_tspin', game: 'tetris', name: 'Giro maestro', desc: 'Haz un T-Spin con limpieza de líneas.', icon: '🌀', rarity: 'rare',
-            test: (c) => { const e = ev(c); return !!e && e.extra.tspins >= 1; } },
-        { id: 'tt_bombs', game: 'tetris', name: 'Demolición', desc: 'Detona 3 bombas 💥 en una partida.', icon: '💥', rarity: 'common',
-            test: (c) => { const e = ev(c); return !!e && e.extra.bombs >= 3; } },
-        { id: 'tt_rewind', game: 'tetris', name: 'Viajero del tiempo', desc: 'Usa Rebobinar ⏪ para deshacer una pieza.', icon: '⏪', rarity: 'common',
-            test: (c) => { const e = ev(c); return !!e && e.extra.rewinds >= 1; } },
-        { id: 'tt_purge', game: 'tetris', name: 'Limpieza a fondo', desc: 'Usa la Purga 🧹 en una partida.', icon: '🧹', rarity: 'common',
-            test: (c) => { const e = ev(c); return !!e && e.extra.purges >= 1; } },
-        { id: 'tt_chain', game: 'tetris', name: 'Reacción en cadena', desc: 'Encadena 4 limpiezas seguidas en Cascada.', icon: '🌊', rarity: 'epic',
-            test: (c) => { const e = ev(c); return !!e && e.mode === 'cascade' && e.extra.maxChain >= 4; } },
-        { id: 'tt_perfect', game: 'tetris', name: 'Tablero impecable', desc: 'Deja el tablero completamente vacío.', icon: '✨', rarity: 'legendary',
-            test: (c) => { const e = ev(c); return !!e && e.extra.perfect >= 1; } },
-        { id: 'tt_chaos', game: 'tetris', name: 'Domador del caos', desc: 'Supera 5 eventos en el modo Caos.', icon: '🌪️', rarity: 'rare',
-            test: (c) => { const e = ev(c); return !!e && e.mode === 'chaos' && e.extra.events >= 5; } },
-        { id: 'tt_score20k', game: 'tetris', name: 'Fusión total', desc: 'Consigue 20.000 puntos en una partida.', icon: '💎', rarity: 'rare',
-            test: (c) => { const e = ev(c); return !!e && e.score >= 20000; } },
-        { id: 'tt_level10', game: 'tetris', name: 'Velocidad de vértigo', desc: 'Alcanza el nivel 10.', icon: '🚀', rarity: 'epic',
-            test: (c) => { const e = ev(c); return !!e && e.extra.level >= 10; } },
-        { id: 'tt_lines500', game: 'tetris', name: 'Constructor', desc: 'Limpia 500 líneas en total.', icon: '🏗️', rarity: 'rare',
-            ...A.counter((c) => (tt(c).extra.totalLines || 0), 500) }
+        {
+            id: 'tt_sprint', game: 'tetris', name: 'Línea de meta', desc: 'Completa un Sprint de 40 líneas.', icon: '🏁', rarity: 'common',
+            test: (c) => (tt(c).byMode.sprint || {}).wins > 0
+        },
+        {
+            id: 'tt_sprint_fast', game: 'tetris', name: 'Velocista', desc: 'Completa un Sprint en menos de 2 min 30 s.', icon: '⚡', rarity: 'epic',
+            test: (c) => { const e = ev(c); return !!e && e.mode === 'sprint' && e.won && e.time < 150; }
+        },
+        {
+            id: 'tt_tetris', game: 'tetris', name: '¡Tetris!', desc: 'Limpia 4 líneas a la vez.', icon: '🧱', rarity: 'common',
+            test: (c) => { const e = ev(c); return !!e && e.extra.maxLines >= 4; }
+        },
+        {
+            id: 'tt_tspin', game: 'tetris', name: 'Giro maestro', desc: 'Haz un T-Spin con limpieza de líneas.', icon: '🌀', rarity: 'rare',
+            test: (c) => { const e = ev(c); return !!e && e.extra.tspins >= 1; }
+        },
+        {
+            id: 'tt_bombs', game: 'tetris', name: 'Demolición', desc: 'Detona 3 bombas 💥 en una partida.', icon: '💥', rarity: 'common',
+            test: (c) => { const e = ev(c); return !!e && e.extra.bombs >= 3; }
+        },
+        {
+            id: 'tt_rewind', game: 'tetris', name: 'Viajero del tiempo', desc: 'Usa Rebobinar ⏪ para deshacer una pieza.', icon: '⏪', rarity: 'common',
+            test: (c) => { const e = ev(c); return !!e && e.extra.rewinds >= 1; }
+        },
+        {
+            id: 'tt_purge', game: 'tetris', name: 'Limpieza a fondo', desc: 'Usa la Purga 🧹 en una partida.', icon: '🧹', rarity: 'common',
+            test: (c) => { const e = ev(c); return !!e && e.extra.purges >= 1; }
+        },
+        {
+            id: 'tt_chain', game: 'tetris', name: 'Reacción en cadena', desc: 'Encadena 4 limpiezas seguidas en Cascada.', icon: '🌊', rarity: 'epic',
+            test: (c) => { const e = ev(c); return !!e && e.mode === 'cascade' && e.extra.maxChain >= 4; }
+        },
+        {
+            id: 'tt_perfect', game: 'tetris', name: 'Tablero impecable', desc: 'Deja el tablero completamente vacío.', icon: '✨', rarity: 'legendary',
+            test: (c) => { const e = ev(c); return !!e && e.extra.perfect >= 1; }
+        },
+        {
+            id: 'tt_chaos', game: 'tetris', name: 'Domador del caos', desc: 'Supera 5 eventos en el modo Caos.', icon: '🌪️', rarity: 'rare',
+            test: (c) => { const e = ev(c); return !!e && e.mode === 'chaos' && e.extra.events >= 5; }
+        },
+        {
+            id: 'tt_score20k', game: 'tetris', name: 'Fusión total', desc: 'Consigue 20.000 puntos en una partida.', icon: '💎', rarity: 'rare',
+            test: (c) => { const e = ev(c); return !!e && e.score >= 20000; }
+        },
+        {
+            id: 'tt_level10', game: 'tetris', name: 'Velocidad de vértigo', desc: 'Alcanza el nivel 10.', icon: '🚀', rarity: 'epic',
+            test: (c) => { const e = ev(c); return !!e && e.extra.level >= 10; }
+        },
+        {
+            id: 'tt_lines500', game: 'tetris', name: 'Constructor', desc: 'Limpia 500 líneas en total.', icon: '🏗️', rarity: 'rare',
+            ...A.counter((c) => (tt(c).extra.totalLines || 0), 500)
+        }
     ]);
 
     Nexus.games.registry.register({
