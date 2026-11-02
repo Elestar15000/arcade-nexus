@@ -7,5 +7,5 @@
    el ranking viven sólo en este navegador (útil para desarrollar).
    ============================================================ */
 window.NEXUS_CONFIG = {
-    API_URL: ''
+    API_URL: 'https://nexus-arcade-api.elestar150.workers.dev'
 };
