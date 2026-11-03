@@ -1,8 +1,10 @@
 // Prueba de punta a punta del Worker con un GitHub falso en memoria.  node tests/worker_test.mjs
 import worker from '../backend/worker.js';
 
-const files = new Map();            // path -> {content(b64), sha}
-let shaN = 0, forceConflicts = 0;
+import { createHash } from 'node:crypto';
+const files = new Map();            // path -> {content(b64), sha}  (sha = sha de blob de Git, como GitHub)
+let forceConflicts = 0, puts = [];
+const gitSha = (b64) => { const buf = Buffer.from(b64, 'base64'); return createHash('sha1').update(Buffer.concat([Buffer.from(`blob ${buf.length}\0`), buf])).digest('hex'); };
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (url, init = {}) => {
     const u = new URL(url);
@@ -10,19 +12,26 @@ globalThis.fetch = async (url, init = {}) => {
     const path = decodeURIComponent(u.pathname.replace(/^\/repos\/[^/]+\/[^/]+\/contents\//, ''));
     const json = (status, obj) => new Response(JSON.stringify(obj), { status });
     const method = init.method || 'GET';
-    if (method === 'GET') { const f = files.get(path); return f ? json(200, { content: f.content, sha: f.sha }) : json(404, {}); }
+    if (method === 'GET') {
+        const f = files.get(path);
+        if (f) return json(200, { type: 'file', content: f.content, sha: f.sha });
+        const list = [...files].filter(([k]) => k.startsWith(path + '/') && !k.slice(path.length + 1).includes('/'))
+            .map(([k, v]) => ({ type: 'file', name: k.slice(path.length + 1), path: k, sha: v.sha }));
+        return list.length ? json(200, list) : json(404, {});     // las carpetas vacías no existen en Git
+    }
     const body = JSON.parse(init.body);
     const cur = files.get(path);
     if (method === 'PUT') {
         if (forceConflicts > 0 && path === 'leaderboard.json') { forceConflicts--; return json(409, {}); }
         if (cur && body.sha !== cur.sha) return json(body.sha ? 409 : 422, {});
         if (!cur && body.sha) return json(404, {});
-        const sha = 's' + (++shaN); files.set(path, { content: body.content, sha });
+        const sha = gitSha(body.content); files.set(path, { content: body.content, sha }); puts.push(path);
         return json(200, { content: { sha } });
     }
     if (method === 'DELETE') { if (!cur) return json(404, {}); if (body.sha !== cur.sha) return json(409, {}); files.delete(path); return json(200, {}); }
     return json(405, {});
 };
+const readJson = (path) => JSON.parse(Buffer.from(files.get(path).content, 'base64').toString('utf8'));
 
 const env = { GITHUB_TOKEN: 't', GITHUB_REPO: 'o/r', GITHUB_BRANCH: 'main', SESSION_SECRET: 'secreto-de-prueba', ALLOWED_ORIGIN: 'https://yo.github.io' };
 const O = 'https://yo.github.io';
@@ -43,7 +52,8 @@ let r = await call('GET', '/api/health'); ok(r.status === 200 && r.json.ok, 'hea
 r = await call('POST', '/api/register', { name: 'Ana_01', password: 'secreta1', avatar: '🦊', color: '#00b894' });
 ok(r.status === 201 && r.json.token && r.json.user.name === 'Ana_01' && r.json.data.xp.level === 1, 'registro correcto');
 const ana = r.json.token;
-ok(files.has('users/ana_01.json') && files.has('leaderboard.json'), 'se crean users/ y leaderboard.json en el repo');
+ok(files.has('users/ana_01/account.json') && files.has('users/ana_01/progress.json') && files.has('leaderboard.json'), 'se crea la carpeta users/ana_01/ y leaderboard.json en el repo');
+ok(!files.has('users/ana_01.json'), 'ya no hay un único archivo por usuario');
 ok(!JSON.stringify(r.json).includes('hash'), 'la respuesta no filtra hash ni sal');
 r = await call('POST', '/api/register', { name: 'ANA_01', password: 'otra-clave' }); ok(r.status === 409, 'nombre duplicado (sin distinguir mayúsculas) → 409');
 r = await call('POST', '/api/register', { name: 'a b', password: 'secreta1' }); ok(r.status === 400, 'nombre inválido → 400');
@@ -52,7 +62,10 @@ r = await call('POST', '/api/register', { name: 'Pepe', password: '123' }); ok(r
 r = await call('POST', '/api/login', { name: 'ana_01', password: 'secreta1' }); ok(r.status === 200 && r.json.token, 'login correcto (otra capitalización)');
 const e1 = (await call('POST', '/api/login', { name: 'ana_01', password: 'mal' }));
 const e2 = (await call('POST', '/api/login', { name: 'noexiste', password: 'mal' }));
-ok(e1.status === 401 && e2.status === 401 && e1.json.error === e2.json.error, 'login erróneo → 401 con mensaje idéntico (no revela si existe)');
+ok(e1.status === 401 && e1.json.error === 'Contraseña incorrecta.', 'contraseña errónea → 401');
+ok(e2.status === 404 && /No existe ninguna cuenta/.test(e2.json.error), 'login con cuenta inexistente → 404 «no existe en el servidor»');
+r = await call('POST', '/api/login', { name: 'a b', password: 'mal' }); ok(r.status === 404, 'nombre con formato inválido tampoco existe → 404');
+ok(!files.has('users/noexiste/account.json'), 'un login fallido no crea nada en el repo');
 r = await call('GET', '/api/session', null, ana); ok(r.status === 200 && r.json.user.name === 'Ana_01', 'session con token válido');
 r = await call('GET', '/api/session', null, ana.slice(0, -3) + 'AAA'); ok(r.status === 401, 'token manipulado → 401');
 r = await call('GET', '/api/session'); ok(r.status === 401, 'sin token → 401');
@@ -62,6 +75,19 @@ const exp = Buffer.from(JSON.stringify({ u: 'x', n: 'ana_01', v: 1, exp: Date.no
 r = await call('GET', '/api/session', null, exp + '.zzz'); ok(r.status === 401, 'token caducado → 401');
 
 r = await call('PUT', '/api/data', { data: data(1234) }, ana); ok(r.status === 200 && r.json.updatedAt > 0, 'PUT data');
+{ // estructura de carpetas
+    const names = [...files.keys()].filter(k => k.startsWith('users/ana_01/')).map(k => k.split('/')[2]).sort();
+    ok(JSON.stringify(names) === JSON.stringify(['account.json', 'achievements.json', 'history.json', 'progress.json', 'saves.json', 'settings.json', 'stats.json']), 'carpeta de usuario con account/progress/stats/achievements/history/settings/saves: ' + names.join(','));
+    ok(readJson('users/ana_01/stats.json').snake.bestScore === 1234, 'stats.json contiene las estadísticas');
+    ok(JSON.stringify(readJson('users/ana_01/achievements.json')) === JSON.stringify({ a: 1, b: 2 }), 'achievements.json contiene los logros');
+    ok(readJson('users/ana_01/progress.json').xp.level === 3 && readJson('users/ana_01/progress.json').updatedAt > 0, 'progress.json contiene XP/nivel y updatedAt');
+    const acc = readJson('users/ana_01/account.json');
+    ok(acc.name === 'Ana_01' && acc.hash && acc.salt && !acc.xp && !acc.stats && !acc.data, 'account.json sólo tiene perfil y credenciales');
+    puts = []; await call('PUT', '/api/data', { data: { ...data(1234), history: [{ game: 'snake', at: 1 }] } }, ana);
+    ok(puts.filter(p => p.startsWith('users/')).sort().join() === 'users/ana_01/history.json,users/ana_01/progress.json', 'un guardado sólo reescribe los archivos que cambian: ' + puts.join(','));
+    r = await call('GET', '/api/session', null, ana); ok(r.json.data.history.length === 1 && r.json.data.stats.snake.bestScore === 1234 && r.json.data.achievements.b === 2, 'session reconstruye los datos desde los archivos');
+    r = await call('POST', '/api/login', { name: 'ana_01', password: 'secreta1' }); ok(r.json.data.xp.level === 3 && r.json.data.history.length === 1, 'login devuelve los datos reconstruidos');
+}
 r = await call('GET', '/api/leaderboard'); ok(r.status === 200 && r.json.players.length === 1 && r.json.players[0].stats.snake.bestScore === 1234 && r.json.players[0].level === 3, 'leaderboard refleja los datos');
 ok(r.headers.get('Cache-Control').includes('max-age'), 'leaderboard con Cache-Control');
 ok(!JSON.stringify(r.json).includes('hash') && !JSON.stringify(r.json).includes('history'), 'leaderboard sin datos privados');
@@ -98,7 +124,7 @@ r = await call('GET', '/api/session', null, b2); ok(r.status === 200, 'token nue
 r = await call('POST', '/api/login', { name: 'beto', password: 'nueva-clave' }); ok(r.status === 200, 'login con la contraseña nueva');
 
 r = await call('DELETE', '/api/account', { password: 'mal' }, b2); ok(r.status === 401, 'borrar cuenta con contraseña errónea → 401');
-r = await call('DELETE', '/api/account', { password: 'nueva-clave' }, b2); ok(r.status === 200 && !files.has('users/beto.json'), 'borrar cuenta elimina el fichero');
+r = await call('DELETE', '/api/account', { password: 'nueva-clave' }, b2); ok(r.status === 200 && ![...files.keys()].some(k => k.startsWith('users/beto/')), 'borrar cuenta elimina TODA su carpeta');
 r = await call('GET', '/api/leaderboard'); ok(r.json.players.length === 1, 'la cuenta borrada desaparece del ranking');
 r = await call('GET', '/api/session', null, b2); ok(r.status === 401, 'token de cuenta borrada → 401');
 

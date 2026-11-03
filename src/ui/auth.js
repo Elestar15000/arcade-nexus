@@ -31,6 +31,7 @@
             const registering = this.mode === 'register';
             const U = users();
             const remote = Nexus.backend.kind === 'remote';
+            const blocked = !!Nexus.backend.unavailable;
 
             const tiles = games.slice(0, 9).map((g, i) => `
                 <div class="auth-tile" style="--tile:${esc(g.accent || 'var(--primary)')};--i:${i}" title="${esc(g.name)}">
@@ -54,13 +55,15 @@
                             <form class="auth-form" id="auth-form" novalidate>
                                 ${registering ? this.registerFields() : this.loginFields()}
                                 <p class="form-error" id="au-error" role="alert" hidden></p>
-                                <button class="btn btn-primary" id="au-submit" type="submit">${registering ? 'Crear mi cuenta' : 'Entrar'}</button>
+                                <button class="btn btn-primary" id="au-submit" type="submit"${blocked ? ' disabled' : ''}>${registering ? 'Crear mi cuenta' : 'Entrar'}</button>
                                 <p class="auth-switch">${registering
                                     ? '¿Ya tienes cuenta? <button type="button" data-tab="login">Inicia sesión</button>'
                                     : '¿Aún no tienes cuenta? <button type="button" data-tab="register">Créala gratis</button>'}</p>
                             </form>
                         </div>
-                        <div class="auth-status" id="au-status" data-state="${remote ? 'checking' : 'local'}">${remote ? 'Conectando con el servidor…' : 'Modo local: tu cuenta se guarda sólo en este navegador'}</div>
+                        <div class="auth-status" id="au-status" data-state="${blocked ? 'offline' : remote ? 'checking' : 'local'}">${blocked
+                            ? 'Servidor de cuentas no configurado: sólo se puede entrar con cuentas del repositorio de datos (ver backend/README.md).'
+                            : remote ? 'Conectando con el servidor…' : 'Modo local de desarrollo: las cuentas se guardan sólo en este navegador'}</div>
                         ${Nexus.storage.volatile ? '<p class="auth-warning">Tu navegador bloquea el almacenamiento local: no se podrá mantener la sesión al recargar.</p>' : ''}
                     </section>
                 </div>`;
@@ -163,13 +166,14 @@
                 } else if (!name || !pass) {
                     return this.setError('Escribe tu usuario y tu contraseña.', name ? 'au-pass' : 'au-name');
                 }
+                if (Nexus.backend.unavailable) return this.setError('El servidor de cuentas no está configurado.');
                 btn.classList.add('is-loading'); btn.disabled = true;
                 if (this.mode === 'register') await U.register({ name, password: pass, ...this.picker.get() });
                 else await U.login(name, pass);
                 // user:login se encarga de mostrar la aplicación
             } catch (e) {
                 btn.classList.remove('is-loading'); btn.disabled = false;
-                const field = e.status === 409 ? 'au-name' : (this.mode === 'login' ? 'au-pass' : null);
+                const field = (e.status === 409 || e.status === 404) ? 'au-name' : (this.mode === 'login' && e.status === 401 ? 'au-pass' : null);
                 this.setError(e.message || 'No se pudo completar la operación.', field);
             }
         }

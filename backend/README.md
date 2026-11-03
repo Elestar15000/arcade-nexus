@@ -34,6 +34,26 @@ Si falta algún dato, la web se publica igualmente en modo local (sin ranking gl
 4. **Sitio**: copia la URL que muestra `deploy` (`https://nexus-arcade-api.<cuenta>.workers.dev`) en `config.js` del sitio (`API_URL`) y publica en GitHub Pages.
 5. Comprueba: `curl https://…workers.dev/api/health` → `{"ok":true}`.
 
+## Estructura del repositorio de datos
+Cada cuenta tiene su propia carpeta y cada tipo de dato su archivo JSON legible:
+```
+users/
+  ana_01/                 ← una carpeta por usuario (nombre en minúsculas)
+    account.json          perfil (nombre, avatar, color) y credenciales (hash PBKDF2 + sal)
+    progress.json         XP, nivel, racha de días, tiempo jugado, última modificación
+    stats.json            estadísticas por juego y por modo
+    achievements.json     logros desbloqueados
+    history.json          últimas partidas
+    settings.json         ajustes
+    saves.json            partidas en curso (Wordle, Pasapalabra…)
+leaderboard.json          resumen público de todos los jugadores (ranking)
+```
+En cada guardado sólo se reescriben los archivos cuyo contenido cambió. Si hubiera cuentas creadas con una versión anterior
+(un único `users/<nombre>.json`), no se leen: hay que volver a registrarlas.
+
+**Inicio de sesión:** sólo funciona con cuentas que existan en esa carpeta `users/`. Un usuario inexistente recibe «No existe ninguna
+cuenta». Un sitio publicado sin `API_URL` no permite iniciar sesión (el modo local sólo existe en desarrollo: `file://` o `localhost`).
+
 ## CORS
 Sólo se aceptan peticiones de los orígenes de `ALLOWED_ORIGIN` (lista separada por comas; para probar en local añade `http://localhost:8000`). `*` sólo si lo pones explícitamente.
 

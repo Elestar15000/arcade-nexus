@@ -82,7 +82,15 @@
         return { d, rec };
     }
     const nextTick = (v) => new Promise(r => setTimeout(() => r(v), 40));
-    const run = (fn) => new Promise((res, rej) => setTimeout(() => { try { res(fn()); } catch (e) { rej(e); } }, 40));
+    const run = (fn) => new Promise((res, rej) => setTimeout(() => {
+        if (UNAVAILABLE) return rej(fail(0, 'El servidor de cuentas no está configurado: no se puede iniciar sesión.', { offline: true }));
+        try { res(fn()); } catch (e) { rej(e); }
+    }, 40));
+
+    // Sin API_URL sólo se permite el modo local en desarrollo (file:// o localhost). En un sitio publicado
+    // (p. ej. GitHub Pages) no se puede iniciar sesión sin servidor: las cuentas viven únicamente en el repositorio de datos.
+    const DEV = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    const UNAVAILABLE = !API && !DEV;
 
     const Local = {
         kind: 'local',
@@ -98,7 +106,8 @@
         }),
         login: ({ name, password }) => run(() => {
             const rec = db().users.find(u => u.name.toLowerCase() === String(name).toLowerCase());
-            if (!rec || hash.hashPassword(password || '', rec.salt) !== rec.hash) throw fail(401, 'Usuario o contraseña incorrectos.');
+            if (!rec) throw fail(404, 'No existe ninguna cuenta con ese usuario.');
+            if (hash.hashPassword(password || '', rec.salt) !== rec.hash) throw fail(401, 'Contraseña incorrecta.');
             return { token: tokenFor(rec), user: pub(rec), data: rec.data, updatedAt: rec.updatedAt };
         }),
         session: (token) => run(() => { const { rec } = authed(token); return { user: pub(rec), data: rec.data, updatedAt: rec.updatedAt }; }),
@@ -129,10 +138,11 @@
             updatedAt: Date.now(),
             players: db().users.map(r => summarize(pub(r), Nexus.schema.normalize(JSON.parse(JSON.stringify(r.data)))))
         })),
-        ping: () => nextTick({ ok: true })
+        ping: () => (UNAVAILABLE ? Promise.reject(fail(0, 'Servidor no configurado', { offline: true })) : nextTick({ ok: true }))
     };
 
     Nexus.backend = API ? Remote : Local;
+    Nexus.backend.unavailable = UNAVAILABLE;
     Nexus.backend.NAME_RE = NAME_RE;
     Nexus.backend.RESERVED = RESERVED;
     Nexus.core.summarize = summarize;

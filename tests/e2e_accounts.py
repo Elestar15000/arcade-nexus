@@ -105,6 +105,26 @@ with sync_playwright() as p:
     page.fill('#au-name', 'Beto'); page.fill('#au-pass', 'secreta1'); page.click('#au-submit'); page.wait_for_timeout(500)
     check(page.locator('#auth-screen:not([hidden])').count() == 1, 'cuenta borrada ya no puede entrar')
 
+    # Login sólo con cuentas existentes
+    page.goto(URL); page.wait_for_selector('#auth-screen:not([hidden])')
+    page.fill('#au-name', 'nadie_existe'); page.fill('#au-pass', 'secreta1'); page.click('#au-submit'); page.wait_for_timeout(400)
+    check('No existe ninguna cuenta' in page.locator('#au-error').inner_text(), 'login con usuario inexistente: «No existe ninguna cuenta»')
+    check(page.evaluate("Nexus.backend.kind") == 'local' and page.evaluate("(Nexus.storage.get('ldb',{users:[]})).users.some(u => u.name === 'nadie_existe')") is False, 'el login fallido no crea la cuenta')
+
+    # Sitio publicado sin servidor configurado (p. ej. GitHub Pages sin API_URL): no se puede entrar
+    import mimetypes
+    pub = b.new_context(); pg = pub.new_page()
+    def serve(route):
+        rel = route.request.url.split('demo.github.io/', 1)[1].split('?')[0].split('#')[0] or 'index.html'
+        f = ROOT / rel
+        if f.is_file(): route.fulfill(body=f.read_bytes(), content_type=mimetypes.guess_type(str(f))[0] or 'text/plain')
+        else: route.fulfill(status=404, body='')
+    pub.route('https://demo.github.io/**', serve)
+    pg.goto('https://demo.github.io/index.html'); pg.wait_for_selector('#auth-screen:not([hidden])')
+    check(pg.evaluate("Nexus.backend.unavailable") is True, 'sitio publicado sin API_URL: backend no disponible')
+    check(pg.locator('#au-submit').is_disabled() and 'no configurado' in pg.inner_text('#au-status'), 'el formulario de acceso queda bloqueado con aviso')
+    pub.close()
+
     check(not errs, 'sin errores de JS: ' + '; '.join(errs))
     b.close()
 print('\nRESULT:', 'OK' if not bad else 'FALLOS: ' + ', '.join(bad))

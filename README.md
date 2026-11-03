@@ -8,8 +8,9 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
 - **Cuentas con contraseña obligatoria**: registro e inicio de sesión (sin modo invitado), avatar y color. Usuario
   `A-Z a-z 0-9 _ -` (3–16, único sin distinguir mayúsculas) y contraseña de 6–64 caracteres.
 - **Datos en el servidor de GitHub**: con el backend de `backend/` (Cloudflare Worker + repo privado de GitHub) las cuentas
-  y el progreso viven en GitHub y los **rankings son globales**. Sin backend configurado funciona en **modo local**
-  (cuentas y ranking sólo de este navegador), útil para desarrollo.
+  y el progreso viven en GitHub, **una carpeta por usuario** (`users/<nombre>/` con `account`, `progress`, `stats`, `achievements`,
+  `history`, `settings` y `saves`), y los **rankings son globales**. Sólo se puede iniciar sesión con cuentas existentes en ese
+  repositorio. El modo local (sin servidor) existe únicamente para desarrollo (`file://` o `localhost`).
 - **Sesión local y partidas persistentes**: al recargar sigues dentro de tu cuenta y las partidas de Tetris, Pac-Man y Snake
   (y las de Wordle y Pasapalabra) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).

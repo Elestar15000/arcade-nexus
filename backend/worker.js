@@ -2,8 +2,16 @@
    NEXUS ARCADE · backend/worker.js
    API de cuentas y rankings para Cloudflare Workers.
    Persiste en un repo PRIVADO de GitHub (Contents API):
-     users/<nombre-minúsculas>.json   cuenta + datos de juego
+     users/<nombre-minúsculas>/       UNA CARPETA POR USUARIO:
+         account.json                 perfil + credenciales (hash PBKDF2, sal, versión de token)
+         progress.json                XP, nivel, racha de días, tiempo jugado, última modificación
+         stats.json                   estadísticas por juego y modo
+         achievements.json            logros desbloqueados (id → fecha)
+         history.json                 últimas partidas
+         settings.json                ajustes del usuario
+         saves.json                   partidas en curso (Wordle, Pasapalabra…)
      leaderboard.json                 resumen público de cada jugador
+   Sólo se reescriben los archivos que cambian (se compara el sha de Git).
    Sólo WebCrypto + fetch, sin dependencias.
    Variables: GITHUB_REPO ("owner/repo"), GITHUB_BRANCH, ALLOWED_ORIGIN
    Secrets:   GITHUB_TOKEN, SESSION_SECRET
@@ -110,9 +118,26 @@ async function getFile(env, path) {
         return { json: JSON.parse(dec.decode(fromB64(String(f.content).replace(/\s/g, '')))), sha: f.sha };
     } catch (e) { throw storageError(); }
 }
+/** Lista los archivos de una carpeta del repo → [{name, sha}] o null si no existe. */
+async function listDir(env, path) {
+    const res = await gh(env, 'GET', path);
+    if (res.status === 404) return null;
+    if (!res.ok) throw storageError();
+    try {
+        const arr = await res.json();
+        return Array.isArray(arr) ? arr.filter((x) => x.type === 'file').map((x) => ({ name: x.name, sha: x.sha })) : null;
+    } catch (e) { throw storageError(); }
+}
 /** Crea (sha=null) o actualiza. Lanza Conflict si el sha no coincide / ya existe. */
+const serialize = (obj) => JSON.stringify(obj, null, 2) + '\n';
+/** sha de blob de Git (el que devuelve GitHub) de un texto: permite saber si un archivo cambió sin leerlo. */
+async function blobSha(text) {
+    const body = enc.encode(text), head = enc.encode(`blob ${body.length}\0`);
+    const all = new Uint8Array(head.length + body.length); all.set(head); all.set(body, head.length);
+    return hex(new Uint8Array(await crypto.subtle.digest('SHA-1', all)));
+}
 async function putFile(env, path, obj, sha, message) {
-    const body = { message, content: toB64(enc.encode(JSON.stringify(obj))), branch: env.GITHUB_BRANCH || 'main' };
+    const body = { message, content: toB64(enc.encode(serialize(obj))), branch: env.GITHUB_BRANCH || 'main' };
     if (sha) body.sha = sha;
     const res = await gh(env, 'PUT', path, body);
     if (res.status === 409 || res.status === 422 || (sha && res.status === 404)) throw new Conflict();
@@ -202,7 +227,6 @@ async function updateLeaderboard(env, id, summary, label) {
 }
 
 // ── Cuentas ─────────────────────────────────────────────────
-const userPath = (name) => `users/${name.toLowerCase()}.json`;
 const publicUser = (r) => ({ id: r.id, name: r.name, avatar: r.avatar, color: r.color, createdAt: r.createdAt });
 const newData = () => ({ v: 2, xp: { level: 1, xp: 0, total: 0 }, stats: {}, history: [], achievements: {}, settings: {},
     meta: { playTime: 0, daysPlayed: 0, dayStreak: 0, bestDayStreak: 0, lastDay: null }, saves: {} });
@@ -221,24 +245,102 @@ function validatePassword(pw) {
     if (typeof pw !== 'string' || pw.length < 6 || pw.length > 64) throw new HttpError(400, 'La contraseña debe tener entre 6 y 64 caracteres.');
 }
 
-/** Lee el usuario del token, aplica fn(rec) y guarda con reintento si hay conflicto de escritura. */
+// ── Carpeta de usuario: users/<nombre>/{account,progress,stats,…}.json ──
+const DATA_FILES = ['progress', 'stats', 'achievements', 'history', 'settings', 'saves'];
+const userDir = (lname) => `users/${lname}`;
+const filePath = (lname, f) => `${userDir(lname)}/${f}.json`;
+const userCache = new Map();     // lname → { archivo: { sha, json } } (se valida con el sha del listado)
+
+function splitData(d, updatedAt) {
+    return { progress: { v: d.v, xp: d.xp, meta: d.meta, updatedAt }, stats: d.stats, achievements: d.achievements,
+        history: d.history, settings: d.settings, saves: d.saves };
+}
+function joinData(f) {
+    const base = newData(), g = (k) => (f[k] ? f[k].json : undefined), p = isObj(g('progress')) ? g('progress') : {};
+    return {
+        v: p.v || 2, xp: isObj(p.xp) ? p.xp : base.xp, meta: isObj(p.meta) ? p.meta : base.meta,
+        stats: isObj(g('stats')) ? g('stats') : {}, achievements: isObj(g('achievements')) ? g('achievements') : {},
+        history: Array.isArray(g('history')) ? g('history') : [], settings: isObj(g('settings')) ? g('settings') : {},
+        saves: isObj(g('saves')) ? g('saves') : {}
+    };
+}
+
+/** Abre la carpeta del usuario (sólo el listado). null si la cuenta no existe. */
+async function openUser(env, name) {
+    const lname = String(name).toLowerCase();
+    if (!NAME_RE.test(lname)) return null;
+    const listing = await listDir(env, userDir(lname));
+    if (!listing || !listing.some((x) => x.name === 'account.json')) return null;
+    const shas = {};
+    for (const x of listing) shas[x.name.replace(/\.json$/, '')] = x.sha;
+    return { lname, shas, account: null, data: null, updatedAt: 0 };
+}
+async function readFiles(env, u, names) {
+    const cache = userCache.get(u.lname) || {}, out = {};
+    await Promise.all(names.map(async (f) => {
+        const sha = u.shas[f];
+        if (!sha) return;
+        if (cache[f] && cache[f].sha === sha) { out[f] = cache[f]; return; }
+        const got = await getFile(env, filePath(u.lname, f));
+        if (got) out[f] = { sha: got.sha, json: got.json };
+    }));
+    userCache.set(u.lname, { ...cache, ...out });
+    if (userCache.size > 300) userCache.delete(userCache.keys().next().value);
+    return out;
+}
+async function loadAccount(env, u) {
+    const f = await readFiles(env, u, ['account']);
+    if (!f.account) throw storageError();
+    u.account = f.account.json; return u;
+}
+async function loadData(env, u) {
+    const f = await readFiles(env, u, ['account', ...DATA_FILES]);
+    if (!f.account) throw storageError();
+    u.account = f.account.json;
+    u.data = joinData(f);
+    u.updatedAt = (f.progress && f.progress.json.updatedAt) || u.account.createdAt || 0;
+    return u;
+}
+/** Escribe un archivo sólo si su contenido cambió. Lanza Conflict si alguien lo modificó antes. */
+async function writeFile(env, u, name, obj, label) {
+    const text = serialize(obj);
+    if (u.shas[name] && u.shas[name] === (await blobSha(text))) return false;
+    const sha = await putFile(env, filePath(u.lname, name), obj, u.shas[name] || null, label);
+    u.shas[name] = sha;
+    const c = userCache.get(u.lname) || {}; c[name] = { sha, json: obj }; userCache.set(u.lname, c);
+    return true;
+}
+async function saveUser(env, u, label) {
+    const parts = { account: u.account, ...splitData(u.data, u.updatedAt) };
+    for (const name of ['account', ...DATA_FILES]) await writeFile(env, u, name, parts[name], `${label}: ${u.account.name} (${name})`);
+}
+async function deleteUser(env, u) {
+    // account.json se borra el último: si algo falla a medias, la cuenta sigue existiendo y se puede reintentar
+    const order = [...DATA_FILES, 'account'].filter((f) => u.shas[f]);
+    for (const f of order) await deleteFile(env, filePath(u.lname, f), u.shas[f], `cuenta eliminada: ${u.lname}/${f}`);
+    userCache.delete(u.lname);
+}
+
+/** Abre la cuenta del token, aplica fn(u) y guarda los archivos que cambien (reintenta si hay conflicto). */
 async function mutateUser(env, tok, fn, label) {
     for (let attempt = 0; attempt < 5; attempt++) {
-        const f = await getFile(env, userPath(tok.n));
-        if (!f || f.json.id !== tok.u || f.json.tokenVersion !== tok.v) throw new HttpError(401, 'Sesión no válida o caducada.');
-        const rec = f.json;
-        const out = await fn(rec);
+        const u = await openUser(env, tok.n);
+        if (!u) throw new HttpError(401, 'Sesión no válida o caducada.');
+        await loadData(env, u);
+        if (u.account.id !== tok.u || u.account.tokenVersion !== tok.v) throw new HttpError(401, 'Sesión no válida o caducada.');
+        const out = await fn(u);
         try {
-            if (out && out.remove) await deleteFile(env, userPath(tok.n), f.sha, `cuenta eliminada: ${tok.n}`);
-            else await putFile(env, userPath(tok.n), rec, f.sha, `${label}: ${rec.name}`);
-            return { rec, out };
+            if (out && out.remove) await deleteUser(env, u); else await saveUser(env, u, label);
+            return { u, out };
         } catch (e) {
             if (!(e instanceof Conflict)) throw e;
+            userCache.delete(u.lname);
             await sleep(20 + Math.random() * 60);
         }
     }
     throw new HttpError(409, 'Conflicto al guardar. Inténtalo de nuevo.');
 }
+const summaryOf = (u) => summarize({ ...u.account, data: u.data });
 
 // ── Limitador sencillo en memoria (por instancia; ver README) ──
 const hits = new Map();
@@ -272,69 +374,75 @@ async function route(request, env, url, body) {
         rateLimit('reg:' + ip, 10);
         validateName(body.name); validatePassword(body.password);
         const now = Date.now();
-        const rec = {
+        const account = {
             id: crypto.randomUUID(), name: body.name, ...cleanProfile(body.avatar, body.color), ...(await newCredentials(body.password)),
-            tokenVersion: 1, createdAt: now, lastLoginAt: now, updatedAt: now, data: newData()
+            tokenVersion: 1, createdAt: now, lastLoginAt: now
         };
-        try { await putFile(env, userPath(rec.name), rec, null, `cuenta nueva: ${rec.name}`); }
+        const u = { lname: body.name.toLowerCase(), shas: {}, account, data: newData(), updatedAt: now };
+        // account.json se crea sin sha: si el nombre ya existe, GitHub lo rechaza (unicidad atómica)
+        try { await writeFile(env, u, 'account', account, `cuenta nueva: ${account.name}`); }
         catch (e) { throw e instanceof Conflict ? new HttpError(409, 'Ese nombre de usuario ya está en uso.') : e; }
-        await updateLeaderboard(env, rec.id, summarize(rec), `alta ${rec.name}`);
-        return [201, { token: await signToken(env, rec), user: publicUser(rec), data: rec.data, updatedAt: rec.updatedAt }];
+        try { await writeFile(env, u, 'progress', splitData(u.data, now).progress, `cuenta nueva: ${account.name} (progress)`); } catch (e) { /* se creará en el primer guardado */ }
+        await updateLeaderboard(env, account.id, summaryOf(u), `alta ${account.name}`);
+        return [201, { token: await signToken(env, account), user: publicUser(account), data: u.data, updatedAt: now }];
     }
 
     if (pathname === '/api/login' && method === 'POST') {
         const name = typeof body.name === 'string' ? body.name : '';
         rateLimit(`login:${ip}:${name.toLowerCase()}`, 10);
-        const generic = new HttpError(401, 'Usuario o contraseña incorrectos.');
-        const f = NAME_RE.test(name) ? await getFile(env, userPath(name)) : null;
-        if (!(await checkPassword(f && f.json, body.password))) throw generic;
-        const rec = f.json;
-        rec.lastLoginAt = Date.now();
-        try { await putFile(env, userPath(name), rec, f.sha, `login: ${rec.name}`); } catch (e) { /* no crítico */ }
-        return [200, { token: await signToken(env, rec), user: publicUser(rec), data: rec.data, updatedAt: rec.updatedAt }];
+        const u = await openUser(env, name);
+        if (!u) { await checkPassword(null, body.password); throw new HttpError(404, 'No existe ninguna cuenta con ese usuario en el servidor.'); }
+        await loadAccount(env, u);
+        if (!(await checkPassword(u.account, body.password))) throw new HttpError(401, 'Contraseña incorrecta.');
+        await loadData(env, u);
+        u.account.lastLoginAt = Date.now();
+        try { await writeFile(env, u, 'account', u.account, `login: ${u.account.name}`); } catch (e) { /* no crítico */ }
+        return [200, { token: await signToken(env, u.account), user: publicUser(u.account), data: u.data, updatedAt: u.updatedAt }];
     }
 
     // A partir de aquí se exige sesión
     const tok = await readToken(env, request);
 
     if (pathname === '/api/session' && method === 'GET') {
-        const f = await getFile(env, userPath(tok.n));
-        if (!f || f.json.id !== tok.u || f.json.tokenVersion !== tok.v) throw new HttpError(401, 'Sesión no válida o caducada.');
-        return [200, { user: publicUser(f.json), data: f.json.data, updatedAt: f.json.updatedAt }];
+        const u = await openUser(env, tok.n);
+        if (!u) throw new HttpError(401, 'Sesión no válida o caducada.');
+        await loadData(env, u);
+        if (u.account.id !== tok.u || u.account.tokenVersion !== tok.v) throw new HttpError(401, 'Sesión no válida o caducada.');
+        return [200, { user: publicUser(u.account), data: u.data, updatedAt: u.updatedAt }];
     }
 
     if (pathname === '/api/data' && method === 'PUT') {
         if (JSON.stringify(body.data === undefined ? null : body.data).length > MAX_DATA_BYTES) throw new HttpError(413, 'Los datos superan el tamaño máximo (256 KB).');
         const data = sanitizeData(body.data);
-        const { rec } = await mutateUser(env, tok, (r) => { r.data = data; r.updatedAt = Date.now(); }, 'datos');
-        await updateLeaderboard(env, rec.id, summarize(rec), rec.name);
-        return [200, { updatedAt: rec.updatedAt }];
+        const { u } = await mutateUser(env, tok, (x) => { x.data = data; x.updatedAt = Date.now(); }, 'datos');
+        await updateLeaderboard(env, u.account.id, summaryOf(u), u.account.name);
+        return [200, { updatedAt: u.updatedAt }];
     }
 
     if (pathname === '/api/profile' && method === 'PATCH') {
-        const { rec } = await mutateUser(env, tok, (r) => Object.assign(r, cleanProfile(body.avatar === undefined ? r.avatar : body.avatar, body.color === undefined ? r.color : body.color)), 'perfil');
-        await updateLeaderboard(env, rec.id, summarize(rec), rec.name);
-        return [200, { user: publicUser(rec) }];
+        const { u } = await mutateUser(env, tok, (x) => Object.assign(x.account, cleanProfile(body.avatar === undefined ? x.account.avatar : body.avatar, body.color === undefined ? x.account.color : body.color)), 'perfil');
+        await updateLeaderboard(env, u.account.id, summaryOf(u), u.account.name);
+        return [200, { user: publicUser(u.account) }];
     }
 
     if (pathname === '/api/password' && method === 'POST') {
         rateLimit(`pw:${ip}:${tok.n}`, 10);
         validatePassword(body.next);
         const creds = await newCredentials(body.next);
-        const { rec } = await mutateUser(env, tok, async (r) => {
-            if (!(await checkPassword(r, body.current))) throw new HttpError(401, 'La contraseña actual no es correcta.');
-            Object.assign(r, creds); r.tokenVersion++;
+        const { u } = await mutateUser(env, tok, async (x) => {
+            if (!(await checkPassword(x.account, body.current))) throw new HttpError(401, 'La contraseña actual no es correcta.');
+            Object.assign(x.account, creds); x.account.tokenVersion++;
         }, 'contraseña');
-        return [200, { token: await signToken(env, rec) }];
+        return [200, { token: await signToken(env, u.account) }];
     }
 
     if (pathname === '/api/account' && method === 'DELETE') {
         rateLimit(`del:${ip}:${tok.n}`, 10);
-        const { rec } = await mutateUser(env, tok, async (r) => {
-            if (!(await checkPassword(r, body.password))) throw new HttpError(401, 'La contraseña no es correcta.');
+        const { u } = await mutateUser(env, tok, async (x) => {
+            if (!(await checkPassword(x.account, body.password))) throw new HttpError(401, 'La contraseña no es correcta.');
             return { remove: true };
         }, 'baja');
-        await updateLeaderboard(env, rec.id, null, `baja ${rec.name}`);
+        await updateLeaderboard(env, u.account.id, null, `baja ${u.account.name}`);
         return [200, { ok: true }];
     }
 
