@@ -8,4 +8,12 @@
    ============================================================ */
 window.NEXUS_CONFIG = {
     API_URL: 'https://nexus-arcade-api.elestar150.workers.dev'
+
+    // Multijugador (opcional). Por defecto se usan brokers MQTT públicos y STUN de Google/Cloudflare.
+    // Si muchos jugadores no logran conexión directa, añade un servidor TURN en ICE_SERVERS.
+    // , P2P: {
+    //     BROKERS: ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt'],
+    //     ICE_SERVERS: [{ urls: 'stun:stun.l.google.com:19302' },
+    //                   { urls: 'turn:TU-SERVIDOR:3478', username: 'usuario', credential: 'clave' }]
+    // }
 };

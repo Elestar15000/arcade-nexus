@@ -33,7 +33,10 @@
         'tetris.ghost': true,
         'pacman.defaultMode': 'nexus',  // classic | nexus | horde
         'snake.defaultMode': 'evolve',  // classic | evolve | rival | zone
-        'snake.grid': true
+        'snake.grid': true,
+        'pong.defaultLevel': 'normal', // easy | normal | hard | master
+        'pong.shake': true,            // sacudida de pantalla en golpes y puntos
+        'pong.publicRooms': true       // las salas nuevas aparecen en el buscador
     };
 
     const gameStats = () => ({

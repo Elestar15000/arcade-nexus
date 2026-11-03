@@ -21,7 +21,7 @@ with sync_playwright() as p:
     page.goto(f'file://{ROOT}/index.html#/library'); page.wait_for_timeout(400)
     for gid in ('snake', 'tetris', 'pacman'):
         check(page.locator(f'a.game-card[href="#/game/{gid}"]').count() == 1, f'{gid} disponible en la biblioteca')
-    check(page.locator('[data-soon]').count() == 1, 'sólo Pong sigue como "próximamente"')
+    check(page.locator('[data-soon]').count() == 0, 'no quedan juegos "próximamente" (Pong ya está disponible)')
 
     # Snake: partida real por teclado
     page.goto(f'file://{ROOT}/index.html#/game/snake'); page.wait_for_timeout(500)

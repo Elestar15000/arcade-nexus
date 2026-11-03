@@ -99,6 +99,15 @@
                     </section>
 
                     <section class="section card-surface">
+                        <h2 class="section-title"><span>🏓</span> Pong Turbo</h2>
+                        ${C.choiceRow('pong.defaultLevel', 'Nivel de la máquina', '', [
+                            { value: 'easy', label: 'Fácil' }, { value: 'normal', label: 'Normal' },
+                            { value: 'hard', label: 'Difícil' }, { value: 'master', label: 'Maestro' }])}
+                        ${C.switchRow('pong.shake', 'Sacudida de pantalla', 'En golpes fuertes, remates y puntos')}
+                        ${C.switchRow('pong.publicRooms', 'Salas públicas por defecto', 'Las salas que crees aparecerán en el buscador de partidas')}
+                    </section>
+
+                    <section class="section card-surface">
                         <h2 class="section-title"><span>☁️</span> Cuenta y datos</h2>
                         <p class="muted" id="st-sync"></p>
                         <div class="btn-row">

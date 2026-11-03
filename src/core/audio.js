@@ -89,6 +89,12 @@
         tdLeak:         () => tone(150, 0.2, 'sawtooth', 0.06),
         tdRound:        () => { tone(440, 0.08, 'triangle', 0.06); tone(660, 0.1, 'triangle', 0.06, 0.07); },
         tdRoundEnd:     () => tone(880, 0.12, 'sine', 0.05),
+        pongHit:        (r = 1) => { tone(300 + Math.min(r, 4) * 110, 0.07, 'square', 0.045); tone(150 + Math.min(r, 4) * 55, 0.06, 'sine', 0.06); },
+        pongWall:       () => tone(210, 0.05, 'triangle', 0.045),
+        pongTurbo:      () => { noise(0.18, 0.18); tone(880, 0.16, 'sawtooth', 0.05); tone(1320, 0.2, 'square', 0.035, 0.04); },
+        pongGoal:       () => [523, 784, 1047].forEach((f, i) => tone(f, 0.14, 'triangle', 0.08, i * 0.07)),
+        pongMiss:       () => { tone(260, 0.18, 'sawtooth', 0.05); tone(180, 0.24, 'sawtooth', 0.05, 0.09); },
+        pongBeep:       (go) => tone(go ? 988 : 523, go ? 0.25 : 0.12, 'square', 0.05),
         levelup:        () => [523, 659, 784, 988, 1175].forEach((f, i) => tone(f, 0.16, 'triangle', 0.09, i * 0.09))
     };
 

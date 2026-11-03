@@ -21,7 +21,7 @@
                 <div class="page-body">
                     <div class="page-head">
                         <div><h2 class="page-title">Biblioteca de juegos</h2>
-                            <p class="page-sub">${available.length} disponibles · ${soon.length} en camino</p></div>
+                            <p class="page-sub">${available.length} disponibles${soon.length ? ` · ${soon.length} en camino` : ''}</p></div>
                         <label class="search"><span aria-hidden="true">🔎</span>
                             <input type="search" id="lib-search" placeholder="Buscar juego…" aria-label="Buscar juego" /></label>
                     </div>

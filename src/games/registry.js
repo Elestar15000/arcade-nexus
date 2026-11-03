@@ -18,9 +18,7 @@
     const games = new Map();
 
     /** Juegos anunciados pero aún no disponibles. */
-    const COMING_SOON = [
-        { id: 'pong', name: 'Pong Turbo', emoji: '🏓', tags: ['Arcade', 'Multijugador'] }
-    ];
+    const COMING_SOON = [];
 
     Nexus.games.registry = {
         register(def) {

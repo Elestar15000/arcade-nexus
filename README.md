@@ -15,13 +15,14 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   (y las de Wordle y Pasapalabra) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
 - **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días. No hay exportación de datos.
-- **92 logros** (generales, Buscaminas, Wordle, Pasapalabra, Tetris, Pac-Man y Snake) con rareza, progreso y XP.
+- **105 logros** (generales, Buscaminas, Wordle, Pasapalabra, Tetris, Pac-Man, Snake y Pong) con rareza, progreso y XP.
 - **Rankings globales** (general y por juego/modo/métrica).
 - **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
   de la barra lateral y opciones propias de cada juego.
 - **Barra lateral desplegable**: se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`,
   se pliega sola al jugar (configurable) y recuerda su estado.
-- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus** y **Snake Neón**.
+- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón** y
+  **Pong Turbo** (el primero con **multijugador online**, sin servidor propio).
 
 ## Activar cuentas y rankings globales
 
@@ -87,20 +88,53 @@ cuentas del modo local no se migran al servidor.
   quema la cola; se avisa antes).
 - Controles: flechas/WASD, deslizar en móvil, botones táctiles.
 
+## Pong Turbo
+
+- Modo único **Turbo**: la bola acelera un 5 % con cada golpe; el punto de contacto decide el ángulo y mover la pala al golpear le da
+  efecto. Cada devolución carga un 25 % el **⚡ Turbo**; lleno, `Espacio` lo arma y el siguiente golpe es un remate ×1,55. Gana quien llegue a 7.
+- **Contra la máquina**, 4 niveles (la puntuación se multiplica por la dificultad):
+
+  | Nivel | Velocidad de la IA | Reflejos | Predice rebotes | Busca ángulos / usa Turbo | Multiplicador |
+  |---|---|---|---|---|---|
+  | 🌱 Fácil | lenta | 0,30 s | no | no | ×1 |
+  | ⚔️ Normal | media | 0,20 s | sí | poco | ×1,5 |
+  | 🔥 Difícil | rápida | 0,13 s | sí | a menudo | ×2,2 |
+  | 💀 Maestro | muy rápida | 0,075 s | sí | casi siempre | ×3 |
+
+  La IA falla más cuanto más rápida va la bola, así que los peloteos largos siempre acaban decidiéndose.
+- **Online 1 contra 1** (modo `online` en estadísticas y rankings): un jugador **crea una sala** y su navegador hace de servidor
+  (simula la partida); el otro entra con el **código de 5 caracteres**, con el **enlace** `#/game/pong/CÓDIGO` o desde el
+  **buscador de salas** públicas. Cada jugador ve su pala a la izquierda. Se empieza cuando los dos pulsan «Listo» y hay revancha.
+  Abandonar (o cerrar la pestaña) cuenta como derrota y da la victoria al rival.
+- Controles: flechas/`W` `S`, ratón o dedo sobre la pista, botones táctiles. Mientras estás en los menús, dos IA juegan de fondo.
+
+### Multijugador sin servidor (GitHub Pages)
+
+`src/core/net.js` es genérico, para que futuros juegos multijugador lo reutilicen (`RoomHost`, `RoomGuest`, `RoomBrowser`):
+
+- **Señalización y salas**: brokers **MQTT públicos** por WebSocket seguro (por defecto EMQX y HiveMQ, a la vez; basta con que
+  responda uno). Cada sala pública es un mensaje *retenido*; el «último deseo» (LWT) del anfitrión la borra si cierra la pestaña.
+- **Partida**: **WebRTC** (DataChannel P2P) entre los dos navegadores, con un canal fiable para eventos y otro sin reenvíos para
+  el estado (30 Hz). El anfitrión es autoritativo; el invitado mueve su pala en local y extrapola la bola para no notar la latencia.
+- **Plan B**: si en 9 s no hay conexión directa (NAT estricta, redes corporativas…), los mensajes se **retransmiten por el broker**
+  (15 Hz, algo más de latencia). Para mejorar la conexión directa se puede añadir un servidor TURN en `config.js` (`P2P.ICE_SERVERS`).
+- Privacidad: los brokers públicos son abiertos; por ellos sólo pasan el código de sala, nombre, avatar y nivel del anfitrión y
+  los datos de la partida. Ni contraseñas ni progreso. Las partidas online, como el resto, se registran en el cliente (no son a prueba de trampas).
+
 ## Estructura
 
 ```
 index.html
 assets/
-  css/        base · layout · components · pages · games/{minesweeper,wordle,pasapalabra,arcade,tetris,pacman,snake}
+  css/        base · layout · components · pages · games/{minesweeper,wordle,pasapalabra,arcade,tetris,pacman,snake,pong}
   data/       words-es.js (diccionario)
 src/
-  core/       namespace, utils, events, storage, hash, schema, audio, backend (servidor / local)
+  core/       namespace, utils, events, storage, hash, schema, audio, backend (servidor / local), net (multijugador P2P)
   services/   settings, users, progress, achievements, leaderboard
   ui/         toast, modal, fx, particles, components, sidebar, router, auth, pages/*
   games/      registry.js · minesweeper/ · wordle/{dictionary,game}.js
               pasapalabra/{bank,game}.js
-              shared/kit.js (canvas, bucle, táctil) · tetris/ · pacman/ · snake/   app.js  arranque
+              shared/kit.js (canvas, bucle, táctil) · tetris/ · pacman/ · snake/ · pong/   app.js  arranque
 backend/      Cloudflare Worker (API sobre repo privado de GitHub) + README de despliegue
 config.js     URL del backend (API_URL)
 tests/        pruebas E2E (Playwright) y prueba del Worker (Node)
@@ -132,7 +166,11 @@ python3 tests/e2e_minesweeper.py
 python3 tests/e2e_pasapalabra.py  # rosco diario, dificultades, persistencia
 node tests/pasapalabra_bank_test.mjs  # valida el banco de definiciones
 python3 tests/e2e_arcade.py       # Tetris, Pac-Man y Snake
+python3 tests/e2e_pong.py         # Pong: CPU y online entre navegadores (P2P, retransmisión, sala llena, abandono…)
+                                  # (arranca solo dos brokers MQTT locales: tests/mqtt_test_broker.mjs; no necesita Internet)
 node tests/worker_test.mjs        # API del Worker contra un GitHub falso en memoria
 ```
+
+Con `API_URL` configurado, las pruebas fuerzan el modo local con `local_mode(page)` de `tests/helpers.py` (lo usa `e2e_pong.py`).
 
 Las fuentes (Bricolage Grotesque, Manrope) se cargan de Google Fonts; sin conexión se usan fuentes del sistema.
