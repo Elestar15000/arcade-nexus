@@ -22,3 +22,15 @@ def local_mode(page, brokers=None, force_relay=False):
         import json
         js += "window.NEXUS_P2P_OVERRIDE = %s;" % json.dumps({'BROKERS': brokers, 'FORCE_RELAY': force_relay})
     page.add_init_script(js)
+
+
+# Todas las páginas que creen las pruebas arrancan en modo local (las cuentas no tocan el servidor real
+# aunque config.js tenga API_URL). Las pruebas multijugador añaden sus brokers con local_mode(page, brokers).
+def _auto_local():
+    from playwright.sync_api._generated import Browser, BrowserContext
+    if getattr(Browser, '_nexus_local', False): return
+    ob, oc = Browser.new_page, BrowserContext.new_page
+    def bp(self, *a, **k): pg = ob(self, *a, **k); local_mode(pg); return pg
+    def cp(self, *a, **k): pg = oc(self, *a, **k); local_mode(pg); return pg
+    Browser.new_page = bp; BrowserContext.new_page = cp; Browser._nexus_local = True
+_auto_local()

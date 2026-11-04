@@ -31,7 +31,12 @@
 
 .pp-core { position: absolute; inset: 21%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; }
 .pp-time { font-family: var(--font-title); font-weight: 800; font-size: calc(var(--ring) * .15); line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
-.pp-time.low { color: var(--danger); animation: ppPulseText .8s ease-in-out infinite; }
+.pp-cur-letter { font-size: calc(var(--ring) * .2); color: var(--warning); text-shadow: 0 0 18px rgba(245, 158, 11, .5); }
+.pp-mark { display: flex; flex-direction: column; align-items: center; gap: 2px; margin: 4px auto 12px; padding: 10px 18px; border-radius: 14px;
+    background: rgba(245, 158, 11, .1); border: 1px solid rgba(245, 158, 11, .45); text-align: center; }
+.pp-mark > span { font-size: .78em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+.pp-mark b { font-family: var(--font-title); font-size: 2.1em; line-height: 1.1; color: var(--warning); font-variant-numeric: tabular-nums; }
+.pp-mark small { color: var(--text-dim); font-size: .8em; }
 @keyframes ppPulseText { 50% { opacity: .55; } }
 .pp-score { display: flex; gap: 10px; font-weight: 800; font-size: calc(var(--ring) * .04); font-variant-numeric: tabular-nums; }
 .pp-score .ok { color: var(--success); } .pp-score .bad { color: var(--danger); } .pp-score .pend { color: var(--text-dim); }
@@ -86,4 +91,4 @@
     .pp-card { padding: 16px; }
     .pp-def { font-size: 1.02rem; min-height: 0; }
 }
-@media (prefers-reduced-motion: reduce) { .pp-l[data-cur], .pp-time.low { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .pp-l[data-cur] { animation: none; } }

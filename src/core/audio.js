@@ -95,6 +95,14 @@
         pongGoal:       () => [523, 784, 1047].forEach((f, i) => tone(f, 0.14, 'triangle', 0.08, i * 0.07)),
         pongMiss:       () => { tone(260, 0.18, 'sawtooth', 0.05); tone(180, 0.24, 'sawtooth', 0.05, 0.09); },
         pongBeep:       (go) => tone(go ? 988 : 523, go ? 0.25 : 0.12, 'square', 0.05),
+        chessMove:      () => { tone(260, 0.05, 'triangle', 0.07); noise(0.03, 0.03); },
+        chessCapture:   () => { tone(180, 0.08, 'square', 0.05); noise(0.09, 0.07); },
+        chessCastle:    () => { tone(260, 0.05, 'triangle', 0.07); tone(300, 0.05, 'triangle', 0.07, 0.09); },
+        chessCheck:     () => { tone(660, 0.09, 'square', 0.05); tone(880, 0.12, 'square', 0.045, 0.08); },
+        bsFire:         () => { noise(0.12, 0.08); tone(140, 0.12, 'sawtooth', 0.04); },
+        bsSplash:       () => { noise(0.05, 0.35); tone(320, 0.2, 'sine', 0.04, 0.05); },
+        bsHit:          () => { noise(0.22, 0.3); tone(90, 0.3, 'sawtooth', 0.06); },
+        bsSunk:         () => { noise(0.25, 0.6); [196, 147, 110].forEach((f, i) => tone(f, 0.3, 'sawtooth', 0.05, i * 0.14)); },
         levelup:        () => [523, 659, 784, 988, 1175].forEach((f, i) => tone(f, 0.16, 'triangle', 0.09, i * 0.09))
     };
 

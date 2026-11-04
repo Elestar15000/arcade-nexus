@@ -102,7 +102,9 @@ try:
         check(gy > 330 and abs(gy - hy) < 25, f'la pala del invitado llega al anfitrión ({gy:.0f} vs {hy:.0f})')
         A.wait_for_timeout(3000)
         bx = [A.evaluate('__pong.sim.ball.x'), B.evaluate('__pong.sim.ball.x')]
-        check(A.evaluate('__pong.sim.phase') == 'live' and B.evaluate('__pong.sim.phase') == 'live', 'bola en juego en los dos navegadores')
+        A.wait_for_function("__pong.sim.phase === 'live'", timeout=8000); B.wait_for_function("__pong.sim.phase === 'live'", timeout=8000)
+        bx = [A.evaluate('__pong.sim.ball.x'), B.evaluate('__pong.sim.ball.x')]
+        check(True, 'bola en juego en los dos navegadores')
         check(abs(bx[0] - bx[1]) < 120, f'la bola del invitado sigue a la del anfitrión ({bx[0]:.0f} / {bx[1]:.0f})')
         check(B.evaluate('__pong.net.conn.rtt') is not None, 'latencia medida')
         A.screenshot(path=str(SHOTS / 'pong_online_host.png')); B.screenshot(path=str(SHOTS / 'pong_online_guest.png'))

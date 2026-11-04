@@ -1,13 +1,14 @@
 /* ============================================================
    NEXUS ARCADE · games/pasapalabra/game.js
-   Pasapalabra: un rosco de 25 letras contra el reloj.
+   Pasapalabra: un rosco de 25 letras, sin reloj a la vista.
    - Rosco diario (igual para todos los jugadores cada día) y
      roscos aleatorios en 4 dificultades: básico, medio,
      difícil y profesional.
    - Acierta, falla o di «pasapalabra» para dejar la letra para
-     la siguiente vuelta. El reloj no se detiene.
+     la siguiente vuelta. No hay cuenta atrás: al terminar se
+     muestra tu marca (el tiempo que has tardado).
    - La partida se guarda en la cuenta (por modo) con la hora de
-     fin absoluta: salir de la página no congela el tiempo.
+     inicio absoluta: salir de la página no congela la marca.
    ============================================================ */
 (function () {
     'use strict';
@@ -17,12 +18,13 @@
     const WIN_OK = 18;                    // aciertos para contar como victoria
     const EPOCH = '2026-01-01';
 
+    // par = tiempo de referencia (s): terminar antes da puntos extra. penalty = segundos que suma cada fallo.
     const DIFF = {
-        daily:  { label: 'Diaria',      emoji: '📅', time: 150, hints: 0, showLen: true,  penalty: 0,  tol: false, mult: 1.5, desc: 'El mismo rosco para todos, un intento al día. Mezcla definiciones de nivel medio y difícil.' },
-        basic:  { label: 'Básico',      emoji: '🌱', time: 240, hints: 3, showLen: true,  penalty: 0,  tol: true,  mult: 1,   desc: 'Palabras cotidianas. 4 min, 3 pistas y se perdonan pequeñas erratas.' },
-        medium: { label: 'Medio',       emoji: '⚔️', time: 180, hints: 1, showLen: true,  penalty: 0,  tol: true,  mult: 1.25, desc: 'Vocabulario general y cultura. 3 min, 1 pista y se perdonan pequeñas erratas.' },
-        hard:   { label: 'Difícil',     emoji: '🔥', time: 150, hints: 0, showLen: true,  penalty: 0,  tol: false, mult: 1.5, desc: 'Palabras poco comunes. 2:30, sin pistas y la ortografía debe ser exacta.' },
-        pro:    { label: 'Profesional', emoji: '💀', time: 120, hints: 0, showLen: false, penalty: 10, tol: false, mult: 2,   desc: 'Léxico culto y raro. 2 min, no sabes cuántas letras tiene y cada fallo resta 10 s.' }
+        daily:  { label: 'Diaria',      emoji: '📅', par: 240, hints: 0, showLen: true,  penalty: 0,  tol: false, mult: 1.5, desc: 'El mismo rosco para todos, un intento al día. Mezcla definiciones de nivel medio y difícil.' },
+        basic:  { label: 'Básico',      emoji: '🌱', par: 360, hints: 3, showLen: true,  penalty: 0,  tol: true,  mult: 1,   desc: 'Palabras cotidianas. 3 pistas y se perdonan pequeñas erratas.' },
+        medium: { label: 'Medio',       emoji: '⚔️', par: 300, hints: 1, showLen: true,  penalty: 0,  tol: true,  mult: 1.25, desc: 'Vocabulario general y cultura. 1 pista y se perdonan pequeñas erratas.' },
+        hard:   { label: 'Difícil',     emoji: '🔥', par: 270, hints: 0, showLen: true,  penalty: 0,  tol: false, mult: 1.5, desc: 'Palabras poco comunes. Sin pistas y la ortografía debe ser exacta.' },
+        pro:    { label: 'Profesional', emoji: '💀', par: 240, hints: 0, showLen: false, penalty: 10, tol: false, mult: 2,   desc: 'Léxico culto y raro. No sabes cuántas letras tiene y cada fallo suma 10 s a tu marca.' }
     };
     const MODE_ORDER = ['daily', 'basic', 'medium', 'hard', 'pro'];
     const RESULT = { PENDING: 0, OK: 1, FAIL: 2, PASSED: 3 };
@@ -96,7 +98,9 @@
         const d = DIFF[st.mode];
         const ok = st.res.filter(r => r === RESULT.OK).length;
         const fails = st.res.filter(r => r === RESULT.FAIL).length;
-        let s = ok * 100 + Math.floor(st.left) * 2 - fails * 25 - st.hintsUsed * 20;
+        // Rapidez: sólo si se supera el rosco; cada segundo por debajo del tiempo de referencia suma
+        const speed = ok >= WIN_OK ? Math.max(0, Math.round((d.par - (st.time || 0)) * 1.5)) : 0;
+        let s = ok * 100 + speed - fails * 25 - st.hintsUsed * 20;
         if (ok === st.res.length) s += 500;
         return Math.max(0, Math.round(s * d.mult));
     }
@@ -117,7 +121,6 @@
             this.root = root;
             this.destroyed = false;
             this.timers = new Set();
-            this.tick = null;
             this.build();
             this.bind();
             const dm = Nexus.services.settings.get('pasapalabra.defaultMode');
@@ -137,8 +140,8 @@
                         <a class="btn-back" href="#/library"><span class="back-arrow">←</span><span>Biblioteca</span></a>
                         <div class="game-title"><span>🎡</span> Pasapalabra</div>
                         <div class="game-header-stats">
-                            <div class="pill"><span aria-hidden="true">⏱️</span><span class="pill-value" data-el="hTimer">00:00</span></div>
-                            <div class="pill"><span aria-hidden="true">✅</span><span class="pill-value" data-el="hOk">0</span></div>
+                            <div class="pill" title="Aciertos"><span aria-hidden="true">✅</span><span class="pill-value" data-el="hOk">0</span></div>
+                            <div class="pill" title="Fallos"><span aria-hidden="true">❌</span><span class="pill-value" data-el="hBad">0</span></div>
                         </div>
                     </header>
                     <div class="pp-body">
@@ -203,8 +206,8 @@
             const d = DIFF[mode];
             return {
                 mode, date: mode === 'daily' ? this.today : null, qs, res: qs.map(() => 0), idx: 0,
-                status: 'ready', endAt: 0, total: d.time, hintsLeft: d.hints, hintsUsed: 0, hints: qs.map(() => 0),
-                left: d.time, score: 0, fails: 0, ok: 0, recorded: false
+                status: 'ready', startAt: 0, penaltyS: 0, time: 0, hintsLeft: d.hints, hintsUsed: 0, hints: qs.map(() => 0),
+                score: 0, fails: 0, ok: 0, recorded: false
             };
         }
 
@@ -213,11 +216,16 @@
             let st = s.runs[mode];
             if (mode === 'daily' && (!st || st.date !== this.today)) st = null;
             if (!st || !Array.isArray(st.qs) || st.qs.length !== B().LETTERS.length) { st = this.newRun(mode); }
+            // Partidas guardadas con la versión con cuenta atrás (endAt): se convierten a hora de inicio
+            if (st.startAt === undefined) {
+                st.startAt = st.endAt ? st.endAt - (st.total || 150) * 1000 : 0;
+                st.penaltyS = 0;
+                st.time = st.status === 'over' ? Math.round((st.total || 0) - (st.left || 0)) : 0;
+                delete st.endAt; delete st.total; delete st.left;
+            }
             s.runs[mode] = st;
             this.mode = mode; this.st = st;
-            if (st.status === 'playing' && Date.now() >= st.endAt) this.finish('time');
-            else persist();
-            this.startTick();
+            persist();
             this.render();
         }
 
@@ -246,22 +254,18 @@
             const st = this.st;
             if (st.status !== 'ready') return;
             st.status = 'playing';
-            st.endAt = Date.now() + st.total * 1000;
+            st.startAt = Date.now();
+            st.penaltyS = 0;
             st.idx = 0;
             persist();
             this.render();
         }
 
-        remaining() { const st = this.st; return st.status === 'playing' ? Math.max(0, (st.endAt - Date.now()) / 1000) : (st.status === 'ready' ? st.total : st.left); }
-
-        startTick() {
-            clearInterval(this.tick);
-            this.tick = setInterval(() => {
-                if (this.destroyed) return;
-                const st = this.st;
-                if (st.status === 'playing' && Date.now() >= st.endAt) { this.finish('time'); this.render(); return; }
-                this.drawTimer();
-            }, 250);
+        /** Segundos de la marca (tiempo real + penalizaciones). */
+        elapsed() {
+            const st = this.st;
+            if (st.status === 'playing') return Math.max(0, (Date.now() - st.startAt) / 1000) + (st.penaltyS || 0);
+            return st.status === 'over' ? (st.time || 0) : 0;
         }
 
         answer(text) {
@@ -276,7 +280,7 @@
             Nexus.audio.play(good ? 'win' : 'lose');
             if (!good) {
                 const pen = DIFF[st.mode].penalty;
-                if (pen) { st.endAt -= pen * 1000; this.flash(`❌ Era «${q.a}» · −${pen} s`, true); }
+                if (pen) { st.penaltyS = (st.penaltyS || 0) + pen; this.flash(`❌ Era «${q.a}» · +${pen} s a tu marca`, true); }
                 else this.flash(`❌ Era «${q.a}»`, true);
                 this.shakeCur();
             } else this.flash('✅ ¡Correcto!', false, true);
@@ -287,7 +291,7 @@
             const st = this.st;
             if (st.status !== 'playing') return;
             const nxt = nextIndex(st.res.map((r, i) => i === st.idx ? RESULT.PASSED : r), st.idx);
-            if (nxt === -1 || nxt === st.idx) { this.flash('Es la última letra: ¡responde o se acaba el tiempo!'); return; }
+            if (nxt === -1 || nxt === st.idx) { this.flash('Es la última letra que queda: respóndela o ríndete.'); return; }
             st.res[st.idx] = RESULT.PASSED;
             st.idx = nxt;
             persist(); this.render();
@@ -315,7 +319,6 @@
             const nxt = nextIndex(st.res, st.idx);
             if (nxt === -1) { this.finish('done'); this.render(); return; }
             st.idx = nxt;
-            if (Date.now() >= st.endAt) { this.finish('time'); this.render(); return; }
             persist(); this.render();
         }
 
@@ -323,8 +326,7 @@
         finish(reason) {
             const st = this.st;
             if (st.status === 'over') return;
-            st.left = Math.max(0, (st.endAt - Date.now()) / 1000);
-            if (reason === 'time') st.left = 0;
+            st.time = Math.round(this.elapsed() * 10) / 10;
             st.status = 'over'; st.reason = reason;
             st.ok = st.res.filter(r => r === RESULT.OK).length;
             st.fails = st.res.filter(r => r === RESULT.FAIL).length;
@@ -342,11 +344,11 @@
             const total = st.qs.length;
             const won = st.ok >= WIN_OK;
             const perfect = st.ok === total;
-            const used = Math.max(1, Math.round(st.total - st.left));
+            const used = Math.max(1, Math.round(st.time));
             const xp = Math.round((10 + st.ok * 3 + (perfect ? 60 : 0)) * (DIFF[st.mode].mult)) + (daily && won ? 25 : 0);
             return Nexus.services.progress.recordGame({
                 game: 'pasapalabra', mode: st.mode, won, score: st.score, time: used, xp,
-                extra: { ok: st.ok, fails: st.fails, hints: st.hintsUsed, left: Math.round(st.left), perfect, daily, difficulty: st.mode, reason: st.reason },
+                extra: { ok: st.ok, fails: st.fails, hints: st.hintsUsed, time: used, penalty: st.penaltyS || 0, perfect, daily, difficulty: st.mode, reason: st.reason },
                 updateExtra: (extra) => {
                     extra.totalOk = (extra.totalOk || 0) + st.ok;
                     extra.bestOk = Math.max(extra.bestOk || 0, st.ok);
@@ -379,13 +381,13 @@
             Nexus.ui.fx && won && Nexus.ui.fx.confetti({ count: perfect ? 220 : 100 });
             Nexus.ui.modal.resultModal({
                 emoji: perfect ? '🏆' : won ? '🎉' : '😵', kind: won ? 'win' : 'lose',
-                title: perfect ? '¡Rosco perfecto!' : won ? '¡Buen rosco!' : st.reason === 'time' ? '¡Se acabó el tiempo!' : 'Rosco terminado',
+                title: perfect ? '¡Rosco perfecto!' : won ? '¡Buen rosco!' : 'Rosco terminado',
                 subtitle: won ? `${st.ok} de ${st.qs.length} letras acertadas.` : `Necesitas ${WIN_OK} aciertos para ganar. Has hecho ${st.ok}.`,
-                extraHtml: this.missedHtml(),
+                extraHtml: this.markHtml() + this.missedHtml(),
                 stats: [
                     { label: 'Puntuación', value: formatNumber(st.score) },
                     { label: 'Aciertos', value: `${st.ok}/${st.qs.length}` },
-                    { label: 'Fallos', value: String(st.fails) },
+                    { label: 'Fallos', value: String(st.fails) + (st.penaltyS ? ` (+${st.penaltyS} s)` : '') },
                     { label: 'Modo', value: d.label }
                 ],
                 result,
@@ -397,13 +399,25 @@
             });
         }
 
+        /** Marca de tiempo grande + mejor marca del modo (sólo cuentan los roscos superados). */
+        markHtml() {
+            const st = this.st;
+            const ms = Nexus.services.progress.stats('pasapalabra').byMode[st.mode];
+            const best = ms && ms.bestTime != null ? ms.bestTime : null;
+            const isBest = st.ok >= WIN_OK && best != null && Math.round(st.time) <= best;
+            return `<div class="pp-mark"><span>⏱️ Tu marca</span><b>${formatTime(st.time)}</b>
+                ${st.penaltyS ? `<small>incluye +${st.penaltyS} s por fallos</small>` : ''}
+                ${best != null ? `<small>${isBest ? '🏅 ¡Es tu mejor marca en este modo!' : `Tu mejor marca en ${esc(DIFF[st.mode].label)}: ${formatTime(best)}`}</small>`
+                    : st.ok >= WIN_OK ? '' : '<small>Supera el rosco para que la marca cuente como récord.</small>'}</div>`;
+        }
+
         shareText() {
             const st = this.st, d = DIFF[st.mode];
             const tag = st.mode === 'daily' ? `Diaria #${daysBetween(EPOCH, st.date) + 1}` : d.label;
             const cell = (r) => r === RESULT.OK ? '🟩' : r === RESULT.FAIL ? '🟥' : '⬛';
             const rows = [];
             for (let i = 0; i < st.res.length; i += 5) rows.push(st.res.slice(i, i + 5).map(cell).join(''));
-            return `Nexus Pasapalabra · ${tag} · ${st.ok}/${st.qs.length}${st.ok === st.qs.length ? ' 🏆' : ''}\n\n${rows.join('\n')}`;
+            return `Nexus Pasapalabra · ${tag} · ${st.ok}/${st.qs.length}${st.ok === st.qs.length ? ' 🏆' : ''} · ⏱️ ${formatTime(st.time)}\n\n${rows.join('\n')}`;
         }
 
         async share() {
@@ -416,13 +430,14 @@
             Nexus.ui.modal.open({
                 title: 'Cómo se juega', icon: '🎡', className: 'modal-help',
                 body: `
-                    <p class="modal-text left">Completa el <b>rosco de ${B().LETTERS.length} letras</b> antes de que se acabe el tiempo. Cada letra tiene una definición: la respuesta <b>empieza por</b> esa letra (o <b>contiene</b> la Ñ o la X).</p>
+                    <p class="modal-text left">Completa el <b>rosco de ${B().LETTERS.length} letras</b> lo más rápido que puedas. Cada letra tiene una definición: la respuesta <b>empieza por</b> esa letra (o <b>contiene</b> la Ñ o la X).</p>
                     <ul class="help-list">
                         <li>Escribe la respuesta y pulsa <b>Enter</b>. Las tildes no importan; la <b>Ñ</b> sí es una letra distinta.</li>
                         <li>🟩 acierto · 🟥 fallo (no se puede repetir) · 🟦 pasada. Escribe <b>pasapalabra</b> o pulsa el botón para dejarla para la siguiente vuelta.</li>
                         <li>Ganas con <b>${WIN_OK} aciertos</b> o más. Acertar las 25 es un <b>rosco perfecto</b> (+500 puntos).</li>
-                        <li><b>Diaria</b>: el mismo rosco para todos, una vez al día. <b>Aleatorios</b>: ilimitados, en 4 dificultades (más difícil = menos tiempo, menos ayudas y más puntos).</li>
-                        <li>Si sales de la página, <b>el reloj sigue corriendo</b>.</li>
+                        <li><b>Diaria</b>: el mismo rosco para todos, una vez al día. <b>Aleatorios</b>: ilimitados, en 4 dificultades (más difícil = menos ayudas y más puntos).</li>
+                        <li><b>No hay cuenta atrás</b>: juega a tu ritmo. Al terminar verás tu <b>marca</b> (lo que has tardado) y si es tu récord. Terminar rápido da puntos extra.</li>
+                        <li>En <b>Profesional</b>, cada fallo suma 10 s a tu marca. Si sales de la página, el tiempo sigue contando.</li>
                     </ul>`,
                 actions: [{ label: '¡A jugar!', kind: 'primary' }]
             });
@@ -430,7 +445,7 @@
 
         // ── Pintado ─────────────────────────────────────────
         render() {
-            this.drawToolbar(); this.drawRing(); this.drawPanel(); this.drawTimer();
+            this.drawToolbar(); this.drawRing(); this.drawPanel(); this.drawCounters();
             const input = this.root.querySelector('[data-el="form"] input');
             if (input && window.matchMedia && matchMedia('(pointer: fine)').matches) input.focus({ preventScroll: true });   // en táctil no se abre el teclado solo
         }
@@ -453,19 +468,18 @@
                 <div class="pp-ring" role="img" aria-label="Rosco: ${ok} aciertos, ${bad} fallos, ${pend} pendientes">
                     ${st.qs.map((q, i) => `<div class="pp-l" data-s="${st.res[i]}"${st.status === 'playing' && i === st.idx ? ' data-cur' : ''}${st.status === 'over' && st.res[i] !== RESULT.OK && st.res[i] !== RESULT.FAIL ? ' data-miss' : ''} style="--a:${(i * 360 / n - 90).toFixed(3)}deg"><span>${esc(q.l)}</span></div>`).join('')}
                     <div class="pp-core">
-                        <div class="pp-time" data-el="time">${formatTime(this.remaining())}</div>
+                        ${st.status === 'over'
+                            ? `<div class="pp-time" title="Tu marca">${formatTime(st.time)}</div>`
+                            : `<div class="pp-time pp-cur-letter">${st.status === 'playing' ? esc(st.qs[st.idx].l) : '🎡'}</div>`}
                         <div class="pp-score"><span class="ok">✔ ${ok}</span><span class="bad">✖ ${bad}</span><span class="pend">… ${pend}</span></div>
                     </div>
                 </div>`;
         }
 
-        drawTimer() {
-            const t = formatTime(this.remaining());
-            const a = this.el('time'), h = this.el('hTimer');
-            if (a) { a.textContent = t; a.classList.toggle('low', this.st.status === 'playing' && this.remaining() <= 20); }
-            if (h) h.textContent = t;
-            const o = this.el('hOk');
+        drawCounters() {
+            const o = this.el('hOk'), b = this.el('hBad');
             if (o) o.textContent = String(this.st.res.filter(r => r === RESULT.OK).length);
+            if (b) b.textContent = String(this.st.res.filter(r => r === RESULT.FAIL).length);
         }
 
         patternHtml(q) {
@@ -486,12 +500,12 @@
                         <h2>${esc(st.mode === 'daily' ? 'Rosco diario' : 'Rosco ' + d.label.toLowerCase())}</h2>
                         <p>${esc(d.desc)}</p>
                         <ul class="pp-rules">
-                            <li>⏱️ <b>${formatTime(d.time)}</b></li>
+                            <li>⏱️ <b>Sin cuenta atrás</b></li>
                             <li>💡 <b>${d.hints}</b> ${d.hints === 1 ? 'pista' : 'pistas'}</li>
                             <li>✨ Puntos ×<b>${d.mult}</b></li>
                         </ul>
                         <button type="button" class="btn btn-primary btn-glow btn-lg" data-act="start">▶ Empezar</button>
-                        <small class="muted">El reloj arranca al pulsar y no se detiene.</small>
+                        <small class="muted">Juega a tu ritmo: al terminar verás tu marca de tiempo${d.penalty ? ` (cada fallo suma ${d.penalty} s)` : ''}.</small>
                     </div>`;
                 return;
             }
@@ -500,6 +514,7 @@
                 el.innerHTML = `
                     <div class="pp-card pp-end">
                         <h2>${perfect ? '🏆 Rosco perfecto' : st.ok >= WIN_OK ? '🎉 Rosco superado' : 'Rosco terminado'}</h2>
+                        ${this.markHtml()}
                         <div class="pp-end-stats">
                             <div><span>Aciertos</span><b>${st.ok}/${st.qs.length}</b></div>
                             <div><span>Fallos</span><b>${st.fails}</b></div>
@@ -555,7 +570,6 @@
 
         destroy() {
             this.destroyed = true;
-            clearInterval(this.tick);
             clearTimeout(this.msgT);
             try { persist(); } catch (e) { /* noop */ }
             document.removeEventListener('keydown', this.onKey);
@@ -587,8 +601,8 @@
             test: (c) => ev(c, e => e.extra.perfect) },
         { id: 'pp_nofail', game: 'pasapalabra', name: 'Pulso firme', desc: 'Supera un rosco sin ningún fallo.', icon: '🎯', rarity: 'epic',
             test: (c) => ev(c, e => e.won && e.extra.fails === 0) },
-        { id: 'pp_fast', game: 'pasapalabra', name: 'Sobrado de tiempo', desc: 'Supera un rosco con más de 45 segundos de sobra.', icon: '⚡', rarity: 'rare',
-            test: (c) => ev(c, e => e.won && e.extra.left >= 45) },
+        { id: 'pp_fast', game: 'pasapalabra', name: 'Contrarreloj', desc: 'Supera un rosco con una marca de menos de 3 minutos.', icon: '⚡', rarity: 'rare',
+            test: (c) => ev(c, e => e.won && e.time < 180) },
         { id: 'pp_pro', game: 'pasapalabra', name: 'Profesional', desc: 'Supera un rosco en dificultad Profesional.', icon: '💀', rarity: 'epic',
             test: (c) => ev(c, e => e.won && e.extra.difficulty === 'pro') },
         { id: 'pp_nohint', game: 'pasapalabra', name: 'Sin pistas', desc: 'Supera un rosco Básico sin usar pistas.', icon: '🧠', rarity: 'common',
@@ -604,11 +618,11 @@
     // ── Registro ────────────────────────────────────────────
     Nexus.games.registry.register({
         id: 'pasapalabra', name: 'Pasapalabra', emoji: '🎡', accent: '#f59e0b',
-        tagline: 'Rosco diario · 4 dificultades',
-        description: 'El rosco de 25 letras contra el reloj: acierta, falla o pasa palabra. Un rosco diario igual para todos y roscos aleatorios en dificultad básica, media, difícil y profesional.',
+        tagline: 'Rosco diario · 4 dificultades · tu marca',
+        description: 'El rosco de 25 letras a tu ritmo: acierta, falla o pasa palabra y, al terminar, mira tu marca de tiempo. Un rosco diario igual para todos y roscos aleatorios en dificultad básica, media, difícil y profesional.',
         tags: ['Palabras', 'Puzzle'],
         modes: MODE_ORDER.map(m => ({ id: m, label: DIFF[m].label })),
-        metrics: [{ id: 'score', label: 'Puntuación' }, { id: 'wins', label: 'Victorias' }],
+        metrics: [{ id: 'score', label: 'Puntuación' }, { id: 'time', label: 'Mejor marca' }, { id: 'wins', label: 'Victorias' }],
         statsExtra,
         mount: (root) => new Pasapalabra(root)
     });

@@ -34,6 +34,9 @@
             const dailyState = wordle && data.saves.wordle && data.saves.wordle.daily;
             const dailyDone = !!(dailyState && dailyState.date === dayKey() && dailyState.status !== 'playing');
 
+            const phraseState = wordle && data.saves.wordle && data.saves.wordle.phrase;
+            const phraseDone = !!(phraseState && phraseState.date === dayKey() && phraseState.status !== 'playing');
+
             const pasa = Nexus.games.registry.get('pasapalabra');
             const ppDaily = pasa && data.saves.pasapalabra && data.saves.pasapalabra.runs && data.saves.pasapalabra.runs.daily;
             const ppDone = !!(ppDaily && ppDaily.date === dayKey() && ppDaily.status === 'over');
@@ -79,11 +82,18 @@
                                 <small>${dailyDone ? '✅ Ya lo has jugado hoy. ¡Vuelve mañana!' : 'Una palabra nueva cada día, igual para todos.'}</small></span>
                             <span class="quick-go">${dailyDone ? 'Ver' : 'Jugar'}</span>
                         </a>` : ''}
+                        ${wordle ? `
+                        <a class="quick-card" href="#/game/wordle/frase">
+                            <span class="quick-emoji">🧩</span>
+                            <span class="quick-text"><strong>Frase del día</strong>
+                                <small>${phraseDone ? '✅ Ya la has completado hoy. ¡Vuelve mañana!' : 'Rellena los huecos de un refrán con tus letras verdes.'}</small></span>
+                            <span class="quick-go">${phraseDone ? 'Ver' : 'Jugar'}</span>
+                        </a>` : ''}
                         ${pasa ? `
                         <a class="quick-card" href="#/game/pasapalabra">
                             <span class="quick-emoji">🎡</span>
                             <span class="quick-text"><strong>Rosco diario de Pasapalabra</strong>
-                                <small>${ppDone ? '✅ Ya lo has jugado hoy. ¡Vuelve mañana!' : '25 letras contra el reloj, igual para todos.'}</small></span>
+                                <small>${ppDone ? '✅ Ya lo has jugado hoy. ¡Vuelve mañana!' : '25 letras a tu ritmo; al final, tu marca de tiempo.'}</small></span>
                             <span class="quick-go">${ppDone ? 'Ver' : 'Jugar'}</span>
                         </a>` : ''}
                         <a class="quick-card" href="#/profile">

@@ -36,7 +36,11 @@
         'snake.grid': true,
         'pong.defaultLevel': 'normal', // easy | normal | hard | master
         'pong.shake': true,            // sacudida de pantalla en golpes y puntos
-        'pong.publicRooms': true       // las salas nuevas aparecen en el buscador
+        'pong.publicRooms': true,      // las salas nuevas aparecen en el buscador
+        'online.publicRooms': true,    // ídem para Ajedrez y Hundir la flota
+        'chess.defaultLevel': 'normal', // easy | normal | hard | master
+        'chess.showLegal': true,       // marcar las jugadas legales
+        'battleship.defaultLevel': 'normal' // easy | normal | hard | master
     };
 
     const gameStats = () => ({

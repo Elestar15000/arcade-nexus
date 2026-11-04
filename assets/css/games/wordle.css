@@ -58,3 +58,31 @@
 .help-example { margin-bottom: 8px; } .help-example .help-word { justify-content: flex-start; margin-bottom: 4px; }
 .help-example p { font-size: .88em; color: var(--text-dim); }
 .help-list { margin: 12px 0 0 18px; color: var(--text-dim); font-size: .88em; display: flex; flex-direction: column; gap: 6px; }
+
+/* ── Frase del día ── */
+.wp[hidden] { display: none; }
+.wp { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(760px, 100%); }
+.wp-card { width: 100%; padding: 16px 18px 18px; border-radius: 18px; text-align: center;
+    background: linear-gradient(160deg, rgba(0, 184, 148, .12), var(--bg-surface) 60%); border: 1px solid rgba(0, 184, 148, .35);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+.wp-tag { font-size: .74em; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+.wp-phrase { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 6px; margin: 0;
+    font-family: var(--font-title); font-size: clamp(1.05em, 2.6vw, 1.45em); font-weight: 700; line-height: 1.5; }
+.wp-text { white-space: pre-wrap; }
+.wp-hole { display: inline-flex; gap: 3px; padding: 4px; border-radius: 10px; border: 2px dashed rgba(255, 255, 255, .22); background: rgba(0, 0, 0, .18);
+    cursor: pointer; font: inherit; color: inherit; transition: border-color .2s, box-shadow .2s, transform .15s; }
+.wp-hole:hover:not(.solved) { transform: translateY(-2px); border-color: rgba(255, 255, 255, .45); }
+.wp-hole.active { border-style: solid; border-color: var(--w-present); box-shadow: 0 0 0 3px rgba(201, 162, 39, .25), 0 0 18px rgba(201, 162, 39, .3); }
+.wp-hole.solved { border-style: solid; border-color: transparent; background: transparent; cursor: default; }
+.wp-hole .tile.mini { --tile: 30px; width: 30px; height: 30px; font-size: .95em; margin: 0; }
+.wp-blank { border-style: dashed; border-color: rgba(255, 255, 255, .18); }
+.wp-blank::after { content: ''; width: 40%; height: 2px; border-radius: 2px; background: rgba(255, 255, 255, .25); align-self: end; margin-bottom: 6px; }
+.wp-info { font-size: .86em; color: var(--text-dim); }
+.wp-rows { display: grid; gap: 6px; max-height: calc(var(--tile) * 4 + 30px); overflow-y: auto; padding: 2px 4px; }
+.wp-answer { margin: 6px 0 12px; font-size: 1em; }
+.wp-answer .tile.mini { --tile: 24px; width: 24px; height: 24px; font-size: .8em; }
+@media (max-width: 520px) {
+    .wp-hole .tile.mini { --tile: 24px; width: 24px; height: 24px; font-size: .8em; }
+    .wp-card { padding: 12px 10px 14px; }
+}
+.wordle-board[hidden], .wordle .chip-btn[hidden] { display: none; }

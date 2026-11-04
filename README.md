@@ -15,14 +15,14 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   (y las de Wordle y Pasapalabra) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
 - **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días. No hay exportación de datos.
-- **105 logros** (generales, Buscaminas, Wordle, Pasapalabra, Tetris, Pac-Man, Snake y Pong) con rareza, progreso y XP.
+- **131 logros** (generales, Buscaminas, Wordle, Pasapalabra, Tetris, Pac-Man, Snake, Pong, Ajedrez y Hundir la flota) con rareza, progreso y XP.
 - **Rankings globales** (general y por juego/modo/métrica).
 - **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
   de la barra lateral y opciones propias de cada juego.
 - **Barra lateral desplegable**: se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`,
   se pliega sola al jugar (configurable) y recuerda su estado.
-- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón** y
-  **Pong Turbo** (el primero con **multijugador online**, sin servidor propio).
+- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón** y los
+  multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez** y **Hundir la flota**.
 
 ## Activar cuentas y rankings globales
 
@@ -37,27 +37,35 @@ cuentas del modo local no se migran al servidor.
 
 - Palabras de 5 letras en español; la **Ñ** es una letra propia y las tildes se ignoran al escribir.
 - Cada intento se valida contra un diccionario de ~10.800 palabras (`assets/data/words-es.js`).
-- ~700 soluciones curadas de uso común. Modo **Aleatoria** (sin repetir las últimas 40) y **Diaria**
-  (misma palabra para todos cada día).
+- ~700 soluciones curadas de uso común. Modo **Aleatoria** (sin repetir las últimas 40), **Diaria**
+  (misma palabra para todos cada día) y **🧩 Frase del día**.
+- **Frase del día**: un refrán con 1–3 huecos de 5 letras, igual para todos cada día. Eliges un hueco y pruebas palabras: los
+  colores se refieren a ese hueco y sus **letras verdes se quedan fijadas en la frase**; un hueco acertado se rellena y se pasa al
+  siguiente. Hay que completar la frase antes de agotar los intentos (**3 por hueco + 3**: 6, 9 o 12). Banco de 70 refranes en
+  `src/games/wordle/phrases.js` (`[palabra]` = hueco); `node tests/wordle_phrases_test.mjs` comprueba que cada hueco tiene 5 letras y
+  está en el diccionario. Acceso directo desde Inicio (`#/game/wordle/frase`).
 - Modo difícil, alto contraste para daltonismo, teclado físico y en pantalla, compartir resultado,
   partida en curso guardada en el perfil.
 
 ## Pasapalabra
 
-- Rosco de **25 letras** (A–Z con Ñ, sin K ni W) contra el reloj: acierta, falla o di «pasapalabra» (botón o escribiéndolo) para dejar la
+- Rosco de **25 letras** (A–Z con Ñ, sin K ni W) **sin cuenta atrás**: acierta, falla o di «pasapalabra» (botón o escribiéndolo) para dejar la
   letra para la siguiente vuelta. «Empieza por…», salvo Ñ y X que son «Contiene la…». Tildes ignoradas; la Ñ se acepta también con N.
 - **Rosco diario**: el mismo para todos los jugadores cada día (se genera de forma determinista a partir de la fecha) y un solo intento.
 - **Roscos aleatorios** ilimitados con 4 dificultades, cada una con su propio banco de definiciones (100 por nivel, 4 por letra):
 
-  | Dificultad | Tiempo | Pistas | Otros |
+  | Dificultad | Pistas | Tiempo de referencia | Otros |
   |---|---|---|---|
-  | 🌱 Básico | 4:00 | 3 | tolera una errata en palabras de 6+ letras |
-  | ⚔️ Medio | 3:00 | 1 | tolera una errata |
-  | 🔥 Difícil | 2:30 | 0 | ortografía exacta |
-  | 💀 Profesional | 2:00 | 0 | no muestra la longitud; cada fallo resta 10 s |
+  | 🌱 Básico | 3 | 6:00 | tolera una errata en palabras de 6+ letras |
+  | ⚔️ Medio | 1 | 5:00 | tolera una errata |
+  | 🔥 Difícil | 0 | 4:30 | ortografía exacta |
+  | 💀 Profesional | 0 | 4:00 | no muestra la longitud; cada fallo **suma 10 s** a tu marca |
 
 - Se gana con **18 aciertos**; las 25 dan un rosco perfecto (+500). La puntuación se multiplica por la dificultad (×1 a ×2).
-- El reloj se basa en una hora de fin absoluta guardada en la cuenta: recargar o salir de la página **no detiene el tiempo**.
+- No hay reloj durante la partida: al terminar se muestra **tu marca** (tiempo tardado) y si es tu mejor marca en ese modo (sólo
+  cuentan los roscos superados). Terminar por debajo del tiempo de referencia da puntos extra. El ranking tiene la métrica «Mejor marca».
+- La marca se calcula desde una hora de inicio absoluta guardada en la cuenta: recargar o salir de la página **no la detiene**.
+  Las partidas guardadas con la versión anterior (cuenta atrás) se convierten solas.
 - Banco: `src/games/pasapalabra/bank.js` (formato `LETRA|definición|respuesta|alternativas`). `node tests/pasapalabra_bank_test.mjs` valida que cada respuesta empiece/contenga su letra y que haya 4 por letra y nivel.
 
 ## Tetris Fusion
@@ -121,20 +129,65 @@ cuentas del modo local no se migran al servidor.
 - Privacidad: los brokers públicos son abiertos; por ellos sólo pasan el código de sala, nombre, avatar y nivel del anfitrión y
   los datos de la partida. Ni contraseñas ni progreso. Las partidas online, como el resto, se registran en el cliente (no son a prueba de trampas).
 
+## Ajedrez
+
+- Reglas completas (enroques, captura al paso, promoción con selector, jaque mate, ahogado, 50 jugadas, triple repetición y material
+  insuficiente) con motor propio en `src/games/chess/engine.js`, validado con **perft** en 5 posiciones de referencia.
+- Notación algebraica con letras españolas (R, D, T, A, C), arrastrar o tocar-y-tocar, jugadas legales marcadas, piezas animadas,
+  última jugada y jaque resaltados, material capturado y ventaja, tablero girado si llevas negras.
+- **Contra la máquina** (4 niveles; la IA piensa en un Web Worker para no congelar la interfaz):
+
+  | Nivel | Cálculo | Multiplicador |
+  |---|---|---|
+  | 🌱 Fácil | 1 jugada con mucho ruido | ×1 |
+  | ⚔️ Normal | 2 jugadas con algo de ruido | ×1,6 |
+  | 🔥 Difícil | 4 jugadas (alfa-beta + quiescencia) | ×2,5 |
+  | 💀 Maestro | profundización iterativa hasta 2,5 s | ×4 |
+
+  Eliges color, puedes deshacer y ofrecer tablas (la CPU acepta si no va ganando). La partida se guarda y se recupera.
+- **Online**: jugadas con número de orden por canal fiable; un latido cada 4 s detecta jugadas perdidas y resincroniza. Rendirse,
+  ofrecer tablas, revancha alternando colores. Salir a mitad cuenta como derrota.
+
+## Hundir la flota
+
+- 10×10, flota clásica: Portaaviones (5), Acorazado (4), Crucero (3), Submarino (3) y Destructor (2). Los barcos **no pueden tocarse**
+  (ni en diagonal); si aciertas **repites turno**; al hundir un barco se descubre el agua de alrededor.
+- Colocación tocando el tablero (vista previa verde/roja), `R`/clic derecho/botón para girar, «Aleatorio» y «Vaciar».
+- **Contra la máquina** (disparos medios para hundir una flota, medidos con `node tests/battleship_ai_test.mjs`):
+
+  | Nivel | Estrategia | Disparos medios | Multiplicador |
+  |---|---|---|---|
+  | 🌱 Fácil | al azar, remata a veces | ~61 | ×1 |
+  | ⚔️ Normal | busca al azar, remata siempre | ~49 | ×1,5 |
+  | 🔥 Difícil | damero según el barco más pequeño + descarta diagonales | ~44 | ×2,2 |
+  | 💀 Maestro | mapa de probabilidad de todas las flotas posibles | ~39 | ×3 |
+
+- **Online con verificación anti-trampas**: cada jugador guarda su propio tablero. Al pulsar «Listo» envía un **compromiso SHA-256**
+  de su flota con una sal secreta; al acabar la partida ambos revelan flota y sal, y cada navegador comprueba que coincide con el
+  compromiso y con todas las respuestas («agua», «tocado», «hundido») que dio el rival. Si no, el resultado lo avisa.
+
+### Vestíbulo online compartido
+
+`src/games/shared/online.js` (`Nexus.games.OnlineLobby`) da a cualquier juego por turnos el vestíbulo completo: crear sala pública o
+privada, unirse con código, enlace (`#/game/<juego>/<CÓDIGO>`) o buscador, sala con «¡Listo!» y revancha, y aviso si el rival se
+va. Lo usan Ajedrez y Hundir la flota sobre la misma red de `src/core/net.js` que Pong.
+
 ## Estructura
 
 ```
 index.html
 assets/
-  css/        base · layout · components · pages · games/{minesweeper,wordle,pasapalabra,arcade,tetris,pacman,snake,pong}
+  css/        base · layout · components · pages · games/{minesweeper,wordle,pasapalabra,arcade,tetris,pacman,snake,pong,
+              online,chess,battleship}
   data/       words-es.js (diccionario)
 src/
   core/       namespace, utils, events, storage, hash, schema, audio, backend (servidor / local), net (multijugador P2P)
   services/   settings, users, progress, achievements, leaderboard
   ui/         toast, modal, fx, particles, components, sidebar, router, auth, pages/*
-  games/      registry.js · minesweeper/ · wordle/{dictionary,game}.js
+  games/      registry.js · minesweeper/ · wordle/{dictionary,phrases,game}.js
               pasapalabra/{bank,game}.js
-              shared/kit.js (canvas, bucle, táctil) · tetris/ · pacman/ · snake/ · pong/   app.js  arranque
+              shared/kit.js (canvas, bucle, táctil) · shared/online.js (vestíbulo online)
+              tetris/ · pacman/ · snake/ · pong/ · chess/{engine,game}.js · battleship/   app.js  arranque
 backend/      Cloudflare Worker (API sobre repo privado de GitHub) + README de despliegue
 config.js     URL del backend (API_URL)
 tests/        pruebas E2E (Playwright) y prueba del Worker (Node)
@@ -163,14 +216,19 @@ pip install playwright && playwright install chromium
 python3 tests/e2e_smoke.py        # flujo completo + capturas
 python3 tests/e2e_accounts.py     # registro/login, sesión, partidas persistentes, ranking, borrar cuenta
 python3 tests/e2e_minesweeper.py
-python3 tests/e2e_pasapalabra.py  # rosco diario, dificultades, persistencia
+python3 tests/e2e_pasapalabra.py  # rosco diario, dificultades, marca de tiempo, persistencia y migración
+python3 tests/e2e_wordle_phrase.py  # Frase del día: huecos, verdes fijados, límite de intentos, logros
+node tests/wordle_phrases_test.mjs  # valida el banco de refranes
 node tests/pasapalabra_bank_test.mjs  # valida el banco de definiciones
 python3 tests/e2e_arcade.py       # Tetris, Pac-Man y Snake
 python3 tests/e2e_pong.py         # Pong: CPU y online entre navegadores (P2P, retransmisión, sala llena, abandono…)
-                                  # (arranca solo dos brokers MQTT locales: tests/mqtt_test_broker.mjs; no necesita Internet)
+python3 tests/e2e_turnbased.py    # Ajedrez y Hundir la flota: CPU y online (sincronía, tablas, revancha, anti-trampas, abandono)
+                                  # (las dos anteriores arrancan brokers MQTT locales: tests/mqtt_test_broker.mjs; sin Internet)
+node tests/chess_engine_test.mjs  # perft, reglas especiales, SAN, FEN y búsqueda del motor de ajedrez
+node tests/battleship_ai_test.mjs # flotas válidas y fuerza de los 4 niveles de IA
 node tests/worker_test.mjs        # API del Worker contra un GitHub falso en memoria
 ```
 
-Con `API_URL` configurado, las pruebas fuerzan el modo local con `local_mode(page)` de `tests/helpers.py` (lo usa `e2e_pong.py`).
+Las pruebas arrancan siempre en modo local (`tests/helpers.py` lo aplica a cada página), aunque `config.js` tenga `API_URL`.
 
 Las fuentes (Bricolage Grotesque, Manrope) se cargan de Google Fonts; sin conexión se usan fuentes del sistema.

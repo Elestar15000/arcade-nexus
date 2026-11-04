@@ -64,7 +64,8 @@
                     <section class="section card-surface">
                         <h2 class="section-title"><span>🔤</span> Wordle</h2>
                         ${C.choiceRow('wordle.defaultMode', 'Modo inicial', '', [
-                            { value: 'random', label: 'Aleatoria' }, { value: 'daily', label: 'Diaria' }])}
+                            { value: 'random', label: 'Aleatoria' }, { value: 'daily', label: 'Diaria' },
+                            { value: 'phrase', label: 'Frase del día' }])}
                         ${C.switchRow('wordle.hardMode', 'Modo difícil', 'Debes usar todas las pistas reveladas en los siguientes intentos')}
                         ${C.switchRow('wordle.colorblind', 'Alto contraste (daltonismo)', 'Naranja y azul en lugar de verde y amarillo')}
                     </section>
@@ -105,6 +106,22 @@
                             { value: 'hard', label: 'Difícil' }, { value: 'master', label: 'Maestro' }])}
                         ${C.switchRow('pong.shake', 'Sacudida de pantalla', 'En golpes fuertes, remates y puntos')}
                         ${C.switchRow('pong.publicRooms', 'Salas públicas por defecto', 'Las salas que crees aparecerán en el buscador de partidas')}
+                    </section>
+
+                    <section class="section card-surface">
+                        <h2 class="section-title"><span>♟️</span> Ajedrez</h2>
+                        ${C.choiceRow('chess.defaultLevel', 'Nivel de la máquina', '', [
+                            { value: 'easy', label: 'Fácil' }, { value: 'normal', label: 'Normal' },
+                            { value: 'hard', label: 'Difícil' }, { value: 'master', label: 'Maestro' }])}
+                        ${C.switchRow('chess.showLegal', 'Marcar jugadas legales', 'Al elegir una pieza se señalan sus casillas de destino')}
+                    </section>
+
+                    <section class="section card-surface">
+                        <h2 class="section-title"><span>🚢</span> Hundir la flota</h2>
+                        ${C.choiceRow('battleship.defaultLevel', 'Nivel de la máquina', '', [
+                            { value: 'easy', label: 'Fácil' }, { value: 'normal', label: 'Normal' },
+                            { value: 'hard', label: 'Difícil' }, { value: 'master', label: 'Maestro' }])}
+                        ${C.switchRow('online.publicRooms', 'Salas públicas por defecto (Ajedrez y Flota)', 'Las salas que crees aparecerán en el buscador de partidas')}
                     </section>
 
                     <section class="section card-surface">
