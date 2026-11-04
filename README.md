@@ -39,11 +39,12 @@ cuentas del modo local no se migran al servidor.
 - Cada intento se valida contra un diccionario de ~10.800 palabras (`assets/data/words-es.js`).
 - ~700 soluciones curadas de uso común. Modo **Aleatoria** (sin repetir las últimas 40), **Diaria**
   (misma palabra para todos cada día) y **🧩 Frase del día**.
-- **Frase del día**: un refrán con 1–3 huecos de 5 letras, igual para todos cada día. Eliges un hueco y pruebas palabras: los
-  colores se refieren a ese hueco y sus **letras verdes se quedan fijadas en la frase**; un hueco acertado se rellena y se pasa al
-  siguiente. Hay que completar la frase antes de agotar los intentos (**3 por hueco + 3**: 6, 9 o 12). Banco de 70 refranes en
-  `src/games/wordle/phrases.js` (`[palabra]` = hueco); `node tests/wordle_phrases_test.mjs` comprueba que cada hueco tiene 5 letras y
-  está en el diccionario. Acceso directo desde Inicio (`#/game/wordle/frase`).
+- **Frase del día**: el tablero normal de **6 intentos** y, debajo, una frase entera oculta (lugares, obras, comidas, refranes y
+  expresiones), la misma para todos cada día. Cada palabra de 5 letras que pruebas descubre en la frase **todas** las apariciones de
+  sus letras: 🟩 letra nueva de la frase, verde apagado = de la frase pero ya descubierta, gris = no está. Se gana al descubrir todas
+  las letras. Banco de 104 frases en `src/games/wordle/phrases.js`; `node tests/wordle_phrases_test.mjs` comprueba que ninguna tiene
+  más de 14 letras distintas y que todas se pueden completar con 4 palabras del diccionario. Acceso directo desde Inicio
+  (`#/game/wordle/frase`).
 - Modo difícil, alto contraste para daltonismo, teclado físico y en pantalla, compartir resultado,
   partida en curso guardada en el perfil.
 
@@ -217,8 +218,8 @@ python3 tests/e2e_smoke.py        # flujo completo + capturas
 python3 tests/e2e_accounts.py     # registro/login, sesión, partidas persistentes, ranking, borrar cuenta
 python3 tests/e2e_minesweeper.py
 python3 tests/e2e_pasapalabra.py  # rosco diario, dificultades, marca de tiempo, persistencia y migración
-python3 tests/e2e_wordle_phrase.py  # Frase del día: huecos, verdes fijados, límite de intentos, logros
-node tests/wordle_phrases_test.mjs  # valida el banco de refranes
+python3 tests/e2e_wordle_phrase.py  # Frase del día: frase oculta, letras reveladas, 6 intentos, logros
+node tests/wordle_phrases_test.mjs  # valida que todas las frases se pueden resolver
 node tests/pasapalabra_bank_test.mjs  # valida el banco de definiciones
 python3 tests/e2e_arcade.py       # Tetris, Pac-Man y Snake
 python3 tests/e2e_pong.py         # Pong: CPU y online entre navegadores (P2P, retransmisión, sala llena, abandono…)

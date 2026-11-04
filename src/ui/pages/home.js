@@ -86,7 +86,7 @@
                         <a class="quick-card" href="#/game/wordle/frase">
                             <span class="quick-emoji">🧩</span>
                             <span class="quick-text"><strong>Frase del día</strong>
-                                <small>${phraseDone ? '✅ Ya la has completado hoy. ¡Vuelve mañana!' : 'Rellena los huecos de un refrán con tus letras verdes.'}</small></span>
+                                <small>${phraseDone ? '✅ Ya la has completado hoy. ¡Vuelve mañana!' : 'Descubre la frase oculta letra a letra en 6 intentos.'}</small></span>
                             <span class="quick-go">${phraseDone ? 'Ver' : 'Jugar'}</span>
                         </a>` : ''}
                         ${pasa ? `
