@@ -123,8 +123,7 @@
             this.timers = new Set();
             this.build();
             this.bind();
-            const dm = Nexus.services.settings.get('pasapalabra.defaultMode');
-            this.loadMode(MODE_ORDER.includes(dm) ? dm : 'daily');
+            this.loadMode('daily');
         }
 
         later(fn, ms) {

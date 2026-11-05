@@ -65,3 +65,4 @@
     .ax-side { flex: 0 0 auto; max-width: none; overflow: visible; min-width: 0; }
     .ax-modes { grid-template-columns: 1fr; }
 }
+.ax-card[hidden], .ax-touch button[hidden] { display: none; }

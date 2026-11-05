@@ -53,7 +53,7 @@
                 const game = Nexus.games.registry.get(route.params.id);
                 if (!game) return this.notFound();
                 title = game.name;
-                page = { render: (root) => { const inst = game.mount(root); return () => inst && inst.destroy && inst.destroy(); } };
+                page = { render: (root) => { const inst = game.mount(root); Nexus.ui.gameSettings.attach(root, game.id); return () => inst && inst.destroy && inst.destroy(); } };
                 Nexus.ui.sidebar.enterGame();
             } else {
                 page = Nexus.ui.pages[route.name];

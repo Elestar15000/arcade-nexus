@@ -67,7 +67,7 @@
             this.root = root;
             this.destroyed = false;
             this.timers = new Set();
-            this.mode = MODES.find(m => m.id === Nexus.services.settings.get('snake.defaultMode')) || MODES[1];
+            this.mode = MODES[1];
             this.state = 'menu';
             this.t = 0;
             this.turboHeld = false;

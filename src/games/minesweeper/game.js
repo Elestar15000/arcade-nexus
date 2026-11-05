@@ -4,7 +4,10 @@
    Adaptado a Nexus Arcade: se monta en un contenedor, usa el
    audio/modal/progreso compartidos y registra sus logros.
    Correcciones respecto a la versión original:
-     · el Escudo es pasivo (antes su botón no hacía nada útil),
+     · el Escudo se activa a mano: protege la siguiente casilla que
+       destapes (si es mina, no explota); uno por partida,
+     · los poderes son limitados: no se recargan durante la partida
+       (los orbes sólo dan puntos) y se ha quitado Rayos X,
      · una mina desactivada ya no cuenta como casilla segura,
      · no se pueden usar poderes antes de la primera casilla,
      · un "acorde" no sigue revelando tras explotar,
@@ -30,9 +33,8 @@
 
             // ── Power Definitions ──
             this.powerDefs = {
-                shield:  { icon: '🛡️', name: 'Escudo',        desc: 'Sobrevive a 1 mina',   maxCharges: 1 },
+                shield:  { icon: '🛡️', name: 'Escudo',        desc: 'Protege la próxima casilla', maxCharges: 1 },
                 scanner: { icon: '🔍', name: 'Scanner',       desc: 'Revela área 3×3',      maxCharges: 2 },
-                xray:    { icon: '👁️', name: 'Rayos X',       desc: 'Ver minas 3s',         maxCharges: 1 },
                 sniper:  { icon: '🎯', name: 'Francotirador', desc: 'Revela celda segura',   maxCharges: 3 },
                 emp:     { icon: '⚡',  name: 'EMP',           desc: 'Auto-marca minas',      maxCharges: 1 }
             };
@@ -44,8 +46,7 @@
             this.powersContainer = this.byId('powers-container');
 
             // ── State ──
-            const def = Nexus.services.settings.get('minesweeper.defaultDifficulty');
-            this.currentDifficulty = this.difficulties[def] ? def : 'easy';
+            this.currentDifficulty = 'easy';
             this.board = [];         // 2D: -1 = mine, 0-8 = number
             this.revealed = [];      // 2D: boolean
             this.flagged = [];       // 2D: boolean
@@ -259,10 +260,9 @@
 
             // Hit a mine
             if (value === -1) {
-                // Check shield
-                if (this.powers.shield.charges > 0) {
-                    this.powers.shield.charges--;
-                    this.powersUsed++;
+                // Escudo activado para esta casilla
+                if (this.shieldArmed) {
+                    this.shieldArmed = false;
                     // La mina desactivada se marca como revelada pero NO cuenta como casilla
                     // segura (antes inflaba el contador y permitía ganar una casilla antes).
                     this.revealed[row][col] = true;
@@ -516,7 +516,6 @@
                 const btn = document.createElement('button');
                 btn.className = 'power-btn';
                 if (power.charges <= 0) btn.classList.add('disabled');
-                if (id === 'shield') btn.classList.add('passive');
                 if (this.activePower === id) btn.classList.add('active');
                 btn.dataset.power = id;
 
@@ -524,14 +523,14 @@
                     <span class="power-icon">${power.icon}</span>
                     <div class="power-info">
                         <span class="power-name">${power.name}</span>
-                        <span class="power-charges">${id === 'shield' ? (power.charges > 0 ? 'Pasivo · activo' : 'Usado') : `${power.charges} / ${power.maxCharges}`}</span>
+                        <span class="power-charges">${power.charges > 0 ? `${power.charges} / ${power.maxCharges}` : 'Agotado'}</span>
                     </div>
                 `;
 
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     if (this.gameOver) return;
-                    if (power.charges <= 0 && id !== 'shield') return;
+                    if (power.charges <= 0) return;
                     this.togglePower(id);
                 });
 
@@ -540,10 +539,6 @@
         }
 
         togglePower(powerId) {
-            if (powerId === 'shield') {
-                Nexus.ui.toast('El Escudo es pasivo: te salva automáticamente de la primera mina.', { icon: '🛡️' });
-                return;
-            }
             if (this.firstClick) {
                 Nexus.ui.toast('Revela primero una casilla para usar poderes.', { icon: '⚡' });
                 return;
@@ -556,10 +551,6 @@
             this.deactivatePower();
 
             // Instant powers (no cell click needed)
-            if (powerId === 'xray') {
-                this.useXRay();
-                return;
-            }
             if (powerId === 'sniper') {
                 this.useSniper();
                 return;
@@ -579,6 +570,9 @@
 
         usePower(powerId, row, col) {
             switch (powerId) {
+                case 'shield':
+                    this.useShield(row, col);
+                    break;
                 case 'scanner':
                     this.useScanner(row, col);
                     break;
@@ -648,42 +642,18 @@
             this.checkWin();
         }
 
-        useXRay() {
-            if (this.powers.xray.charges <= 0) return;
-            this.powers.xray.charges--;
+        /** Escudo: destapa la casilla elegida sin riesgo (si es mina, se desactiva). Uno por partida. */
+        useShield(row, col) {
+            if (this.powers.shield.charges <= 0 || this.revealed[row][col] || this.flagged[row][col]) return;
+            this.powers.shield.charges--;
             this.powersUsed++;
-
-            this.playSound('powerUse');
-
-            // Show all mines for 3 seconds
-            const mineCells = [];
-            for (let r = 0; r < this.rows; r++) {
-                for (let c = 0; c < this.cols; c++) {
-                    if (this.board[r][c] === -1 && !this.revealed[r][c]) {
-                        const cellEl = this.getCellElement(r, c);
-                        if (cellEl) {
-                            cellEl.classList.add('xray-mine');
-                            cellEl.textContent = '💣';
-                            mineCells.push(cellEl);
-                        }
-                    }
-                }
-            }
-
-            // Hide after 3 seconds
-            setTimeout(() => {
-                for (const cellEl of mineCells) {
-                    cellEl.classList.remove('xray-mine');
-                    if (cellEl.classList.contains('flagged')) {
-                        cellEl.textContent = '🚩';
-                    } else if (!cellEl.classList.contains('revealed')) {
-                        cellEl.textContent = '';
-                    }
-                }
-            }, 3000);
-
             this.deactivatePower();
+            this.shieldArmed = true;
+            this.revealCell(row, col);
+            this.shieldArmed = false;
             this.renderPowers();
+            this.updateDisplays();
+            this.checkWin();
         }
 
         useSniper() {
@@ -777,15 +747,7 @@
             const cellEl = this.getCellElement(row, col);
             if (cellEl) cellEl.classList.add('power-orb-found');
 
-            // Recharge a random depleted power
-            const depleted = Object.entries(this.powers).filter(
-                ([, p]) => p.charges < p.maxCharges
-            );
-            if (depleted.length > 0) {
-                const [id] = depleted[Math.floor(Math.random() * depleted.length)];
-                this.powers[id].charges++;
-                this.renderPowers();
-            }
+            // Los orbes sólo dan puntos: los poderes no se recargan durante la partida
         }
 
         // ============================================

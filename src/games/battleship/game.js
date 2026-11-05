@@ -234,7 +234,7 @@
             this.root = root;
             this.destroyed = false;
             this.timers = new Set();
-            this.level = LEVELS.find(l => l.id === Nexus.services.settings.get('battleship.defaultLevel')) || LEVELS[1];
+            this.level = LEVELS[1];
             this.kind = 'cpu';
             this.phase = 'menu';           // menu | place | battle | over
             this.vertical = false;

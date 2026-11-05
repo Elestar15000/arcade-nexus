@@ -83,7 +83,7 @@
             this.root = root;
             this.destroyed = false;
             this.timers = new Set();
-            this.level = LEVELS.find(l => l.id === Nexus.services.settings.get('chess.defaultLevel')) || LEVELS[1];
+            this.level = LEVELS[1];
             this.colorPref = 'white';
             this.kind = 'cpu';
             this.state = 'menu';

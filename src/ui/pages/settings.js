@@ -53,76 +53,7 @@
                         </label>
                     </section>
 
-                    <section class="section card-surface">
-                        <h2 class="section-title"><span>💣</span> Buscaminas</h2>
-                        ${C.choiceRow('minesweeper.defaultDifficulty', 'Dificultad inicial', '', [
-                            { value: 'easy', label: 'Recluta' }, { value: 'medium', label: 'Soldado' },
-                            { value: 'hard', label: 'Veterano' }, { value: 'nightmare', label: 'Pesadilla' }])}
-                        ${C.switchRow('minesweeper.longPressFlag', 'Pulsación larga para poner bandera', 'En pantallas táctiles')}
-                    </section>
-
-                    <section class="section card-surface">
-                        <h2 class="section-title"><span>🔤</span> Wordle</h2>
-                        ${C.choiceRow('wordle.defaultMode', 'Modo inicial', '', [
-                            { value: 'random', label: 'Aleatoria' }, { value: 'daily', label: 'Diaria' },
-                            { value: 'phrase', label: 'Frase del día' }])}
-                        ${C.switchRow('wordle.hardMode', 'Modo difícil', 'Debes usar todas las pistas reveladas en los siguientes intentos')}
-                        ${C.switchRow('wordle.colorblind', 'Alto contraste (daltonismo)', 'Naranja y azul en lugar de verde y amarillo')}
-                    </section>
-
-                    <section class="section card-surface">
-                        <h2 class="section-title"><span>🎡</span> Pasapalabra</h2>
-                        ${C.choiceRow('pasapalabra.defaultMode', 'Modo inicial', 'Rosco que se abre al entrar', [
-                            { value: 'daily', label: 'Diaria' }, { value: 'basic', label: 'Básico' }, { value: 'medium', label: 'Medio' },
-                            { value: 'hard', label: 'Difícil' }, { value: 'pro', label: 'Profesional' }])}
-                    </section>
-
-                    <section class="section card-surface">
-                        <h2 class="section-title"><span>🧩</span> Tetris Fusion</h2>
-                        ${C.choiceRow('tetris.defaultMode', 'Modo inicial', '', [
-                            { value: 'fusion', label: 'Fusión' }, { value: 'cascade', label: 'Cascada' },
-                            { value: 'chaos', label: 'Caos' }, { value: 'sprint', label: 'Sprint' }])}
-                        ${C.switchRow('tetris.ghost', 'Pieza fantasma', 'Muestra dónde caerá la pieza')}
-                    </section>
-
-                    <section class="section card-surface">
-                        <h2 class="section-title"><span>🟡</span> Pac-Man Nexus</h2>
-                        ${C.choiceRow('pacman.defaultMode', 'Modo inicial', '', [
-                            { value: 'classic', label: 'Clásico' }, { value: 'nexus', label: 'Nexus' }, { value: 'horde', label: 'Horda' }])}
-                    </section>
-
-                    <section class="section card-surface">
-                        <h2 class="section-title"><span>🐍</span> Snake Neón</h2>
-                        ${C.choiceRow('snake.defaultMode', 'Modo inicial', '', [
-                            { value: 'classic', label: 'Clásico' }, { value: 'evolve', label: 'Evolución' },
-                            { value: 'rival', label: 'Rival' }, { value: 'zone', label: 'Zona' }])}
-                        ${C.switchRow('snake.grid', 'Mostrar cuadrícula', 'Ayuda a calcular distancias')}
-                    </section>
-
-                    <section class="section card-surface">
-                        <h2 class="section-title"><span>🏓</span> Pong Turbo</h2>
-                        ${C.choiceRow('pong.defaultLevel', 'Nivel de la máquina', '', [
-                            { value: 'easy', label: 'Fácil' }, { value: 'normal', label: 'Normal' },
-                            { value: 'hard', label: 'Difícil' }, { value: 'master', label: 'Maestro' }])}
-                        ${C.switchRow('pong.shake', 'Sacudida de pantalla', 'En golpes fuertes, remates y puntos')}
-                        ${C.switchRow('pong.publicRooms', 'Salas públicas por defecto', 'Las salas que crees aparecerán en el buscador de partidas')}
-                    </section>
-
-                    <section class="section card-surface">
-                        <h2 class="section-title"><span>♟️</span> Ajedrez</h2>
-                        ${C.choiceRow('chess.defaultLevel', 'Nivel de la máquina', '', [
-                            { value: 'easy', label: 'Fácil' }, { value: 'normal', label: 'Normal' },
-                            { value: 'hard', label: 'Difícil' }, { value: 'master', label: 'Maestro' }])}
-                        ${C.switchRow('chess.showLegal', 'Marcar jugadas legales', 'Al elegir una pieza se señalan sus casillas de destino')}
-                    </section>
-
-                    <section class="section card-surface">
-                        <h2 class="section-title"><span>🚢</span> Hundir la flota</h2>
-                        ${C.choiceRow('battleship.defaultLevel', 'Nivel de la máquina', '', [
-                            { value: 'easy', label: 'Fácil' }, { value: 'normal', label: 'Normal' },
-                            { value: 'hard', label: 'Difícil' }, { value: 'master', label: 'Maestro' }])}
-                        ${C.switchRow('online.publicRooms', 'Salas públicas por defecto (Ajedrez y Flota)', 'Las salas que crees aparecerán en el buscador de partidas')}
-                    </section>
+                    <p class="muted small">Los ajustes de cada juego (pieza fantasma, modo difícil, cuadrícula…) están dentro del propio juego, en el botón ⚙️ de su cabecera.</p>
 
                     <section class="section card-surface">
                         <h2 class="section-title"><span>☁️</span> Cuenta y datos</h2>

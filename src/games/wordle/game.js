@@ -106,11 +106,10 @@
 
             this.build();
             this.bind();
-            const dm = setting('wordle.defaultMode');
             if (/^#\/game\/wordle\/frase$/.test(location.hash)) {
                 history.replaceState(null, '', location.href.split('#')[0] + '#/game/wordle');
                 this.loadMode('phrase');
-            } else this.loadMode(['daily', 'phrase'].includes(dm) ? dm : 'random');
+            } else this.loadMode('random');
         }
 
         // ── Estructura ──────────────────────────────────────

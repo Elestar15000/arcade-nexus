@@ -284,3 +284,10 @@
 .toast-kicker { font-size: .78em; color: var(--rarity-text, var(--warning)); font-weight: 800; }
 .toast-sub { font-size: .8em; color: var(--text-dim); font-weight: 500; }
 .fx-confetti { position: fixed; inset: 0; pointer-events: none; z-index: 1500; }
+
+/* Botón de ajustes del juego (ui/game-settings.js) */
+.game-settings-btn { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; cursor: pointer; font-size: 1.05em;
+    background: var(--bg-card); border: 1px solid var(--border-light); color: var(--text); transition: transform .2s, border-color .2s; }
+.game-settings-btn:hover, .game-settings-btn:focus-visible { border-color: var(--primary); transform: rotate(30deg); }
+.game-settings .setting-row { padding-left: 0; padding-right: 0; }
+.game-settings p { margin: 10px 0 0; }

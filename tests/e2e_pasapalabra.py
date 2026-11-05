@@ -113,7 +113,7 @@ with sync_playwright() as p:
     page.goto(URL + '#/home'); page.wait_for_timeout(400)
     check('Pasapalabra' in page.inner_text('#view'), 'inicio muestra el rosco diario')
     page.goto(URL + '#/settings'); page.wait_for_timeout(300)
-    check(page.locator('[data-choice="pasapalabra.defaultMode"]').count() == 1, 'ajuste del modo inicial')
+    check(page.locator('[data-choice="pasapalabra.defaultMode"]').count() == 0, 'sin ajuste de modo inicial')
     m = b.new_page(viewport={'width': 390, 'height': 800}, has_touch=True, is_mobile=True); m.on('pageerror', lambda e: errs.append(str(e)))
     local_mode(m); m.goto(URL); register(m, 'Mov', 'secreta1'); m.goto(URL + '#/game/pasapalabra'); m.wait_for_timeout(500)
     m.click('[data-act=start]'); m.wait_for_timeout(300)

@@ -72,7 +72,7 @@
             this.root = root;
             this.destroyed = false;
             this.timers = new Set();
-            this.level = LEVELS.find(l => l.id === Nexus.services.settings.get('pong.defaultLevel')) || LEVELS[1];
+            this.level = LEVELS[1];
             this.kind = 'cpu';           // cpu | online
             this.state = 'menu';         // menu | playing | paused | over
             this.view = 'home';

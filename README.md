@@ -33,6 +33,19 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
 Avisos: el cliente es de confianza (los rankings no son a prueba de trampas), las contraseñas no se pueden recuperar y las
 cuentas del modo local no se migran al servidor.
 
+## Buscaminas Quantum
+
+- 4 poderes **limitados**, sin recarga durante la partida (los orbes del tablero sólo dan puntos): 🛡️ Escudo (×1: se activa y
+  destapa la casilla que elijas sin riesgo; si es mina, no explota), 🔍 Scanner (×2, área 3×3), 🎯 Francotirador (×3, casilla
+  segura) y ⚡ EMP (×1, marca minas).
+
+## Ajustes de cada juego
+
+La página **Ajustes** sólo tiene lo general (tema, sonido, animaciones, interfaz). Las opciones de cada juego (pieza fantasma,
+modo difícil y alto contraste de Wordle, cuadrícula de Snake, jugadas legales del ajedrez, salas públicas…) están dentro del
+propio juego, en el botón ⚙️ de su cabecera (`src/ui/game-settings.js`). Los juegos ya no tienen un «modo inicial» configurable:
+siempre abren en su modo por defecto.
+
 ## Wordle ES
 
 - Palabras de 5 letras en español; la **Ñ** es una letra propia y las tildes se ignoran al escribir.
@@ -75,7 +88,10 @@ cuentas del modo local no se migran al servidor.
 - **Bloques de poder** en las piezas: 💥 Bomba (5×5), ⚡ Rayo (columna), ❄️ Hielo (congela la caída) y ⭐ Estrella (×2); se activan
   al limpiar su línea y pueden encadenarse.
 - **Energía** que se carga limpiando líneas: ⏪ Rebobinar (deshace la última pieza) y 🧹 Purga (borra las 3 filas de abajo).
-- Modos: **Fusión**, **Cascada** (los bloques caen solos tras limpiar y las reacciones en cadena multiplican), **Caos**
+- Modo **Normal**: el Tetris de siempre, sin bloques de poder ni energía.
+- Velocidad progresiva rápida en todos los modos: se sube de nivel cada **5 líneas** y la caída pasa de 0,75 s (nivel 1) a ~0,26 s
+  (nivel 5) y ~0,05 s (nivel 10).
+- Modos con poderes: **Fusión**, **Cascada** (los bloques caen solos tras limpiar y las reacciones en cadena multiplican), **Caos**
   (evento aleatorio cada 18 piezas: marea, espejo, prisa, calma, lluvia de poderes) y **Sprint** de 40 líneas.
 
 ## Pac-Man Nexus

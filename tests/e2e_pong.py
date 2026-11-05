@@ -174,7 +174,7 @@ try:
         # ── Ajustes, estadísticas y móvil ───────────────────
         D.evaluate('Nexus.ui.modal.closeAll()')
         D.goto(URL + '#/settings'); D.wait_for_timeout(300)
-        check(D.locator('[data-choice="pong.defaultLevel"]').count() == 1, 'Ajustes: sección de Pong Turbo')
+        check(D.locator('[data-choice="pong.defaultLevel"]').count() == 0, 'Ajustes: sin nivel inicial de Pong')
         D.goto(URL + '#/rankings'); D.wait_for_timeout(500)
         check('Pong' in D.inner_text('#view'), 'Rankings incluyen Pong Turbo')
 

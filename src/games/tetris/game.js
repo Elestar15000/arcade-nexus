@@ -64,6 +64,7 @@
     };
 
     const MODES = [
+        { id: 'normal',  emoji: '🧱', label: 'Normal',  desc: 'El Tetris de siempre: sin poderes ni energía. Sin fin.', powerChance: 0, plain: true },
         { id: 'fusion',  emoji: '🔮', label: 'Fusión',  desc: 'Bloques de poder, energía y habilidades. Sin fin.', powerChance: 0.20 },
         { id: 'cascade', emoji: '🌊', label: 'Cascada', desc: 'Tras limpiar, cada bloque cae solo: encadena reacciones.', powerChance: 0.16, cascade: true },
         { id: 'chaos',   emoji: '🌪️', label: 'Caos',    desc: 'Cada 18 piezas ocurre un evento: marea, espejo, prisa…', powerChance: 0.28, events: true },
@@ -78,6 +79,7 @@
         { id: 'rain',  icon: '🎁', name: 'Lluvia', text: 'Las próximas 5 piezas traen un poder' }
     ];
 
+    const LINES_PER_LEVEL = 5;
     const DAS = 0.16, ARR = 0.04, LOCK_DELAY = 0.5, MAX_RESETS = 15;
     const ENERGY_REWIND = 35, ENERGY_PURGE = 100;
 
@@ -88,7 +90,7 @@
             this.root = root;
             this.destroyed = false;
             this.timers = new Set();
-            this.mode = MODES.find(m => m.id === Nexus.services.settings.get('tetris.defaultMode')) || MODES[0];
+            this.mode = MODES[0];
             this.state = 'menu';
             this.keys = {};
             this.particles = [];
@@ -151,7 +153,7 @@
                             </div>
                             <div class="ax-card"><h3>Siguientes</h3><canvas id="tt-next" class="ax-mini" width="160" height="432"></canvas></div>
                         </div>
-                        <div class="ax-card">
+                        <div class="ax-card" id="tt-energy-card">
                             <h3>⚡ Energía</h3>
                             <div class="ax-bar"><i id="tt-energy"></i></div>
                             <div class="ax-btn-row">
@@ -441,7 +443,7 @@
             this.stats.maxLines = Math.max(this.stats.maxLines, n);
             this.stats.maxChain = Math.max(this.stats.maxChain, chain + 1);
             if (tspin) this.stats.tspins++;
-            this.energy = clamp(this.energy + n * 12 + (n === 4 ? 10 : 0) + chain * 5, 0, 100);
+            if (!this.mode.plain) this.energy = clamp(this.energy + n * 12 + (n === 4 ? 10 : 0) + chain * 5, 0, 100);
             if (freeze) { this.fx.freeze = freeze; this.pop('❄️ Congelado', '#7dd3fc'); }
             if (star) { this.star = Math.min(6, this.star + star); this.pop('⭐ ×2 · ' + this.star, '#fde047'); }
             // Texto flotante
@@ -458,7 +460,7 @@
             if (this.mode.cascade) this.cellGravity();
 
             // Nivel
-            this.level = 1 + Math.floor(this.lines / 10);
+            this.level = 1 + Math.floor(this.lines / LINES_PER_LEVEL);
             this.flash = null;
             this.updatePills(); this.updateSide();
 
@@ -498,7 +500,7 @@
 
         // ── Habilidades ─────────────────────────────────────
         rewind() {
-            if (this.state !== 'playing') return;
+            if (this.state !== 'playing' || this.mode.plain) return;
             if (!this.snap) return this.toast('Nada que rebobinar todavía');
             if (this.energy < ENERGY_REWIND) return this.toast(`Energía insuficiente (${ENERGY_REWIND})`);
             const s = this.snap;
@@ -519,7 +521,7 @@
         }
 
         purge() {
-            if (this.state !== 'playing') return;
+            if (this.state !== 'playing' || this.mode.plain) return;
             if (this.energy < ENERGY_PURGE) return this.toast(`Energía insuficiente (${ENERGY_PURGE})`);
             this.energy -= ENERGY_PURGE;
             this.stats.purges++;
@@ -564,8 +566,9 @@
 
         // ── Bucle ───────────────────────────────────────────
         gravityInterval() {
-            let g = Math.pow(0.8 - (this.level - 1) * 0.007, this.level - 1);
-            g = Math.max(g, 0.02);
+            // Curva progresiva rápida: 0,75 s en el nivel 1, ~0,26 s en el 5, ~0,05 s en el 10 (cada 5 líneas)
+            let g = 0.75 * Math.pow(0.76 - (this.level - 1) * 0.008, this.level - 1);
+            g = Math.max(g, 0.016);
             if (this.fx.rush > 0) g /= 2;
             if (this.fx.calm > 0) g *= 2;
             return g;
@@ -726,12 +729,13 @@
             const best = ms ? (this.mode.sprint && ms.bestTime !== null ? `Mejor: <b>${Nexus.util.formatTime(ms.bestTime)}</b>` : `Mejor: <b>${formatNumber(ms.bestScore)}</b> pts`) : 'Aún sin récord';
             this.overlay.innerHTML = `<div class="ax-panel">
                 <h2 class="ax-big">TETRIS FUSION</h2>
-                <p class="ax-sub">Tetris moderno con bloques de poder, energía y habilidades</p>
+                <p class="ax-sub">${this.mode.plain ? 'El Tetris clásico: sube de nivel cada 5 líneas y cada nivel cae más rápido' : 'Tetris moderno con bloques de poder, energía y habilidades'}</p>
                 ${Kit.modeCards(MODES, this.mode.id)}
                 <details class="ax-help"><summary>📖 Cómo se juega</summary><ul>
                     <li><kbd>←</kbd><kbd>→</kbd> mover · <kbd>↑</kbd>/<kbd>X</kbd> girar · <kbd>Z</kbd> girar al revés · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> caída directa · <kbd>C</kbd> reserva · <kbd>P</kbd> pausa.</li>
                     <li><b>Bloques de poder</b>: un cuadro de la pieza trae 💥 Bomba (área 5×5), ⚡ Rayo (columna entera), ❄️ Hielo (congela la caída 6 s) o ⭐ Estrella (×2 en 3 limpiezas). Se activan <i>al limpiar su línea</i> y pueden encadenarse. Los ves venir en «Siguientes».</li>
                     <li><b>Energía</b>: cada línea la carga. <kbd>Q</kbd> ⏪ Rebobinar (${ENERGY_REWIND}) deshace la última pieza y su puntuación; <kbd>E</kbd> 🧹 Purga (${ENERGY_PURGE}) borra las 3 filas de abajo.</li>
+                    <li><b>Normal</b>: sin bloques de poder ni energía. En todos los modos se sube de nivel cada ${LINES_PER_LEVEL} líneas y la caída se acelera rápido.</li>
                     <li><b>Cascada</b>: tras limpiar, los bloques caen individualmente y cada reacción en cadena suma +50 % de puntos. <b>Caos</b>: cada 18 piezas, un evento aleatorio.</li>
                     <li>T-Spin y Tetris dan back-to-back ×1,5. Limpiar todo el tablero suma 2.000.</li>
                 </ul></details>
@@ -932,6 +936,9 @@
             set('time', Nexus.util.formatTime(this.time));
         }
         updateSide() {
+            const plain = !!this.mode.plain;
+            this.$('#tt-energy-card').hidden = plain;
+            this.root.querySelectorAll('#tt-touch [data-act="rewind"], #tt-touch [data-act="purge"]').forEach(b => { b.hidden = plain; });
             const set = (id, v) => { const el = this.$('#' + id); if (el) el.textContent = v; };
             set('tt-level', this.level);
             set('tt-combo', this.combo > 0 ? `×${this.combo}` : '–');

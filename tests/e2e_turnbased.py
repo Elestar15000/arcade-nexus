@@ -230,7 +230,10 @@ try:
 
         # ═════════ Ajustes y móvil ═════════
         A.goto(URL + '#/settings'); A.wait_for_timeout(300)
-        check(A.locator('[data-choice="chess.defaultLevel"]').count() == 1 and A.locator('[data-choice="battleship.defaultLevel"]').count() == 1, 'ajustes de Ajedrez y Flota')
+        check(A.locator('[data-choice="chess.defaultLevel"]').count() == 0, 'Ajustes: sin nivel inicial')
+        open_game(A, 'chess'); A.click('.game-settings-btn'); A.wait_for_timeout(300)
+        check(A.locator('.modal-overlay.active [data-setting="chess.showLegal"]').count() == 1, 'ajustes de Ajedrez dentro del juego')
+        A.evaluate('Nexus.ui.modal.closeAll()')
         M = player(b, 'Movil', errs, mobile=True)
         open_game(M, 'chess'); M.click('[data-do=go-cpu]'); M.click('[data-do=start]'); M.wait_for_timeout(300)
         check(M.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), 'móvil ajedrez: sin scroll horizontal')

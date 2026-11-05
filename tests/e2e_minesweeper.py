@@ -16,12 +16,23 @@ with sync_playwright() as p:
     page.click('.power-btn[data-power=scanner]'); page.wait_for_timeout(100)
     check(page.evaluate("__ms.activePower") is None, 'poderes bloqueados antes de la primera casilla')
     page.click('.cell[data-row="0"][data-col="0"]'); page.wait_for_timeout(200)
-    # escudo: pisar una mina no termina la partida y no cuenta como casilla segura
+    # poderes: sin Rayos X, escudo no pasivo y sin recarga
+    check(page.locator('.power-btn').count() == 4 and page.locator('.power-btn[data-power=xray]').count() == 0, 'sin Rayos X: 4 poderes')
+    check(page.locator('.power-btn.passive').count() == 0, 'el escudo ya no es pasivo')
+    # escudo activado: destapar una mina con él no termina la partida y no cuenta como casilla segura
     mine = page.evaluate("(() => { for (let r=0;r<__ms.rows;r++) for (let c=0;c<__ms.cols;c++) if (__ms.board[r][c]===-1 && !__ms.revealed[r][c]) return [r,c]; })()")
     before = page.evaluate("__ms.cellsRevealed")
+    page.click('.power-btn[data-power=shield]'); page.wait_for_timeout(100)
     page.click(f'.cell[data-row="{mine[0]}"][data-col="{mine[1]}"]'); page.wait_for_timeout(200)
-    check(not page.evaluate("__ms.gameOver") and page.evaluate("__ms.powers.shield.charges")==0, 'escudo salva de la primera mina')
+    check(not page.evaluate("__ms.gameOver") and page.evaluate("__ms.powers.shield.charges")==0, 'el escudo activado protege la casilla elegida')
     check(page.evaluate("__ms.cellsRevealed")==before, 'mina desactivada no cuenta como casilla segura')
+    page.click('.power-btn[data-power=shield]'); page.wait_for_timeout(100)
+    check(page.evaluate("__ms.activePower") is None, 'el escudo sólo se puede usar una vez por partida')
+    page.evaluate("(() => { for (let r=0;r<__ms.rows;r++) for (let c=0;c<__ms.cols;c++) if (__ms.orbs[r][c]) { __ms.collectOrb(r,c); } return 1; })()")
+    check(page.evaluate("__ms.powers.shield.charges")==0, 'los orbes no recargan poderes')
+    # sin escudo activado, pisar una mina pierde
+    mine2 = page.evaluate("(() => { for (let r=0;r<__ms.rows;r++) for (let c=0;c<__ms.cols;c++) if (__ms.board[r][c]===-1 && !__ms.revealed[r][c]) return [r,c]; })()")
+
     # ganar: revelar todas las casillas seguras
     page.evaluate("""() => { for (let r=0;r<__ms.rows;r++) for (let c=0;c<__ms.cols;c++) if (__ms.board[r][c]!==-1 && !__ms.revealed[r][c]) __ms.revealCell(r,c); }""")
     page.wait_for_timeout(1500)

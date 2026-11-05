@@ -45,8 +45,12 @@ with sync_playwright() as p:
 
     # Tetris
     page.goto(f'file://{ROOT}/index.html#/game/tetris'); page.wait_for_timeout(500)
-    check(page.locator('.ax-mode').count() == 4, 'Tetris: 4 modos')
+    check(page.locator('.ax-mode').count() == 5, 'Tetris: 5 modos (con Normal)')
+    check(page.evaluate('__tetris.mode.id') == 'normal', 'Tetris: abre en modo Normal')
     page.click('[data-do=start]'); page.wait_for_timeout(300)
+    check(page.locator('#tt-energy-card').is_hidden() and all(it is None or it.get('pw') is None for it in page.evaluate('__tetris.queue')), 'Tetris Normal: sin energía ni bloques de poder')
+    speeds = page.evaluate("[1, 5, 10].map(l => { const o = __tetris.level; __tetris.level = l; const g = __tetris.gravityInterval(); __tetris.level = o; return g; })")
+    check(speeds[0] <= 0.75 and speeds[1] < 0.3 and speeds[2] < 0.07, f'Tetris: velocidad progresiva rápida {[round(x, 3) for x in speeds]}')
     for k in ['ArrowLeft', 'ArrowUp', 'Space', 'c']: page.keyboard.press(k); page.wait_for_timeout(80)
     check(page.evaluate('__tetris.piecesLocked') >= 1, 'Tetris: la caída directa fija una pieza')
     page.evaluate("__tetris.score = 25000; __tetris.gameOver(false, 'Prueba')"); page.wait_for_timeout(1000)
@@ -64,8 +68,13 @@ with sync_playwright() as p:
 
     # Ajustes y stats
     page.goto(f'file://{ROOT}/index.html#/settings'); page.wait_for_timeout(400)
-    check(page.locator('[data-choice="snake.defaultMode"]').count() == 1 and page.locator('[data-choice="tetris.defaultMode"]').count() == 1
-          and page.locator('[data-choice="pacman.defaultMode"]').count() == 1, 'Ajustes: secciones de los 3 juegos')
+    check(page.locator('[data-choice$="defaultMode"]').count() == 0 and page.locator('[data-setting="tetris.ghost"]').count() == 0, 'Ajustes: sin modos iniciales ni ajustes de juegos')
+    page.goto(f'file://{ROOT}/index.html#/game/tetris'); page.wait_for_timeout(400)
+    page.click('.game-settings-btn'); page.wait_for_timeout(300)
+    check(page.locator('.modal-overlay.active [data-setting="tetris.ghost"]').count() == 1, 'Tetris: ajustes dentro del juego (⚙️)')
+    page.click('.modal-overlay.active [data-setting="tetris.ghost"] + .switch-track'); page.wait_for_timeout(100)
+    check(page.evaluate("Nexus.services.settings.get('tetris.ghost')") is False, 'el ajuste del juego se guarda')
+    page.evaluate("Nexus.ui.modal.closeAll()")
     page.goto(f'file://{ROOT}/index.html#/stats'); page.wait_for_timeout(400)
     check('Snake' in page.inner_text('#view'), 'Estadísticas incluyen Snake')
 
