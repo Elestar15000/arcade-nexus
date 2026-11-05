@@ -15,14 +15,15 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   (y las de Wordle y Pasapalabra) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
 - **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días. No hay exportación de datos.
-- **131 logros** (generales, Buscaminas, Wordle, Pasapalabra, Tetris, Pac-Man, Snake, Pong, Ajedrez y Hundir la flota) con rareza, progreso y XP.
+- **147 logros** (generales, Buscaminas, Wordle, Pasapalabra, Tetris, Pac-Man, Snake, Pong, Ajedrez, Hundir la flota, Brisca, Guiñote y Chinchón) con rareza, progreso y XP.
 - **Rankings globales** (general y por juego/modo/métrica).
 - **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
   de la barra lateral y opciones propias de cada juego.
 - **Barra lateral desplegable**: se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`,
   se pliega sola al jugar (configurable) y recuerda su estado.
 - **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón** y los
-  multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez** y **Hundir la flota**.
+  multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez**, **Hundir la flota** y los de cartas **Brisca**,
+  **Guiñote** y **Chinchón**.
 
 ## Activar cuentas y rankings globales
 
@@ -189,13 +190,41 @@ siempre abren en su modo por defecto.
 privada, unirse con código, enlace (`#/game/<juego>/<CÓDIGO>`) o buscador, sala con «¡Listo!» y revancha, y aviso si el rival se
 va. Lo usan Ajedrez y Hundir la flota sobre la misma red de `src/core/net.js` que Pong.
 
+## Juegos de cartas: Brisca, Guiñote y Chinchón
+
+Baraja española de 40 cartas (sin ochos, nueves ni comodines), dibujada en SVG propio. Los tres se juegan **contra la máquina**
+(bots en los demás asientos) u **online** en mesas de varios jugadores.
+
+- **Brisca** (sólo 1 contra 1): 3 cartas en mano, triunfo por la muestra, orden As-3-Rey-Caballo-Sota-7…2 y valores 11/10/4/3/2.
+  Sin obligación de asistir. Cambio del 7 de triunfo (o del 2 si la muestra es baja) al salir mientras quede mazo. Gana quien pase
+  de 60 de 120; a 60, empate.
+- **Guiñote** (sólo 4 jugadores, **2 parejas: 2 contra 2**; el compañero se sienta enfrente): 6 cartas, orden As-3-Rey-Sota-Caballo-7…2,
+  valores 11/10/4/3/2 y 10 de últimas. Cantes de 20 y las 40 (Rey + Sota) por la pareja que acaba de ganar baza, cambio del 7 por
+  quien gana baza, y **arrastre** al acabarse el mazo (asistir y montar; si no, fallar; si gana el compañero, basta con asistir).
+  Se juegan manos («de vueltas») hasta que una pareja llega a 101.
+- **Chinchón** (2 a 4 jugadores): 7 cartas, robar del mazo o del descarte y descartar. Grupos de 3–4 iguales y escaleras de 3+ del
+  mismo palo (el 7 enlaza con la sota). Se cierra con 5 o menos sin combinar; −10 si se cierra con todo combinado; 7 seguidas del
+  mismo palo = **chinchón** y gana la partida. Quien pasa de 100 queda eliminado. La mesa ordena sola tus combinaciones.
+  Si en 40 turnos por jugador nadie cierra, la ronda es nula y se reparte de nuevo.
+
+**Online**: `src/games/cardgames/table.js` monta una mesa **multiasiento** sobre la misma red de `src/core/net.js` (la sala ahora
+admite hasta 8 invitados; `RoomHost({ maxPlayers })`). El anfitrión crea la mesa (pública o privada, con código, enlace o buscador
+que muestra la ocupación «2/4»), ve los asientos, y al pulsar **Empezar** los huecos libres los ocupa un bot y la sala se cierra
+a nuevos jugadores. El navegador del anfitrión es la autoridad: baraja, valida cada jugada y manda a cada jugador **sólo su vista**
+(nunca las cartas de los demás). Si un invitado se va, un bot ocupa su sitio y la partida sigue; si se va el anfitrión, la mesa
+se cierra. Al acabar, todos vuelven a la mesa para jugar otra.
+
+Las reglas son módulos puros (`rules-tricks.js` para Brisca y Guiñote, `rules-chinchon.js`) con la misma interfaz
+(`setup / validate / apply / step / view / bot / turn`) y se prueban con `node tests/cardgames_rules_test.mjs`, que juega cientos de
+partidas completas entre bots.
+
 ## Estructura
 
 ```
 index.html
 assets/
   css/        base · layout · components · pages · games/{minesweeper,wordle,pasapalabra,arcade,tetris,pacman,snake,pong,
-              online,chess,battleship}
+              online,chess,battleship,cards}
   data/       words-es.js (diccionario)
 src/
   core/       namespace, utils, events, storage, hash, schema, audio, backend (servidor / local), net (multijugador P2P)
@@ -204,7 +233,8 @@ src/
   games/      registry.js · minesweeper/ · wordle/{dictionary,phrases,game}.js
               pasapalabra/{bank,game}.js
               shared/kit.js (canvas, bucle, táctil) · shared/online.js (vestíbulo online)
-              tetris/ · pacman/ · snake/ · pong/ · chess/{engine,game}.js · battleship/   app.js  arranque
+              tetris/ · pacman/ · snake/ · pong/ · chess/{engine,game}.js · battleship/
+              cardgames/{core,rules-tricks,rules-chinchon,table,games}.js   app.js  arranque
 backend/      Cloudflare Worker (API sobre repo privado de GitHub) + README de despliegue
 config.js     URL del backend (API_URL)
 tests/        pruebas E2E (Playwright) y prueba del Worker (Node)
@@ -240,9 +270,11 @@ node tests/pasapalabra_bank_test.mjs  # valida el banco de definiciones
 python3 tests/e2e_arcade.py       # Tetris, Pac-Man y Snake
 python3 tests/e2e_pong.py         # Pong: CPU y online entre navegadores (P2P, retransmisión, sala llena, abandono…)
 python3 tests/e2e_turnbased.py    # Ajedrez y Hundir la flota: CPU y online (sincronía, tablas, revancha, anti-trampas, abandono)
-                                  # (las dos anteriores arrancan brokers MQTT locales: tests/mqtt_test_broker.mjs; sin Internet)
+python3 tests/e2e_cards.py        # Brisca, Guiñote y Chinchón: CPU y online con 2 y 3 navegadores + bot, sustitución, vuelta a la mesa
+                                  # (las tres anteriores arrancan brokers MQTT locales: tests/mqtt_test_broker.mjs; sin Internet)
 node tests/chess_engine_test.mjs  # perft, reglas especiales, SAN, FEN y búsqueda del motor de ajedrez
 node tests/battleship_ai_test.mjs # flotas válidas y fuerza de los 4 niveles de IA
+node tests/cardgames_rules_test.mjs # reglas de Brisca, Guiñote y Chinchón con cientos de partidas entre bots
 node tests/worker_test.mjs        # API del Worker contra un GitHub falso en memoria
 ```
 

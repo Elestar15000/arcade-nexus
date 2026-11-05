@@ -72,7 +72,7 @@ with sync_playwright() as p:
     page.goto(f'file://{ROOT}/index.html#/game/tetris'); page.wait_for_timeout(400)
     page.click('.game-settings-btn'); page.wait_for_timeout(300)
     check(page.locator('.modal-overlay.active [data-setting="tetris.ghost"]').count() == 1, 'Tetris: ajustes dentro del juego (⚙️)')
-    page.click('.modal-overlay.active [data-setting="tetris.ghost"] + .switch-track'); page.wait_for_timeout(100)
+    page.click('.modal-overlay.active [data-setting="tetris.ghost"]'); page.wait_for_timeout(100)
     check(page.evaluate("Nexus.services.settings.get('tetris.ghost')") is False, 'el ajuste del juego se guarda')
     page.evaluate("Nexus.ui.modal.closeAll()")
     page.goto(f'file://{ROOT}/index.html#/stats'); page.wait_for_timeout(400)

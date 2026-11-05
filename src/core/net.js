@@ -460,13 +460,15 @@
 
     // ── Anfitrión: "abre el servidor" en su navegador ────────
     class RoomHost extends Emitter {
+        /** maxPlayers incluye al anfitrión (2 = un invitado; hasta 4 para juegos de mesa). */
         constructor({ game, info, isPublic = true, maxPlayers = 2 }) {
             super();
             this.game = game; this.T = topics(game);
             this.info = sanitizeInfo(info);
-            this.isPublic = isPublic; this.maxPlayers = maxPlayers;
+            this.isPublic = isPublic; this.maxPlayers = Math.max(2, Math.min(8, maxPlayers | 0 || 2));
             this.code = genCode();
-            this.guest = null; this.link = null;
+            this.guests = new Map();          // id → { id, info, link, ready }
+            this.locked = false;              // partida empezada: no entra nadie más
             this.closed = false;
             this.hub = new Hub({ will: isPublic ? { topic: this.T.room(this.code), payload: '', retain: true } : null });
         }
@@ -481,11 +483,21 @@
             return this.code;
         }
 
+        get full() { return this.guests.size >= this.maxPlayers - 1; }
+        /** Primer invitado (compatibilidad con los juegos de 2 jugadores). */
+        get guest() { const g = this.guests.values().next().value; return g ? { id: g.id, info: g.info } : null; }
+        get link() { const g = this.guests.values().next().value; return g ? g.link : null; }
+        get players() { return 1 + this.guests.size; }
+        guestList() { return Array.from(this.guests.values()).map(g => ({ id: g.id, info: g.info, ready: !!g.ready })); }
+
         _list() {
             if (!this.isPublic || this.closed) return;
-            if (this.guest) this.hub.publish(this.T.room(this.code), null, true);
-            else this.hub.publish(this.T.room(this.code), { code: this.code, host: this.info, ts: Date.now(), v: PROTO, max: this.maxPlayers }, true);
+            if (this.full || this.locked) this.hub.publish(this.T.room(this.code), null, true);
+            else this.hub.publish(this.T.room(this.code), { code: this.code, host: this.info, ts: Date.now(), v: PROTO, max: this.maxPlayers, n: this.players }, true);
         }
+
+        /** Cierra (o reabre) la sala a nuevos jugadores, p. ej. al empezar la partida. */
+        lock(on = true) { this.locked = !!on; this._list(); }
 
         _reply(id, m) { this.hub.publish(this.T.guest(id), Object.assign({ from: 'host' }, m)); }
 
@@ -493,41 +505,51 @@
             if (this.closed || topic !== this.T.host(this.code) || !m || typeof m.from !== 'string') return;
             if (m.t === 'hello') {
                 if (m.v !== PROTO) { this._reply(m.from, { t: 'reject', reason: 'version' }); return; }
-                if (this.guest) {
-                    if (this.guest.id === m.from) { this._reply(m.from, { t: 'welcome', host: this.info, code: this.code }); return; }
-                    this._reply(m.from, { t: 'full' });
-                    return;
-                }
-                this.guest = { id: m.from, info: sanitizeInfo(m.info) };
+                if (this.guests.has(m.from)) { this._reply(m.from, { t: 'welcome', host: this.info, code: this.code }); return; }
+                if (this.full || this.locked) { this._reply(m.from, { t: 'full' }); return; }
+                const g = { id: m.from, info: sanitizeInfo(m.info), link: null, ready: false };
+                this.guests.set(g.id, g);
                 this._list();
                 this._reply(m.from, { t: 'welcome', host: this.info, code: this.code });
-                const link = this.link = new Link({ hub: this.hub, me: 'host', peerTopic: this.T.guest(m.from), initiator: true });
-                link.on('ready', (mode) => this.emit('guest', this.guest, mode));
-                link.on('mode', (mode) => this.emit('mode', mode));
-                link.on('rtt', (r) => this.emit('rtt', r));
-                link.on('message', (o) => this.emit('message', o));
+                const link = g.link = new Link({ hub: this.hub, me: 'host', peerTopic: this.T.guest(m.from), initiator: true });
+                const pub = { id: g.id, info: g.info };
+                link.on('ready', (mode) => { g.ready = true; this.emit('guest', pub, mode); });
+                link.on('mode', (mode) => this.emit('mode', mode, g.id));
+                link.on('rtt', (r) => this.emit('rtt', r, g.id));
+                link.on('message', (o) => this.emit('message', o, g.id));
                 link.on('lost', (reason) => {
-                    const g = this.guest;
-                    this.link = null; this.guest = null;
+                    if (this.guests.get(g.id) !== g) return;
+                    this.guests.delete(g.id);
                     this._list();
-                    this.emit('guestLeft', g, reason);
+                    this.emit('guestLeft', pub, reason);
                 });
-                this.emit('joining', this.guest);
+                this.emit('joining', pub);
                 link.start();
                 return;
             }
-            if (this.link && this.guest && m.from === this.guest.id) this.link.onSignal(m);
+            const g = this.guests.get(m.from);
+            if (g && g.link) g.link.onSignal(m);
         }
 
-        get mode() { return this.link ? this.link.mode : 'waiting'; }
-        get rtt() { return this.link ? this.link.rtt : null; }
-        send(obj, reliable) { if (this.link) this.link.send(obj, reliable); }
-        /** Echa al invitado actual (vuelve a esperar). */
-        kick() { if (this.link) { this.link.close(); this.link = null; this.guest = null; this._list(); } }
+        get mode() { const l = this.link; return l ? l.mode : 'waiting'; }
+        get rtt() { const l = this.link; return l ? l.rtt : null; }
+        /** Envía a un invitado (to = id) o a todos. */
+        send(obj, reliable, to) {
+            for (const g of this.guests.values()) if (g.link && (!to || g.id === to)) g.link.send(obj, reliable);
+        }
+        /** Echa a un invitado (o a todos). */
+        kick(id) {
+            for (const g of Array.from(this.guests.values())) {
+                if (id && g.id !== id) continue;
+                this.guests.delete(g.id);
+                if (g.link) g.link.close();
+            }
+            this._list();
+        }
 
         async close() {
             if (this.closed) return;
-            if (this.link) this.link.close();
+            for (const g of this.guests.values()) if (g.link) g.link.close();
             this.closed = true;
             clearInterval(this.listT);
             if (this.isPublic) this.hub.publish(this.T.room(this.code), null, true);
@@ -628,7 +650,7 @@
             if (!m) { if (this.rooms.delete(code)) this._emit(); return; }
             if (m.v !== PROTO || m.code !== code || typeof m.ts !== 'number') return;
             if (Date.now() - m.ts > this.ttl) return;
-            this.rooms.set(code, { code, host: sanitizeInfo(m.host), ts: m.ts });
+            this.rooms.set(code, { code, host: sanitizeInfo(m.host), ts: m.ts, max: Math.max(2, m.max | 0 || 2), n: Math.max(1, m.n | 0 || 1) });
             this._emit();
         }
 
