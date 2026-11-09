@@ -15,14 +15,14 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   (y las de Wordle y Pasapalabra) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
 - **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días. No hay exportación de datos.
-- **157 logros** (generales, Buscaminas, Wordle, Pasapalabra, Tetris, Pac-Man, Snake, Pong, Ajedrez, Hundir la flota, Brisca, Guiñote, Chinchón y Escape Room) con rareza, progreso y XP.
+- **183 logros** (generales y de cada juego) con rareza, progreso y XP.
 - **Rankings globales** (general y por juego/modo/métrica).
 - **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
   de la barra lateral y opciones propias de cada juego.
 - **Barra lateral desplegable**: se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`,
   se pliega sola al jugar (configurable) y recuerda su estado.
-- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón**, **Escape Room** y los
-  multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez**, **Hundir la flota** y los de cartas **Brisca**,
+- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón**, **Escape Room**, los puzles **Sudoku**, **Crucigrama**,
+  **Sopa de letras**, **Conexiones** y **2048**, y los multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez**, **Hundir la flota** y los de cartas **Brisca**,
   **Guiñote** y **Chinchón**.
 
 ## Activar cuentas y rankings globales
@@ -190,6 +190,25 @@ siempre abren en su modo por defecto.
 privada, unirse con código, enlace (`#/game/<juego>/<CÓDIGO>`) o buscador, sala con «¡Listo!» y revancha, y aviso si el rival se
 va. Lo usan Ajedrez y Hundir la flota sobre la misma red de `src/core/net.js` que Pong.
 
+## Puzles: Sudoku, Crucigrama, Sopa de letras, Conexiones y 2048
+
+Los cinco comparten una base (`src/games/shared/puzzle.js`): menú de modos, reloj, pausa, **partida guardada para continuar**,
+**reto diario** generado con una semilla de la fecha (el mismo para todos ese día, con racha) y registro de resultados.
+
+- **Sudoku** — fácil (40 números), medio (32), difícil (27), experto (~24) y sudoku diario. Se generan al momento y siempre
+  tienen **solución única** (se comprueba con un resolvedor). Notas, deshacer, pistas, resaltado de fila/columna/caja y de
+  números iguales; con 3 errores se pierde. Teclado: 1–9, flechas, N (notas), Retroceso, Ctrl+Z.
+- **Crucigrama** — se construye en cada partida con las **1.200 definiciones del Pasapalabra**: fácil (9 palabras), medio (11),
+  difícil (13) y diario (12). Toda secuencia de letras de la cuadrícula es una palabra definida. Teclado físico o en pantalla
+  (con Ñ), comprobar, revelar letra o palabra.
+- **Sopa de letras** — 24 temas. Fácil 10×10 (→ ↓), medio 12×12 (+ diagonales), difícil 14×14 (8 direcciones, también al revés)
+  y sopa diaria. Arrastrar o tocar primera y última letra; cada palabra aparece una sola vez.
+- **Conexiones** — 16 palabras en 4 grupos (🟨 🟩 🟦 🟪) a partir de 71 categorías, con juegos de palabras en el morado
+  (esconden un número, un animal o un color; palíndromos; anagramas; «___ de mar», «media ___»…). El generador evita grupos que
+  compartan palabras o familia y comprueba las reglas de los juegos de palabras. Partida libre (4 fallos), difícil (2) y diario.
+- **2048** — clásico 4×4, grande 5×5 (meta 4096), contrarreloj de 3 minutos y reto diario (misma secuencia de fichas para todos,
+  150 movimientos). Deslizar o flechas/WASD, animaciones y 3 «deshacer» en los modos sin tiempo.
+
 ## Escape Room
 
 Salas de escape por niveles: examina objetos, recoge cosas, combínalas en el inventario, descifra mensajes y abre candados de
@@ -262,7 +281,8 @@ src/
               shared/kit.js (canvas, bucle, táctil) · shared/online.js (vestíbulo online)
               tetris/ · pacman/ · snake/ · pong/ · chess/{engine,game}.js · battleship/
               cardgames/{core,rules-tricks,rules-chinchon,table,games}.js
-              escape/{engine,rooms-medio,rooms-dificil,rooms-imposible,daily,game}.js   app.js  arranque
+              escape/{engine,rooms-medio,rooms-dificil,rooms-imposible,daily,game}.js
+              shared/puzzle.js · sudoku/ · crossword/ · wordsearch/ · connections/{bank,game}.js · g2048/   app.js  arranque
 backend/      Cloudflare Worker (API sobre repo privado de GitHub) + README de despliegue
 config.js     URL del backend (API_URL)
 tests/        pruebas E2E (Playwright) y prueba del Worker (Node)
@@ -302,6 +322,8 @@ python3 tests/e2e_cards.py        # Brisca, Guiñote y Chinchón: CPU y online c
                                   # (las tres anteriores arrancan brokers MQTT locales: tests/mqtt_test_broker.mjs; sin Internet)
 node tests/chess_engine_test.mjs  # perft, reglas especiales, SAN, FEN y búsqueda del motor de ajedrez
 node tests/battleship_ai_test.mjs # flotas válidas y fuerza de los 4 niveles de IA
+python3 tests/e2e_puzzles.py      # Sudoku, Crucigrama, Sopa, Conexiones y 2048: partidas con la interfaz, diarios, continuar, móvil
+node tests/puzzles_logic_test.mjs # generadores: sudoku único, crucigramas válidos, sopas, conexiones sin ambigüedad, lógica de 2048
 python3 tests/e2e_escape.py       # Escape Room: sala completa, candados, inventario, pistas, continuar, diaria, móvil
 node tests/escape_rooms_test.mjs  # todas las salas tienen salida (y las diarias de 365 días)
 node tests/cardgames_rules_test.mjs # reglas de Brisca, Guiñote y Chinchón con cientos de partidas entre bots
