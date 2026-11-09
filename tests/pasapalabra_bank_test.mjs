@@ -17,7 +17,7 @@ for (const [lv, list] of Object.entries(B.LEVELS)) {
         if (!q.d || q.d.length < 12) fail(`${lv} ${q.a}: definición vacía`);
         if (B.norm(q.d).includes(n)) fail(`${lv} ${q.a}: la definición contiene la respuesta`);
     }
-    for (const l of B.LETTERS) if (per[l] !== 4) fail(`${lv} ${l}: ${per[l] || 0} definiciones (se esperaban 4)`);
+    for (const l of B.LETTERS) if (per[l] !== 12) fail(`${lv} ${l}: ${per[l] || 0} definiciones (se esperaban 12)`);
     console.log(`${lv}: ${list.length} definiciones`);
 }
 console.log(bad ? `\nRESULT: ${bad} FALLOS` : '\nRESULT: OK'); process.exit(bad ? 1 : 0);

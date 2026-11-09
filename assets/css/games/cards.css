@@ -173,3 +173,26 @@
     .cg-rr { grid-template-columns: 80px 1fr auto; }
 }
 @media (prefers-reduced-motion: reduce) { .cg-tc, .cg-pile.can, .cg-bubble.show { animation: none !important; } }
+
+/* Ordenar la mano */
+.cg-hand .pc.movable { touch-action: none; cursor: grab; }
+.cg-hand .pc.movable.playable { cursor: pointer; }
+.cg-hand.sorting .pc { transition: none; }
+.cg-hand .pc.dragging { position: relative; z-index: 20; cursor: grabbing; transition: none; opacity: .95;
+    box-shadow: 0 14px 26px rgba(0, 0, 0, .55), 0 0 0 3px var(--ax-accent) !important; }
+.cg-handtools { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; font-size: .78em; color: var(--text-muted); }
+.cg-handtools[hidden] { display: none; }
+.cg-handtools .btn.on { border-color: var(--ax-accent); color: var(--text); background: color-mix(in srgb, var(--ax-accent) 18%, transparent); }
+
+/* Guiñote: malas y buenas */
+.gu-malas { color: #f87171; } .gu-buenas { color: #4ade80; }
+.cg-sc .gu-tag { font-style: normal; font-size: .72em; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
+.gu-bar { position: relative; display: flex; width: 100%; height: 8px; border-radius: 99px; background: rgba(255, 255, 255, .08); overflow: hidden; margin: 4px 0 2px; }
+.gu-bar i { display: block; height: 100%; transition: width .35s; }
+.gu-bar .gu-m { background: linear-gradient(90deg, #7f1d1d, #f87171); }
+.gu-bar .gu-b { background: linear-gradient(90deg, #15803d, #4ade80); }
+.gu-bar em { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .8; }
+.gu-phase { margin-top: 8px; padding: 6px 8px; border-radius: 10px; font-size: .78em; background: var(--bg-surface); border: 1px solid var(--border); }
+.gu-phase.vueltas { border-color: #4ade80; }
+.gu-final { text-align: center; margin: 4px 0 0; }
+.cg-summary b.gu-malas, .cg-summary b.gu-buenas { font-size: 1em; }

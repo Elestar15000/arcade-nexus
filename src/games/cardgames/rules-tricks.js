@@ -12,10 +12,15 @@
      cambia por la muestra si es as, tres o figura, y el 2 si es
      4, 5, 6 o 7. 120 puntos: gana quien pasa de 60.
    Guiñote: 6 cartas; orden As, 3, Rey, Sota, Caballo, 7…2; cantes
-     (Rey + Sota: 20, o 40 en triunfo) y cambio del 7 tras ganar
-     una baza mientras queda mazo; en el arrastre hay que asistir,
-     montar y fallar; 10 de últimas. Se juegan manos (las vueltas)
-     sumando puntos hasta que una pareja pasa de 100.
+     (Rey + Sota: 20, o 40 en triunfo) por quien gana una baza, una
+     vez por baza y palo; cambio del 7 por la muestra (si ésta vale
+     puntos) tras ganar una baza mientras queda mazo; en el arrastre
+     hay que asistir, montar y fallar; 10 de últimas.
+     Puntuación a 101: los 50 primeros puntos son «malas» y, al
+     pasarlas, se cuentan las «buenas» (gana quien pasa de 50 buenas).
+     Los puntos se ven en vivo. La primera mano (idas) se juega
+     entera; si nadie pasa de 100 se juegan «vueltas», en las que
+     gana al instante la primera pareja que sobrepasa el límite.
    ============================================================ */
 (function () {
     'use strict';
@@ -79,6 +84,25 @@
             return st;
         }
 
+        /** Puntos en vivo de cada bando: manos anteriores + bazas y cantes de la mano en curso. */
+        const live = (st) => st.totals.map((t, i) => t + st.pts[i] + st.cantePts[i]);
+        const MALAS = 50;
+
+        /** En vueltas, la primera pareja que pasa del límite gana en ese mismo momento. */
+        function checkVueltas(st, sd) {
+            if (!cfg.target || st.handNo < 2 || st.over) return false;
+            const sc = live(st);
+            if (sc[sd] < cfg.target) return false;
+            finishGame(st, sd, sc, `Gana la pareja ${sd === 0 ? 'A' : 'B'}: pasa de ${MALAS} buenas (${sc[sd] - MALAS} buenas) en las vueltas`);
+            return true;
+        }
+        function finishGame(st, win, sc, text) {
+            st.phase = 'over'; st.turnSeat = null; st.pause = 0;
+            const seats = []; for (let s = 0; s < st.n; s++) if (side(st, s) === win) seats.push(s);
+            st.over = { winners: seats, draw: false, scores: sc.slice(), text };
+            log(st, text + '.');
+        }
+
         const inArrastre = (st) => cfg.arrastre && st.deck.length === 0 && !st.muestra;
 
         function legalCards(st, seat) {
@@ -110,7 +134,7 @@
 
         /** Palos que puede cantar (Rey + Sota en la mano) tras ganar la baza anterior. */
         function canteSuits(st, seat) {
-            if (!cfg.cantes || st.phase !== 'play' || st.turnSeat !== seat || st.trick.length || st.lastWinner !== seat || !st.deck.length) return [];
+            if (!cfg.cantes || st.phase !== 'play' || st.turnSeat !== seat || st.trick.length || st.lastWinner !== seat || !st.hands[seat].length) return [];
             if (st.cantedThisTrick) return [];
             const h = st.hands[seat], sd = side(st, seat);
             return K.SUITS.filter(s => h.includes(s + 12) && h.includes(s + 10) && !st.sung[sd + s])
@@ -142,6 +166,7 @@
                 st.cantePts[sd] += v; st.stats[seat].cantes++; if (v === 40) st.stats[seat].sang40 = true;
                 st.lastCante = { seat, suit: a.suit, v, at: Date.now() };
                 log(st, `🎵 ${who(st, seat)} canta las ${v} en ${SUITW[a.suit]}.`);
+                checkVueltas(st, sd);
                 return;
             }
             K.removeCard(st.hands[seat], a.card);
@@ -167,6 +192,8 @@
                 const last = st.hands.every(h => !h.length) && !st.deck.length && !st.muestra;
                 if (last && cfg.lastBonus) { st.pts[sd] += cfg.lastBonus; log(st, `${who(st, w)} se lleva las últimas (+${cfg.lastBonus}).`); }
                 else if (p >= 10) log(st, `${who(st, w)} gana la baza (${p} puntos).`);
+                if (last) st.lastSide = sd;
+                if (checkVueltas(st, sd)) return;
                 if (!last) for (let k = 0; k < st.n; k++) { const c = draw(st); if (c) st.hands[(w + k) % st.n].push(c); }
                 if (last) { endHand(st); return; }
                 if (inArrastre(st) && !st.arrastreLogged) { st.arrastreLogged = true; if (cfg.arrastre) log(st, '⚠️ Se acabó el mazo: arrastre (hay que asistir, montar y fallar).'); }
@@ -192,18 +219,19 @@
                 log(st, st.over.text + '.');
                 return;
             }
-            for (let i = 0; i < S; i++) st.totals[i] += hand[i];
-            st.lastHand = { pts: st.pts.slice(), cantes: st.cantePts.slice(), hand };
-            const over = st.totals.map((t, i) => [t, i]).filter(([t]) => t >= cfg.target);
+            const sc = live(st);
+            st.lastHand = { pts: st.pts.slice(), cantes: st.cantePts.slice(), hand, before: st.totals.slice() };
+            const over = [0, 1].filter(i => sc[i] >= cfg.target);
             if (over.length) {
-                const win = st.totals[0] === st.totals[1] ? (st.tricks[0] ? 0 : 1) : (st.totals[0] > st.totals[1] ? 0 : 1);
-                st.phase = 'over'; st.turnSeat = null;
-                const seats = []; for (let s = 0; s < st.n; s++) if (side(st, s) === win) seats.push(s);
-                st.over = { winners: seats, draw: false, scores: st.totals.slice(), text: `Gana la pareja ${win === 0 ? 'A' : 'B'} (${st.totals[win]} a ${st.totals[1 - win]})` };
-                log(st, st.over.text + '.');
+                // Al acabar las idas: si las dos pasan, gana la que más tiene y, a igualdad, la que hizo las últimas
+                const win = over.length === 1 ? over[0] : (sc[0] === sc[1] ? st.lastSide : (sc[0] > sc[1] ? 0 : 1));
+                finishGame(st, win, sc, `Gana la pareja ${win === 0 ? 'A' : 'B'} con ${sc[win] - MALAS} buenas (${sc[win]} a ${sc[1 - win]})`);
             } else {
+                for (let i = 0; i < S; i++) st.totals[i] = sc[i];
+                st.pts = st.pts.map(() => 0); st.cantePts = st.cantePts.map(() => 0);
                 st.phase = 'handEnd'; st.turnSeat = null; st.pause = 4200;
-                log(st, `Fin de la mano: ${st.totals[0]} – ${st.totals[1]}. Nadie pasa de 100: ¡de vueltas!`);
+                const d = (t) => (t > MALAS ? `${t - MALAS} buenas` : `${t} malas`);
+                log(st, `Fin de la mano: A ${d(st.totals[0])}, B ${d(st.totals[1])}. Nadie pasa de 50 buenas: ¡de vueltas!`);
             }
         }
 
@@ -220,6 +248,7 @@
                 trick: st.trick.slice(), trickWinner: st.trickWinner, lastTrick: st.lastTrick,
                 players: st.hands.map((h, i) => ({ count: h.length, side: side(st, i) })),
                 pts: st.pts.slice(), cantes: st.cantePts.slice(), totals: st.totals.slice(), target: cfg.target, tricks: st.tricks.slice(),
+                score: cfg.target ? live(st) : null, malas: MALAS, vueltas: st.handNo > 1,
                 lastCante: st.lastCante || null, lastHand: st.lastHand || null, arrastre: inArrastre(st),
                 log: st.log.slice(), over: st.over, stats: st.stats[seat], mySide: side(st, seat)
             };

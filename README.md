@@ -15,13 +15,13 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   (y las de Wordle y Pasapalabra) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
 - **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días. No hay exportación de datos.
-- **147 logros** (generales, Buscaminas, Wordle, Pasapalabra, Tetris, Pac-Man, Snake, Pong, Ajedrez, Hundir la flota, Brisca, Guiñote y Chinchón) con rareza, progreso y XP.
+- **157 logros** (generales, Buscaminas, Wordle, Pasapalabra, Tetris, Pac-Man, Snake, Pong, Ajedrez, Hundir la flota, Brisca, Guiñote, Chinchón y Escape Room) con rareza, progreso y XP.
 - **Rankings globales** (general y por juego/modo/métrica).
 - **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
   de la barra lateral y opciones propias de cada juego.
 - **Barra lateral desplegable**: se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`,
   se pliega sola al jugar (configurable) y recuerda su estado.
-- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón** y los
+- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón**, **Escape Room** y los
   multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez**, **Hundir la flota** y los de cartas **Brisca**,
   **Guiñote** y **Chinchón**.
 
@@ -67,7 +67,7 @@ siempre abren en su modo por defecto.
 - Rosco de **25 letras** (A–Z con Ñ, sin K ni W) **sin cuenta atrás**: acierta, falla o di «pasapalabra» (botón o escribiéndolo) para dejar la
   letra para la siguiente vuelta. «Empieza por…», salvo Ñ y X que son «Contiene la…». Tildes ignoradas; la Ñ se acepta también con N.
 - **Rosco diario**: el mismo para todos los jugadores cada día (se genera de forma determinista a partir de la fecha) y un solo intento.
-- **Roscos aleatorios** ilimitados con 4 dificultades, cada una con su propio banco de definiciones (100 por nivel, 4 por letra):
+- **Roscos aleatorios** ilimitados con 4 dificultades, cada una con su propio banco de definiciones (300 por nivel, 12 por letra: 1.200 en total):
 
   | Dificultad | Pistas | Tiempo de referencia | Otros |
   |---|---|---|---|
@@ -81,7 +81,7 @@ siempre abren en su modo por defecto.
   cuentan los roscos superados). Terminar por debajo del tiempo de referencia da puntos extra. El ranking tiene la métrica «Mejor marca».
 - La marca se calcula desde una hora de inicio absoluta guardada en la cuenta: recargar o salir de la página **no la detiene**.
   Las partidas guardadas con la versión anterior (cuenta atrás) se convierten solas.
-- Banco: `src/games/pasapalabra/bank.js` (formato `LETRA|definición|respuesta|alternativas`). `node tests/pasapalabra_bank_test.mjs` valida que cada respuesta empiece/contenga su letra y que haya 4 por letra y nivel.
+- Banco: `src/games/pasapalabra/bank.js` (formato `LETRA|definición|respuesta|alternativas`). `node tests/pasapalabra_bank_test.mjs` valida que cada respuesta empiece/contenga su letra, que no se repitan y que haya 12 por letra y nivel. Un rosco aleatorio evita repetir las definiciones de tus 10 últimos roscos de esa dificultad.
 
 ## Tetris Fusion
 
@@ -190,6 +190,28 @@ siempre abren en su modo por defecto.
 privada, unirse con código, enlace (`#/game/<juego>/<CÓDIGO>`) o buscador, sala con «¡Listo!» y revancha, y aviso si el rival se
 va. Lo usan Ajedrez y Hundir la flota sobre la misma red de `src/core/net.js` que Pong.
 
+## Escape Room
+
+Salas de escape por niveles: examina objetos, recoge cosas, combínalas en el inventario, descifra mensajes y abre candados de
+**cifras**, **letras**, **colores** o **flechas** antes de que se acabe el tiempo. Lo importante se apunta solo en el **cuaderno**.
+
+| Nivel | Salas | Tiempo | Pistas | Fallar un candado |
+|---|---|---|---|---|
+| Medio | 10 | 20 min | ilimitadas (−30 s) | sin penalización |
+| Difícil | 10 | 15 min | 3 (−1 min) | sin penalización |
+| Imposible | 10 | 12 min | 2 (−90 s) | −10 s |
+| Diaria | 1 al día | 15 min | 2 (−1 min) | −5 s |
+
+- Dentro de cada nivel, las salas se desbloquean en orden. Estrellas: ★★★ sin pistas y con al menos la mitad del tiempo.
+- Las pistas son contextuales: dicen lo siguiente que hay que hacer según lo que ya has resuelto.
+- **Sala diaria**: 10 diseños que rotan; cada día sus códigos, palabras y colores se generan con una semilla de la fecha
+  (la misma sala para todos ese día). Racha diaria y logros propios.
+- Puzles: horas de reloj, sumas y series, cifrado César, Morse, binario y ASCII, números romanos y mayas, teclado de teléfono,
+  texto en espejo, deducción lógica (quién miente, compartimentos del tren, Mastermind), rutas por cuadrículas, acertijos…
+- La partida a medias se guarda y se puede **continuar** al volver.
+- Contenido en `src/games/escape/` (`engine.js` motor puro, `rooms-*.js` salas, `daily.js` plantillas diarias).
+  `node tests/escape_rooms_test.mjs` comprueba que todas las salas (y las diarias de un año entero) se pueden resolver.
+
 ## Juegos de cartas: Brisca, Guiñote y Chinchón
 
 Baraja española de 40 cartas (sin ochos, nueves ni comodines), dibujada en SVG propio. Los tres se juegan **contra la máquina**
@@ -199,9 +221,14 @@ Baraja española de 40 cartas (sin ochos, nueves ni comodines), dibujada en SVG 
   Sin obligación de asistir. Cambio del 7 de triunfo (o del 2 si la muestra es baja) al salir mientras quede mazo. Gana quien pase
   de 60 de 120; a 60, empate.
 - **Guiñote** (sólo 4 jugadores, **2 parejas: 2 contra 2**; el compañero se sienta enfrente): 6 cartas, orden As-3-Rey-Sota-Caballo-7…2,
-  valores 11/10/4/3/2 y 10 de últimas. Cantes de 20 y las 40 (Rey + Sota) por la pareja que acaba de ganar baza, cambio del 7 por
-  quien gana baza, y **arrastre** al acabarse el mazo (asistir y montar; si no, fallar; si gana el compañero, basta con asistir).
-  Se juegan manos («de vueltas») hasta que una pareja llega a 101.
+  valores 11/10/4/3/2 y 10 de últimas. Cantes de 20 y las 40 (Rey + Sota) tras ganar una baza (uno por baza, también en el
+  arrastre); cambio del 7 de triunfo por la muestra (si vale puntos) tras ganar baza mientras queda mazo; **arrastre** al acabarse
+  el mazo (asistir y montar; si no, fallar con un triunfo que gane; si gana el compañero, basta con asistir).
+  **Malas y buenas** (a 101): los primeros 50 puntos son malas y, al pasarlas, se cuentan las buenas; gana quien pasa de 50 buenas.
+  El marcador se actualiza en vivo con cada baza y cada cante. La primera mano (idas) se juega entera (si las dos parejas pasan,
+  gana la que más tiene; a igualdad, la de las últimas); si nadie llega se juegan **vueltas**, en las que gana al instante la
+  primera pareja que sobrepasa el límite.
+- **Ordenar la mano** (Brisca y Guiñote): arrastra las cartas para colocarlas donde quieras o usa «Por palo» / «Por valor».
 - **Chinchón** (2 a 4 jugadores): 7 cartas, robar del mazo o del descarte y descartar. Grupos de 3–4 iguales y escaleras de 3+ del
   mismo palo (el 7 enlaza con la sota). Se cierra con 5 o menos sin combinar; −10 si se cierra con todo combinado; 7 seguidas del
   mismo palo = **chinchón** y gana la partida. Quien pasa de 100 queda eliminado. La mesa ordena sola tus combinaciones.
@@ -224,7 +251,7 @@ partidas completas entre bots.
 index.html
 assets/
   css/        base · layout · components · pages · games/{minesweeper,wordle,pasapalabra,arcade,tetris,pacman,snake,pong,
-              online,chess,battleship,cards}
+              online,chess,battleship,cards,escape}
   data/       words-es.js (diccionario)
 src/
   core/       namespace, utils, events, storage, hash, schema, audio, backend (servidor / local), net (multijugador P2P)
@@ -234,7 +261,8 @@ src/
               pasapalabra/{bank,game}.js
               shared/kit.js (canvas, bucle, táctil) · shared/online.js (vestíbulo online)
               tetris/ · pacman/ · snake/ · pong/ · chess/{engine,game}.js · battleship/
-              cardgames/{core,rules-tricks,rules-chinchon,table,games}.js   app.js  arranque
+              cardgames/{core,rules-tricks,rules-chinchon,table,games}.js
+              escape/{engine,rooms-medio,rooms-dificil,rooms-imposible,daily,game}.js   app.js  arranque
 backend/      Cloudflare Worker (API sobre repo privado de GitHub) + README de despliegue
 config.js     URL del backend (API_URL)
 tests/        pruebas E2E (Playwright) y prueba del Worker (Node)
@@ -274,6 +302,8 @@ python3 tests/e2e_cards.py        # Brisca, Guiñote y Chinchón: CPU y online c
                                   # (las tres anteriores arrancan brokers MQTT locales: tests/mqtt_test_broker.mjs; sin Internet)
 node tests/chess_engine_test.mjs  # perft, reglas especiales, SAN, FEN y búsqueda del motor de ajedrez
 node tests/battleship_ai_test.mjs # flotas válidas y fuerza de los 4 niveles de IA
+python3 tests/e2e_escape.py       # Escape Room: sala completa, candados, inventario, pistas, continuar, diaria, móvil
+node tests/escape_rooms_test.mjs  # todas las salas tienen salida (y las diarias de 365 días)
 node tests/cardgames_rules_test.mjs # reglas de Brisca, Guiñote y Chinchón con cientos de partidas entre bots
 node tests/worker_test.mjs        # API del Worker contra un GitHub falso en memoria
 ```

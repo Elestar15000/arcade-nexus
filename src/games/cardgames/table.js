@@ -372,6 +372,11 @@
                         <div class="cg-mine">
                             <div class="cg-seat cg-me" data-pos="bottom"></div>
                             <div class="cg-hand" id="cg-hand" role="group" aria-label="Tu mano"></div>
+                            <div class="cg-handtools" id="cg-handtools" hidden>
+                                <span>✋ Arrastra para colocar · Ordenar:</span>
+                                <button type="button" class="btn btn-ghost btn-sm" data-sort="suit">Por palo</button>
+                                <button type="button" class="btn btn-ghost btn-sm" data-sort="value">Por valor</button>
+                            </div>
                             <div class="cg-actions" id="cg-actions"></div>
                         </div>
                     </div>
@@ -391,7 +396,14 @@
         bind() {
             this.$('#cg-hand').addEventListener('click', (e) => {
                 const c = e.target.closest('[data-card]'); if (!c || !this.v) return;
+                if (Date.now() - (this.dragEndAt || 0) < 250) return;      // fin de un arrastre, no es un clic
                 this.clickCard(c.dataset.card);
+            });
+            this.bindDrag();
+            this.$('#cg-handtools').addEventListener('click', (e) => {
+                const b = e.target.closest('[data-sort]'); if (!b || !this.v) return;
+                Nexus.audio.play('click');
+                this.sortMode = b.dataset.sort; this.order = this.sortCards(this.v.hand, this.sortMode); this.render();
             });
             this.$('#cg-table').addEventListener('click', (e) => {
                 const b = e.target.closest('[data-act]'); if (!b || !this.v) return;
@@ -406,6 +418,74 @@
             this.$('#cg-leave').addEventListener('click', () => this.abandon());
             this.overlay.addEventListener('click', (e) => this.onOverlay(e));
             this.ui = {};
+        }
+
+        // ── Ordenar la mano (arrastrar o botones) ───────────
+        get canReorder() { return !this.spec.handHtml; }
+        sortCards(hand, mode) {
+            const v = this.v, trump = v && v.trump;
+            if (mode === 'value' && this.rules.strength) {
+                const pts = this.rules.pts || (() => 0);
+                return hand.slice().sort((a, b) => (K.suitOf(b) === trump) - (K.suitOf(a) === trump)
+                    || pts(b) - pts(a) || this.rules.strength(b) - this.rules.strength(a) || K.SUITS.indexOf(K.suitOf(a)) - K.SUITS.indexOf(K.suitOf(b)));
+            }
+            return K.sortHand(hand, trump);
+        }
+        /** Mano en el orden que ha elegido el jugador (las cartas nuevas se colocan según el modo de orden o al final). */
+        myHand(v) {
+            if (this.sortMode) { this.order = this.sortCards(v.hand, this.sortMode); return this.order; }
+            const kept = (this.order || []).filter(c => v.hand.includes(c));
+            const fresh = v.hand.filter(c => !kept.includes(c));
+            this.order = kept.concat(fresh);
+            return this.order;
+        }
+        bindDrag() {
+            const hand = this.$('#cg-hand');
+            const cardsEls = () => Array.from(hand.querySelectorAll('.pc[data-card]'));
+            hand.addEventListener('pointerdown', (e) => {
+                if (!this.canReorder || this.drag || (e.pointerType === 'mouse' && e.button !== 0)) return;
+                const el = e.target.closest('.pc[data-card]'); if (!el) return;
+                const r = el.getBoundingClientRect();
+                this.drag = { el, id: e.pointerId, x0: e.clientX, y0: e.clientY, gx: e.clientX - r.left, gy: e.clientY - r.top, on: false };
+            });
+            const move = (e) => {
+                const d = this.drag; if (!d || e.pointerId !== d.id) return;
+                if (!d.on) {
+                    if (Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 8) return;
+                    d.on = true; d.el.classList.add('dragging'); hand.classList.add('sorting');
+                    try { d.el.setPointerCapture(d.id); } catch (_) { /* noop */ }
+                }
+                e.preventDefault();
+                // Busca el hueco más cercano y mueve la carta allí
+                const others = cardsEls().filter(x => x !== d.el);
+                let best = null, bd = Infinity, after = false;
+                for (const o of others) {
+                    const r = o.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+                    const dist = Math.hypot(e.clientX - cx, (e.clientY - cy) * 2);
+                    if (dist < bd) { bd = dist; best = o; after = e.clientX > cx; }
+                }
+                if (best) {
+                    const ref = after ? best.nextSibling : best;
+                    if (ref !== d.el && d.el.nextSibling !== ref) best.parentNode.insertBefore(d.el, ref);
+                }
+                d.el.style.transform = '';
+                const base = d.el.getBoundingClientRect();
+                d.el.style.transform = `translate(${e.clientX - d.gx - base.left}px, ${e.clientY - d.gy - base.top}px) rotate(3deg)`;
+            };
+            const up = (e) => {
+                const d = this.drag; if (!d || e.pointerId !== d.id) return;
+                this.drag = null;
+                if (!d.on) return;
+                d.el.classList.remove('dragging'); d.el.style.transform = ''; hand.classList.remove('sorting');
+                this.dragEndAt = Date.now();
+                this.order = cardsEls().map(x => x.dataset.card);
+                this.sortMode = null;
+                Nexus.audio.play('click');
+                this.render();
+            };
+            hand.addEventListener('pointermove', move);
+            hand.addEventListener('pointerup', up);
+            hand.addEventListener('pointercancel', up);
         }
 
         clickCard(card) {
@@ -441,6 +521,7 @@
             if (this.session) { this.session.destroy(); this.session = null; }
             this.kind = kind; this.pub = pub; this.mySeat = you; this.state = 'playing';
             this.v = null; this.recorded = false; this.ui = {}; this.prevTrick = [];
+            this.order = null; this.sortMode = 'suit'; this.drag = null;
             this.overlay.hidden = true;
             this.t0 = Date.now();
             Nexus.audio.play('tdRound');
@@ -521,9 +602,14 @@
             this.animateTrick(v);
             // Mano
             const myTurn = v.turn === v.me;
-            this.$('#cg-hand').innerHTML = this.spec.handHtml ? this.spec.handHtml(v, this)
-                : v.hand.map(c => cardHtml(c, { cls: v.legal.includes(c) ? 'playable' : (myTurn && v.phase === 'play' ? 'dim' : '') })).join('');
+            if (!(this.drag && this.drag.on)) {
+                this.$('#cg-hand').innerHTML = this.spec.handHtml ? this.spec.handHtml(v, this)
+                    : this.myHand(v).map(c => cardHtml(c, { cls: (v.legal.includes(c) ? 'playable' : (myTurn && v.phase === 'play' ? 'dim' : '')) + ' movable' })).join('');
+            }
             this.$('#cg-hand').classList.toggle('my-turn', myTurn);
+            const tools = this.$('#cg-handtools');
+            tools.hidden = !this.canReorder || !v.hand.length;
+            tools.querySelectorAll('[data-sort]').forEach(b => b.classList.toggle('on', b.dataset.sort === this.sortMode));
             // Botones
             const btns = (v.buttons || []).map(b => `<button class="btn ${b.kind === 'primary' ? 'btn-primary' : 'btn-ghost'}" type="button" data-act='${esc(JSON.stringify(b.action))}'>${esc(b.label)}</button>`);
             if (this.spec.extraButtons) btns.push(...this.spec.extraButtons(v, this));

@@ -88,6 +88,31 @@ st = R.guinote.setup(4); st.lastWinner = st.turnSeat; st.trick = []; st.trump = 
 st.hands[st.turnSeat] = ['o12', 'o10', 'c12', 'c10', 'e1', 'b2'];
 check(JSON.stringify(R.guinote.canteSuits(st, st.turnSeat)) === '["o","c"]', 'Guiñote: cantes de 40 (triunfo) y 20 con rey y sota');
 
+// Malas y buenas (a 101): marcador en vivo, idas enteras y vueltas con victoria inmediata
+{
+    const G = R.guinote;
+    let st = G.setup(4); st.trump = 'o';
+    st.totals = [95, 40]; st.handNo = 2; st.phase = 'trickEnd'; st.trickWinner = 0; st.turnSeat = null;
+    st.trick = [{ s: 0, c: 'c1' }, { s: 1, c: 'c4' }, { s: 2, c: 'c5' }, { s: 3, c: 'c6' }];
+    G.step(st);
+    check(st.over && JSON.stringify(st.over.winners) === '[0,2]' && st.over.scores[0] === 106 && G.view(st, 0).score[0] === 106, 'Guiñote vueltas: la primera pareja que pasa de 50 buenas gana al instante');
+    st = G.setup(4); st.trump = 'o';
+    st.totals = [0, 0]; st.handNo = 1; st.pts = [95, 0]; st.phase = 'trickEnd'; st.trickWinner = 0; st.turnSeat = null;
+    st.trick = [{ s: 0, c: 'c1' }, { s: 1, c: 'c4' }, { s: 2, c: 'c5' }, { s: 3, c: 'c6' }];
+    G.step(st);
+    check(!st.over && G.view(st, 0).score[0] === 106, 'Guiñote idas: se ve en vivo, pero la mano se juega entera');
+    st = G.setup(4); st.trump = 'o'; st.handNo = 3; st.totals = [70, 85]; st.pts = [0, 0];
+    const s1 = st.turnSeat; st.lastWinner = s1; st.trick = []; st.phase = 'play';
+    st.hands[s1] = ['o12', 'o10', 'e2', 'b2', 'c4', 'c5'];
+    const sd = s1 % 2; st.totals[sd] = 65;
+    G.apply(st, s1, { type: 'cante', suit: 'o' });
+    check(st.over && st.over.winners.includes(s1), 'Guiñote vueltas: cantar las 40 para pasar el límite da la victoria');
+    st = G.setup(4); st.trump = 'o'; st.deck = []; st.muestra = null; st.phase = 'play';
+    const s2 = st.turnSeat; st.lastWinner = s2; st.trick = [];
+    st.hands[s2] = ['c12', 'c10', 'e2'];
+    check(JSON.stringify(G.canteSuits(st, s2)) === '["c"]', 'Guiñote: también se canta en el arrastre');
+}
+
 // ── Chinchón ──
 const C = R.chinchon;
 check(C.best(['o1', 'o2', 'o3', 'c5', 'e5', 'b5', 'c12']).dead === 10, 'Chinchón: escalera + trío, queda un rey (10)');

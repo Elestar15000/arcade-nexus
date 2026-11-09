@@ -200,7 +200,7 @@
             if (mode === 'daily') qs = buildDaily(this.today);
             else {
                 qs = buildRandom(mode, s.recent[mode]);
-                s.recent[mode] = ((s.recent[mode] || []).concat(qs.map(q => q.id))).slice(-75);
+                s.recent[mode] = ((s.recent[mode] || []).concat(qs.map(q => q.id))).slice(-250);
             }
             const d = DIFF[mode];
             return {
