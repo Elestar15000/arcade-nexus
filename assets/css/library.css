@@ -1,0 +1,156 @@
+/* ============================================================
+   NEXUS ARCADE · library.css — Biblioteca por colecciones
+   ============================================================ */
+.lib { gap: 26px; max-width: 1280px; }
+
+/* ── Cabecera ─────────────────────────────────────────────── */
+.lib-hero {
+    position: relative; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px;
+    padding: 34px 38px; border-radius: 26px; border: 2px solid var(--border-light);
+    background:
+        radial-gradient(circle at 12% 0%, rgba(249, 115, 22, .28), transparent 42%),
+        radial-gradient(circle at 55% 120%, rgba(168, 85, 247, .30), transparent 46%),
+        radial-gradient(circle at 100% 10%, rgba(56, 189, 248, .26), transparent 40%),
+        var(--bg-surface);
+    box-shadow: 8px 8px 0 var(--edge);
+}
+.lib-hero::after {
+    content: '🕹️ 🃏 🧠 ♟️'; position: absolute; right: -10px; bottom: -34px; font-size: 7em; letter-spacing: -.1em; opacity: .07; pointer-events: none; white-space: nowrap; transform: rotate(-8deg);
+}
+.lib-kicker { display: inline-flex; padding: 4px 12px; border-radius: 99px; background: rgba(255, 255, 255, .08); font-size: .8em; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-dim); }
+.lib-title { font-family: var(--font-title); font-size: clamp(1.7em, 3.6vw, 2.6em); font-weight: 800; letter-spacing: -.02em; line-height: 1.05; margin: 10px 0 6px; }
+.lib-sub { color: var(--text-dim); font-size: .95em; }
+.lib-sub b { color: var(--text); }
+.lib-search { margin-top: 18px; max-width: 520px; background: rgba(11, 14, 31, .7); }
+.lib-search input { font-size: 1em; padding: 12px 0; }
+.lib-hero-stats { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, auto); gap: 10px; }
+.lib-hero-stats div { display: flex; flex-direction: column; align-items: center; min-width: 96px; padding: 12px 14px; border-radius: 16px; background: rgba(11, 14, 31, .55); border: 1px solid var(--border-light); }
+.lib-hero-stats b { font-family: var(--font-title); font-size: 1.5em; font-weight: 800; line-height: 1.1; }
+.lib-hero-stats small { font-size: .72em; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+
+/* ── Accesos a colecciones ───────────────────────────────── */
+.lib-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.lib-col-btn {
+    --col: var(--primary);
+    position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px; padding: 16px 18px; border-radius: 18px; cursor: pointer; text-align: left; color: var(--text); font: inherit;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--col) 30%, var(--bg-surface)), var(--bg-surface) 70%);
+    border: 2px solid color-mix(in srgb, var(--col) 55%, transparent); box-shadow: 4px 4px 0 color-mix(in srgb, var(--col) 70%, #000);
+    transition: transform .14s ease, box-shadow .14s ease, opacity .2s;
+}
+.lib-col-btn:hover, .lib-col-btn:focus-visible { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--col); }
+.lib-col-btn:active { transform: translate(1px, 1px); box-shadow: 2px 2px 0 var(--col); }
+.lib-col-btn.dim { opacity: .45; }
+.lib-col-emo { flex: none; width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; font-size: 1.7em; background: color-mix(in srgb, var(--col) 30%, var(--bg-darkest)); }
+.lib-col-txt { display: flex; flex-direction: column; min-width: 0; }
+.lib-col-txt b { font-family: var(--font-title); font-size: 1.08em; font-weight: 800; }
+.lib-col-txt small { color: var(--text-dim); font-size: .8em; }
+.lib-col-peek { position: absolute; right: 10px; bottom: -6px; font-size: 1.6em; opacity: .16; letter-spacing: -.15em; pointer-events: none; }
+
+/* ── Barra de filtros ─────────────────────────────────────── */
+.lib-bar {
+    position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+    padding: 10px 12px; margin: 0 -12px; border-radius: 16px; background: color-mix(in srgb, var(--bg-dark) 88%, transparent); backdrop-filter: blur(10px);
+    border: 1px solid var(--border);
+}
+.lib-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.lib-sort button { font-size: .82em; }
+
+/* ── Secciones ────────────────────────────────────────────── */
+.lib-sec { --col: var(--primary); scroll-margin-top: 80px; display: flex; flex-direction: column; gap: 16px; }
+.lib-sec.pulse .lib-sec-head { animation: lib-pulse 1s ease-out; }
+@keyframes lib-pulse { 0% { box-shadow: 0 0 0 3px var(--col); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.lib-sec-head { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 18px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--col) 22%, transparent), transparent 75%); border-left: 5px solid var(--col); }
+.lib-sec-emo { flex: none; width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 1.6em; background: color-mix(in srgb, var(--col, var(--primary)) 28%, var(--bg-darkest)); }
+.lib-sec-head h3 { font-family: var(--font-title); font-size: 1.35em; font-weight: 800; letter-spacing: -.01em; }
+.lib-sec-head p { color: var(--text-dim); font-size: .88em; }
+.lib-sec-head > div { flex: 1; min-width: 0; }
+.lib-sec-n { flex: none; min-width: 34px; height: 34px; padding: 0 10px; border-radius: 99px; display: grid; place-items: center; font-weight: 800; background: var(--bg-surface); border: 2px solid var(--col); }
+.lib-sec.soon { opacity: .8; }
+.lib-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
+
+/* ── Seguir jugando ───────────────────────────────────────── */
+.lib-recent { display: flex; flex-direction: column; gap: 14px; }
+.lib-recent[hidden] { display: none; }
+.lib-recent .lib-sec-head { --col: var(--primary); }
+.lib-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+
+/* ── Tarjeta ──────────────────────────────────────────────── */
+.lib-card { display: flex; flex-direction: column; border-radius: 20px; background: var(--bg-surface); }
+.lib-card.available:hover, .lib-card.available:focus-visible { transform: translate(-4px, -4px); box-shadow: 7px 7px 0 var(--game-accent); }
+.lc-visual {
+    position: relative; height: 136px; display: grid; place-items: center; overflow: hidden;
+    background:
+        radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--game-accent) 55%, transparent), transparent 60%),
+        linear-gradient(160deg, color-mix(in srgb, var(--game-accent) 38%, var(--bg-dark)), var(--bg-darkest));
+    border-bottom: 2px solid color-mix(in srgb, var(--game-accent) 45%, var(--border-light));
+}
+.lc-pattern { position: absolute; inset: -20px; font-size: 2.2em; line-height: 1.9; letter-spacing: .5em; word-spacing: .8em; opacity: .09; transform: rotate(-14deg); pointer-events: none; overflow: hidden; }
+.lc-emoji { position: relative; font-size: 4.2em; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, .45)); transition: transform .25s cubic-bezier(.34, 1.56, .64, 1); }
+.lib-card.available:hover .lc-emoji { transform: scale(1.14) rotate(-7deg); }
+.lc-new { position: absolute; top: 12px; left: 12px; padding: 3px 9px; border-radius: 99px; font-size: .68em; font-weight: 900; letter-spacing: .08em; background: var(--primary); color: var(--on-primary); box-shadow: 2px 2px 0 rgba(0, 0, 0, .35); }
+.lc-fav { position: absolute; top: 9px; right: 9px; width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer; font-size: 1.15em; line-height: 1;
+    background: rgba(11, 14, 31, .55); color: #fff; display: grid; place-items: center; transition: transform .15s, background .15s; z-index: 3; }
+.lc-fav:hover { transform: scale(1.12); background: rgba(11, 14, 31, .8); }
+.lc-fav.on { color: #facc15; text-shadow: 0 0 10px rgba(250, 204, 21, .6); }
+.lc-body { flex: 1; display: flex; flex-direction: column; gap: 6px; padding: 14px 16px 16px; }
+.lc-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lc-top h3 { font-family: var(--font-title); font-weight: 800; font-size: 1.18em; line-height: 1.15; }
+.lc-col { font-size: .95em; opacity: .8; }
+.lc-tag { font-size: .84em; color: var(--text-dim); line-height: 1.35; }
+.lc-feats { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 2px; }
+.lc-feat, .lc-chip { padding: 2px 9px; border-radius: 99px; font-size: .72em; font-weight: 800; }
+.lc-feat { background: color-mix(in srgb, var(--game-accent) 22%, transparent); color: color-mix(in srgb, var(--game-accent) 60%, #fff); border: 1px solid color-mix(in srgb, var(--game-accent) 50%, transparent); }
+.lc-chip { background: rgba(255, 255, 255, .06); color: var(--text-muted); border: 1px solid var(--border); }
+.lc-stats { margin-top: auto; padding-top: 10px; border-top: 2px dashed var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .76em; color: var(--text-muted); }
+.lc-stats b { color: var(--text); }
+.lc-wr { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; color: var(--text-dim); }
+.lc-wr i { width: 38px; height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--game-accent) var(--p), rgba(255, 255, 255, .1) var(--p)); }
+.lc-wr.empty { color: var(--game-accent); }
+.lc-play { position: absolute; right: 14px; top: 100px; padding: 7px 14px; border-radius: 12px; font-weight: 900; font-size: .82em; background: var(--game-accent); color: #14161f;
+    box-shadow: 3px 3px 0 rgba(0, 0, 0, .4); opacity: 0; transform: translateY(6px) scale(.9); transition: all .2s cubic-bezier(.34, 1.56, .64, 1); pointer-events: none; z-index: 2; }
+.lib-card.available:hover .lc-play, .lib-card:focus-visible .lc-play { opacity: 1; transform: none; }
+
+/* Compacta (Seguir jugando) */
+.lib-card.compact { flex-direction: row; align-items: stretch; }
+.lib-card.compact .lc-visual { width: 86px; height: auto; min-height: 92px; flex: none; border-bottom: 0; border-right: 2px solid color-mix(in srgb, var(--game-accent) 45%, var(--border-light)); }
+.lib-card.compact .lc-emoji { font-size: 2.4em; }
+.lib-card.compact .lc-fav, .lib-card.compact .lc-new, .lib-card.compact .lc-pattern { display: none; }
+.lib-card.compact .lc-body { padding: 10px 12px; gap: 3px; }
+.lib-card.compact .lc-top h3 { font-size: 1em; }
+.lib-card.compact .lc-tag { font-size: .76em; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.lib-card.compact .lc-stats { padding-top: 6px; border-top-width: 1px; }
+.lib-card.compact .lc-play { top: auto; bottom: 10px; right: 10px; padding: 5px 10px; }
+
+/* Vacío */
+.lib-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 40px 0; color: var(--text-dim); }
+.lib-empty[hidden] { display: none; }
+.lib-empty span { font-size: 3em; }
+
+@media (max-width: 900px) {
+    .lib-hero { grid-template-columns: 1fr; padding: 24px 20px; }
+    .lib-hero-stats { grid-template-columns: repeat(3, 1fr); }
+    .lib-hero-stats div { min-width: 0; }
+}
+@media (max-width: 600px) {
+    .lib-cols { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .lib-col-btn { padding: 12px; gap: 8px; }
+    .lib-col-emo { width: 38px; height: 38px; font-size: 1.3em; }
+    .lib-col-txt b { font-size: .92em; }
+    .lib-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
+    .lc-visual { height: 100px; }
+    .lc-emoji { font-size: 3em; }
+    .lc-tag { font-size: .76em; }
+    .lc-feats .lc-chip { display: none; }
+    .lc-stats { flex-wrap: wrap; font-size: .7em; }
+    .lc-play { display: none; }
+    .lib-bar { margin: 0; }
+    .lib-filters { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+    .lib-filters .chip-btn { flex: none; }
+    .lib-sec-head p { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .lib-card, .lc-emoji, .lc-play, .lib-col-btn { transition: none; } }
+@media (max-width: 600px) { .lib-bar { position: static; } }
+.lib-card.compact .lc-stats > span:last-child { display: none; }
+.lib-card.compact .lc-stats { justify-content: flex-start; gap: 14px; }
+.lib-col-peek { opacity: .12; }
