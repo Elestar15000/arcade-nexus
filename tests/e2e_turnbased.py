@@ -148,10 +148,10 @@ try:
         fb = A.locator('#bs-mine .bs-field').bounding_box()
         cell = lambda bb, i: (bb['x'] + ((i % 10) + .5) * bb['width'] / 10, bb['y'] + ((i // 10) + .5) * bb['height'] / 10)
         A.mouse.click(*cell(fb, 0))                 # portaaviones en A1-A5
-        A.keyboard.press('r'); A.mouse.click(*cell(fb, 1))   # acorazado vertical junto a él: tocaría → rechazado
-        check(A.evaluate('__b.placing.length') == 1, 'flota: no deja colocar barcos que se tocan')
-        A.mouse.click(*cell(fb, 29))
-        check(A.evaluate('__b.placing.length') == 2 and A.evaluate("__b.placing[1].vertical") is True, 'flota: R gira el barco y se coloca')
+        A.keyboard.press('r'); A.mouse.click(*cell(fb, 1))   # acorazado vertical encima del portaaviones → rechazado
+        check(A.evaluate('__b.placing.length') == 1, 'flota: no deja solapar barcos')
+        A.mouse.click(*cell(fb, 10))                  # acorazado vertical pegado al portaaviones → permitido
+        check(A.evaluate('__b.placing.length') == 2 and A.evaluate("__b.placing[1].vertical") is True, 'flota: R gira el barco y se puede colocar pegado a otro')
         A.screenshot(path=str(SHOTS / 'bs_place.png'))
         A.click('[data-dock=random]'); A.click('[data-dock=ready]'); A.wait_for_timeout(300)
         check(A.evaluate('__b.phase') == 'battle', 'flota: empieza la batalla')
@@ -163,10 +163,37 @@ try:
             A.wait_for_timeout(120)
         A.wait_for_selector('.modal-overlay.active', timeout=6000)
         check('VICTORIA' in A.inner_text('.modal-overlay.active'), 'flota: hundir toda la flota gana')
+        check(A.locator('.modal-overlay.active .bsf-board').count() == 2 and A.locator('.modal-overlay.active .bsf-grid .bsf-c.ship').count() == 34, 'flota: el resultado muestra los dos tableros con sus barcos')
+        check(A.evaluate("__b.view.k.every(k => k !== 4)"), 'flota: al hundir no se revela agua alrededor')
         A.screenshot(path=str(SHOTS / 'bs_cpu_result.png'))
         ach = A.evaluate("Object.keys(Nexus.services.users.data().achievements)")
         check('bs_first' in ach and 'bs_master' in ach and 'bs_eagle' in ach and 'bs_streak' in ach, 'flota: logros de victoria, Maestro, precisión y racha')
         A.evaluate('Nexus.ui.modal.closeAll()')
+
+        # ═════════ HUNDIR LA FLOTA libre contra la máquina ═════════
+        A.evaluate('__b.showHome()'); A.click('[data-variant=libre]')
+        check(A.locator('.bs-variant.on[data-variant=libre]').count() == 1, 'flota libre: se elige la variante')
+        A.click('[data-do=go-cpu]'); A.click('.ax-mode[data-mode=easy]'); A.click('[data-do=start]'); A.wait_for_timeout(200)
+        check(A.locator('.bs-len').count() == 10, 'flota libre: selector de tamaños de 1 a 10')
+        fb = A.locator('#bs-mine .bs-field').bounding_box()
+        A.click('.bs-len[data-len="10"]'); A.mouse.click(*cell(fb, 0))
+        A.click('.bs-len[data-len="7"]'); A.mouse.click(*cell(fb, 10))
+        check(A.evaluate('__b.freeLeft()') == 1 and A.locator('.bs-len[data-len="2"]:disabled').count() == 1, 'flota libre: barcos de 10 y 7 pegados; solo queda 1 casilla')
+        A.click('.bs-len[data-len="1"]'); A.mouse.click(*cell(fb, 99))
+        check(A.evaluate('__b.fleetComplete()') and A.evaluate('__b.placing.length') == 3, 'flota libre: 18 casillas repartidas en 3 barcos')
+        A.screenshot(path=str(SHOTS / 'bs_free_place.png'))
+        A.click('[data-dock=ready]'); A.wait_for_timeout(300)
+        check(A.evaluate('__b.phase') == 'battle' and A.evaluate('__b.foe.ships.reduce((n, s) => n + s.cells.length, 0)') == 18, 'flota libre: la CPU también reparte 18 casillas')
+        for _ in range(300):
+            if A.evaluate('__b.phase') != 'battle': break
+            if A.evaluate('__b.myTurn && !__b.awaiting'):
+                A.evaluate("(() => { const t = __b.foe.ships.flatMap(s => s.cells).find(i => __b.view.k[i] === 0); __b.playerFire(t); return 1; })()")
+            A.wait_for_timeout(100)
+        A.wait_for_selector('.modal-overlay.active .bsf-board', timeout=6000)
+        check(A.locator('.modal-overlay.active .bsf-grid .bsf-c.ship').count() == 36, 'flota libre: resultado con los dos tableros (18 + 18 casillas)')
+        A.screenshot(path=str(SHOTS / 'bs_free_result.png'))
+        A.evaluate('Nexus.ui.modal.closeAll()')
+        A.evaluate('__b.showHome()'); A.click('[data-variant=clasica]')
 
         # ═════════ HUNDIR LA FLOTA online ═════════
         online_pair(A, B, 'battleship')
@@ -192,6 +219,7 @@ try:
         ta, tb = A.inner_text('.modal-overlay.active'), B.inner_text('.modal-overlay.active')
         check(('VICTORIA' in ta) != ('VICTORIA' in tb), 'flota online: un ganador y un perdedor')
         check('verificado' in ta and 'verificado' in tb, 'flota online: los dos tableros se verifican contra su compromiso')
+        check(A.locator('.modal-overlay.active .bsf-grid .bsf-c.ship').count() == 34 and B.locator('.modal-overlay.active .bsf-grid .bsf-c.ship').count() == 34, 'flota online: al terminar cada uno ve los dos tableros completos')
         (A if 'VICTORIA' in ta else B).screenshot(path=str(SHOTS / 'bs_online_result.png'))
         # Revancha con trampa: B cambia su flota tras comprometerse
         A.click('.modal-overlay.active .btn-primary'); B.click('.modal-overlay.active .btn-primary')

@@ -1,9 +1,13 @@
 /* ============================================================
    NEXUS ARCADE · games/battleship/game.js
-   Hundir la flota: 10×10, flota clásica (5, 4, 3, 3, 2).
-     · Reglas: los barcos no pueden tocarse (ni en diagonal); si
-       aciertas, vuelves a disparar; al hundir un barco, el agua de
-       alrededor se descubre sola.
+   Hundir la flota: 10×10, dos variantes:
+     · Clásica: flota fija (5, 4, 3, 3, 2).
+     · Libre: 18 casillas que cada jugador reparte en los barcos
+       que quiera (de 1 a 10 casillas), así que cada flota puede ser
+       distinta en número y tamaño.
+     · Reglas: los barcos pueden colocarse pegados (también en
+       diagonal); si aciertas, vuelves a disparar; al hundir un barco
+       NO se descubre su alrededor (puede haber otro barco al lado).
      · Colocación: arrastra o toca para colocar, R o «Girar» para
        rotar, «Aleatorio» para repartir la flota.
      · Contra la máquina, 4 niveles: Fácil (al azar), Normal (busca al azar
@@ -26,13 +30,19 @@
         { id: 'submarine', name: 'Submarino', len: 3 },
         { id: 'destroyer', name: 'Destructor', len: 2 }
     ];
+    const FREE_CELLS = 18, FREE_MAX = 10;
+    const VARIANTS = {
+        clasica: { id: 'clasica', label: 'Clásica', emoji: '⚓', desc: 'Flota fija: 5, 4, 3, 3 y 2 casillas.' },
+        libre: { id: 'libre', label: 'Libre (18 casillas)', emoji: '🧩', desc: 'Reparte 18 casillas en los barcos que quieras, de 1 a 10.' }
+    };
+    const shipName = (sh) => { const f = FLEET.find(x => x.id === sh.id); return f ? f.name : `barco de ${sh.len || (sh.cells || []).length}`; };
     const LEVELS = [
         { id: 'easy', emoji: '🌱', label: 'Fácil', desc: 'Dispara casi al azar y a veces olvida rematar.', mult: 1 },
         { id: 'normal', emoji: '⚔️', label: 'Normal', desc: 'Busca al azar, pero remata sin piedad los barcos tocados.', mult: 1.5 },
-        { id: 'hard', emoji: '🔥', label: 'Difícil', desc: 'Adapta el patrón al barco más pequeño y aprovecha que no se tocan.', mult: 2.2 },
+        { id: 'hard', emoji: '🔥', label: 'Difícil', desc: 'Busca en damero según el barco más pequeño y remata con probabilidades.', mult: 2.2 },
         { id: 'master', emoji: '💀', label: 'Maestro', desc: 'Calcula la probabilidad de cada casilla con todas las flotas posibles.', mult: 3 }
     ];
-    // Conocimiento de un tablero enemigo: 0 desconocido, 1 agua, 2 tocado, 3 hundido, 4 agua deducida (alrededor de un hundido)
+    // Conocimiento de un tablero enemigo: 0 desconocido, 1 agua, 2 tocado, 3 hundido (4 ya no se usa: el alrededor no se revela)
     const U = 0, MISS = 1, HIT = 2, SUNK = 3, WATER = 4;
     const COLS = 'ABCDEFGHIJ';
     const label = (i) => COLS[i % S] + (Math.floor(i / S) + 1);
@@ -63,21 +73,18 @@
         if (x > 0) out.push(i - 1); if (x < S - 1) out.push(i + 1); if (y > 0) out.push(i - S); if (y < S - 1) out.push(i + S);
         return out;
     }
-    /** ¿Cabe un barco en esas casillas sin solaparse ni tocar a los demás? */
+    /** ¿Cabe un barco en esas casillas sin solaparse con otro? (pueden ir pegados) */
     function canPlace(ships, cells, ignoreId) {
         if (!cells) return false;
-        const blocked = new Set();
-        for (const sh of ships) {
-            if (sh.id === ignoreId || !sh.cells) continue;
-            for (const c of sh.cells) { blocked.add(c); neighbors8(c).forEach(n => blocked.add(n)); }
-        }
-        return cells.every(c => !blocked.has(c));
+        const used = new Set();
+        for (const sh of ships) if (sh.id !== ignoreId && sh.cells) sh.cells.forEach(c => used.add(c));
+        return cells.every(c => !used.has(c));
     }
-    function randomFleet() {
+    function placeRandom(specs) {
         for (let attempt = 0; attempt < 200; attempt++) {
             const ships = [];
             let ok = true;
-            for (const f of FLEET) {
+            for (const f of specs) {
                 let placed = false;
                 for (let t = 0; t < 300 && !placed; t++) {
                     const v = Math.random() < 0.5, cells = shipCells(rand(S), rand(S), f.len, v);
@@ -89,11 +96,33 @@
         }
         throw new Error('No se pudo colocar la flota');
     }
+    /** Composición aleatoria de la variante libre: barcos que suman 18 casillas. */
+    function randomFreeLengths() {
+        const lens = []; let left = FREE_CELLS;
+        const pool = [1, 2, 2, 3, 3, 3, 4, 4, 5, 5, 6];
+        while (left > 0) { const l = Math.min(left, pool[rand(pool.length)]); lens.push(l); left -= l; }
+        return lens.sort((a, b) => b - a);
+    }
+    function randomFleet(variant) {
+        if (variant === 'libre') return placeRandom(randomFreeLengths().map((len, k) => ({ id: 's' + (k + 1), len })));
+        return placeRandom(FLEET);
+    }
     const fleetString = (ships) => ships.slice().sort((a, b) => a.id < b.id ? -1 : 1).map(s => `${s.id}:${s.cells.slice().sort((a, b) => a - b).join(',')}`).join('|');
-    function validFleet(ships) {
-        if (!Array.isArray(ships) || ships.length !== FLEET.length) return false;
+    function validFleet(ships, variant) {
+        if (!Array.isArray(ships)) return false;
+        let specs;
+        if (variant === 'libre') {
+            if (!ships.length || ships.length > FREE_CELLS) return false;
+            if (ships.reduce((n, sh) => n + ((sh && Array.isArray(sh.cells)) ? sh.cells.length : 0), 0) !== FREE_CELLS) return false;
+            if (new Set(ships.map(sh => sh && sh.id)).size !== ships.length) return false;
+            specs = ships.map(sh => ({ id: sh && sh.id, len: sh && Array.isArray(sh.cells) ? sh.cells.length : 0 }));
+            if (specs.some(f => typeof f.id !== 'string' || f.len < 1 || f.len > FREE_MAX)) return false;
+        } else {
+            if (ships.length !== FLEET.length) return false;
+            specs = FLEET;
+        }
         const placed = [];
-        for (const f of FLEET) {
+        for (const f of specs) {
             const sh = ships.find(s => s && s.id === f.id);
             if (!sh || !Array.isArray(sh.cells) || sh.cells.length !== f.len) return false;
             const cs = sh.cells.slice().sort((a, b) => a - b);
@@ -129,19 +158,28 @@
         get afloat() { return this.ships.filter(s => s.hits < s.len).length; }
     }
 
-    /** Lo que sé del tablero rival. */
+    /** Lo que sé del tablero rival. Al hundir un barco solo se marcan sus casillas (no su alrededor). */
     class View {
-        constructor() { this.k = new Int8Array(CELLS); this.sunk = []; }
+        constructor(variant) { this.k = new Int8Array(CELLS); this.sunk = []; this.variant = variant || 'clasica'; }
         apply(i, res) {
             if (res.r === 'miss') this.k[i] = MISS;
             else if (res.r === 'hit') this.k[i] = HIT;
             else if (res.r === 'sunk' && res.ship) {
                 this.sunk.push(res.ship);
                 for (const c of res.ship.cells) this.k[c] = SUNK;
-                for (const c of res.ship.cells) for (const n of neighbors8(c)) if (this.k[n] === U) this.k[n] = WATER;
             }
         }
+        /** Casillas de barco que quedan por hundir (contando las tocadas). */
+        cellsLeft() {
+            const total = this.variant === 'libre' ? FREE_CELLS : FLEET.reduce((n, f) => n + f.len, 0);
+            return total - this.sunk.reduce((n, s) => n + s.cells.length, 0);
+        }
+        /** Barcos que quedan. En la variante libre no se conoce la flota: se suponen tamaños posibles. */
         remaining() {
+            if (this.variant === 'libre') {
+                const left = this.cellsLeft();
+                return [1, 2, 3, 4, 5].filter(l => l <= left).map(l => ({ id: 'L' + l, len: l, guess: true }));
+            }
             const gone = this.sunk.map(s => s.id);
             return FLEET.filter(f => !gone.includes(f.id));
         }
@@ -155,11 +193,9 @@
         const hits = [];
         for (let i = 0; i < CELLS; i++) if (k[i] === HIT) hits.push(i);
         const pick = (list) => list[rand(list.length)];
-        // Diagonales de un tocado: nunca pueden tener barco (no se tocan)
+        // Los barcos pueden ir pegados: ninguna casilla se descarta por estar junto a otra
         const impossible = new Set();
-        if (level !== 'easy' && level !== 'normal') for (const h of hits) for (const n of neighbors8(h)) if (!neighbors4(h).includes(n)) impossible.add(n);
-        const cand = unknown.filter(i => !impossible.has(i));
-        const pool = cand.length ? cand : unknown;
+        const pool = unknown;
 
         if (level === 'easy') {
             if (hits.length && Math.random() < 0.55) {
@@ -191,7 +227,7 @@
             }
         }
         // Búsqueda en damero (Difícil: espaciado según el barco más pequeño que queda)
-        const minLen = Math.min(...view.remaining().map(f => f.len));
+        const minLen = view.variant === 'libre' ? 2 : Math.min(...view.remaining().map(f => f.len));
         if (level === 'normal') return pick(pool);              // Normal: busca al azar, sólo es listo rematando
         const step = Math.max(2, minLen);
         if (view._off === undefined || view._step !== step) { view._off = rand(step); view._step = step; }
@@ -206,7 +242,7 @@
         for (const f of view.remaining()) {
             for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) for (const v of [false, true]) {
                 const cells = shipCells(x, y, f.len, v);
-                if (!cells || cells.some(c => k[c] === MISS || k[c] === SUNK || k[c] === WATER || impossible.has(c))) continue;
+                if (!cells || cells.some(c => k[c] === MISS || k[c] === SUNK || impossible.has(c))) continue;
                 const covers = cells.filter(c => hitSet.has(c)).length;
                 if (hitSet.size && !covers) { for (const c of cells) if (k[c] === U) dens[c] += 0.02; continue; }
                 const w = hitSet.size ? Math.pow(30, covers) : 1;
@@ -240,15 +276,17 @@
             this.vertical = false;
             this.placing = [];             // barcos colocados (fase de colocación)
             this.sel = FLEET[0].id;
+            this.selLen = 3;
             this.hover = -1;
+            this.variant = Nexus.services.settings.getUI('bsVariant', 'clasica') === 'libre' ? 'libre' : 'clasica';
             this.build();
             this.bind();
             this.lobby = new Nexus.games.OnlineLobby({
                 game: 'battleship', el: this.$('#bs-online'), title: 'HUNDIR LA FLOTA ONLINE',
-                roomNote: 'Primero colocáis la flota los dos; empieza quien diga el sorteo y se alterna en cada revancha.',
+                roomNote: 'Se juega la variante que eligió el anfitrión (clásica o libre). Primero colocáis la flota los dos; empieza quien diga el sorteo y se alterna en cada revancha.',
                 startOptions: (round) => {
                     this.hostFirst = round === 1 ? Math.random() < 0.5 : !this.hostFirst;
-                    return { first: this.hostFirst ? 'host' : 'guest' };
+                    return { first: this.hostFirst ? 'host' : 'guest', variant: this.variant };
                 },
                 onStart: (ctx) => this.startOnline(ctx),
                 onMessage: (m) => this.onNet(m),
@@ -320,10 +358,11 @@
                 const i = cellAt(this.mineEl, e); if (i < 0) return;
                 if (e.button === 2) { this.rotate(); return; }
                 const own = this.placing.find(s => s.cells.includes(i));
-                if (own && (!this.sel || this.placing.some(s => s.id === this.sel))) {
+                if (own && (this.variant === 'libre' || !this.sel || this.placing.some(s => s.id === this.sel))) {
                     // Recoger un barco ya colocado
                     this.placing = this.placing.filter(s => s !== own);
-                    this.sel = own.id; this.vertical = own.vertical; this.hover = i;
+                    if (this.variant === 'libre') { this.sel = 'new'; this.selLen = own.cells.length; } else this.sel = own.id;
+                    this.vertical = own.vertical; this.hover = i;
                     Nexus.audio.play('click'); this.render(); return;
                 }
                 this.hover = i;
@@ -340,13 +379,14 @@
                 if (i >= 0 && this.myTurn && this.view.k[i] === U) this.enemyEl.querySelector(`.bs-cell[data-i="${i}"]`).classList.add('aim');
             });
             this.$('#bs-dock').addEventListener('click', (e) => {
-                const b = e.target.closest('[data-ship],[data-dock]'); if (!b) return;
+                const b = e.target.closest('[data-ship],[data-dock],[data-len]'); if (!b) return;
                 Nexus.audio.play('click');
+                if (b.dataset.len) { this.sel = 'new'; this.selLen = Number(b.dataset.len); this.render(); return; }
                 if (b.dataset.ship) { this.sel = b.dataset.ship; const placed = this.placing.find(s => s.id === b.dataset.ship); if (placed) { this.placing = this.placing.filter(s => s !== placed); this.vertical = placed.vertical; } this.render(); return; }
                 const a = b.dataset.dock;
                 if (a === 'rotate') this.rotate();
-                else if (a === 'random') { this.placing = randomFleet(); this.sel = null; this.render(); }
-                else if (a === 'clear') { this.placing = []; this.sel = FLEET[0].id; this.render(); }
+                else if (a === 'random') { this.placing = randomFleet(this.variant); this.sel = null; this.render(); }
+                else if (a === 'clear') { this.placing = []; this.resetSel(); this.render(); }
                 else if (a === 'ready') this.confirmFleet();
                 else if (a === 'menu') this.openMenu();
             });
@@ -366,9 +406,18 @@
             this.renderPreview(); this.renderDock();
         }
 
+        /** Casillas libres por repartir (variante libre). */
+        freeLeft() { return FREE_CELLS - this.placing.reduce((n, sh) => n + sh.cells.length, 0); }
+        fleetComplete() { return this.variant === 'libre' ? this.freeLeft() === 0 : this.placing.length === FLEET.length; }
+        resetSel() {
+            if (this.variant === 'libre') { this.sel = 'new'; this.selLen = Math.min(this.selLen || 3, Math.max(1, this.freeLeft())); }
+            else this.sel = FLEET[0].id;
+        }
+
         previewCells() {
             if (!this.sel || this.hover < 0) return null;
-            const f = FLEET.find(x => x.id === this.sel);
+            const f = this.variant === 'libre' ? { len: this.selLen } : FLEET.find(x => x.id === this.sel);
+            if (!f || !f.len) return null;
             const { x, y } = xyOf(this.hover);
             // Que el barco quepa: si se sale por el borde, se desplaza hacia dentro
             const sx = this.vertical ? x : Math.min(x, S - f.len), sy = this.vertical ? Math.min(y, S - f.len) : y;
@@ -380,6 +429,16 @@
             if (!canPlace(this.placing, cells, this.sel)) {
                 Nexus.audio.play('error');
                 const pv = this.mineEl.querySelector('.bs-preview'); if (pv) { pv.classList.remove('shake'); void pv.offsetWidth; pv.classList.add('shake'); }
+                return;
+            }
+            if (this.variant === 'libre') {
+                if (cells.length > this.freeLeft()) { Nexus.audio.play('error'); Nexus.ui.toast(`Solo te quedan ${this.freeLeft()} casillas por repartir`, { icon: '⚓' }); return; }
+                let n = 1; while (this.placing.some(s => s.id === 's' + n)) n++;
+                this.placing = this.placing.concat({ id: 's' + n, len: cells.length, cells, vertical: this.vertical });
+                Nexus.audio.play('tdPlace');
+                const left = this.freeLeft();
+                if (!left) this.sel = null; else { this.sel = 'new'; this.selLen = Math.min(this.selLen, left); }
+                this.render();
                 return;
             }
             this.placing = this.placing.filter(s => s.id !== this.sel).concat({ id: this.sel, len: cells.length, cells, vertical: this.vertical });
@@ -398,8 +457,8 @@
             // Estado de red de la partida anterior (revancha)
             this.lastPeerShot = 0; this.shotSeq = 0; this.pendingShot = -1; this.awaiting = false;
             this.peerReveal = null; this.peerCommit = null; this.onReveal = null; this.showFoe = false;
-            this.placing = []; this.sel = FLEET[0].id; this.vertical = false; this.hover = -1;
-            this.mine = null; this.view = new View();
+            this.placing = []; this.selLen = 3; this.resetSel(); this.vertical = false; this.hover = -1;
+            this.mine = null; this.view = new View(this.variant); this.foe = null; this.foeView = null;
             this.stats = { shots: 0, hits: 0, streak: 0, maxStreak: 0 };
             this.foeStats = { shots: 0, hits: 0 };
             this.log = [];
@@ -408,13 +467,13 @@
         }
 
         confirmFleet() {
-            if (this.placing.length !== FLEET.length || this.ready) return;
+            if (!this.fleetComplete() || this.ready) return;
             this.ready = true;
             this.mine = new Board(this.placing);
             Nexus.audio.play('tdRound');
             if (this.kind === 'cpu') {
-                this.foe = new Board(randomFleet());
-                this.foeView = new View();         // lo que la CPU sabe de mi tablero
+                this.foe = new Board(randomFleet(this.variant));
+                this.foeView = new View(this.variant);   // lo que la CPU sabe de mi tablero
                 this.beginBattle(Math.random() < 0.5);
             } else {
                 this.salt = Nexus.core.hash.randomSalt();
@@ -464,7 +523,7 @@
             if (res.r === 'miss') {
                 this.banner(`Agua en ${label(i)}. Turno de ${this.peerName()}…`);
                 if (this.kind === 'cpu') this.cpuTurn();
-            } else this.banner(res.r === 'sunk' ? `¡Hundido! ${FLEET.find(f => f.id === res.ship.id).name} enemigo a pique. Vuelve a disparar.` : `¡Tocado en ${label(i)}! Vuelve a disparar.`);
+            } else this.banner(res.r === 'sunk' ? `¡Hundido! ${shipName(res.ship)} enemigo a pique. Vuelve a disparar.` : `¡Tocado en ${label(i)}! Vuelve a disparar.`);
         }
 
         cpuTurn() {
@@ -490,14 +549,15 @@
             if (res.r === 'miss') this.myTurn = true;
             this.render();
             if (res.r === 'miss') { this.banner(`${this.kind === 'cpu' ? 'La CPU' : this.peerName()} falla en ${label(i)}. ¡Tu turno!`); }
-            else this.banner(res.r === 'sunk' ? `¡Te han hundido el ${FLEET.find(f => f.id === res.ship.id).name}!` : `Te han tocado en ${label(i)}…`);
+            else this.banner(res.r === 'sunk' ? `¡Te han hundido el ${shipName(res.ship)}!` : `Te han tocado en ${label(i)}…`);
         }
 
         // ── Online ──────────────────────────────────────────
         startOnline({ role, opts }) {
             this.iStart = opts.first === role;
+            this.variant = opts.variant === 'libre' ? 'libre' : 'clasica';
             this.startPlacement('online');
-            Nexus.ui.toast('Coloca tu flota y pulsa «¡Listo!»', { icon: '⚓' });
+            Nexus.ui.toast(this.variant === 'libre' ? 'Variante libre: reparte tus 18 casillas y pulsa «¡Listo!»' : 'Coloca tu flota y pulsa «¡Listo!»', { icon: '⚓' });
         }
 
         onNet(m) {
@@ -533,7 +593,7 @@
         verifyPeer() {
             const r = this.peerReveal;
             if (!r || !Array.isArray(r.ships) || typeof r.salt !== 'string') return { ok: null, text: '⏳ El rival no ha revelado su tablero.' };
-            if (!validFleet(r.ships)) return { ok: false, text: '⚠️ El tablero revelado por el rival no es una flota válida.' };
+            if (!validFleet(r.ships, this.variant)) return { ok: false, text: '⚠️ El tablero revelado por el rival no es una flota válida.' };
             const fs = fleetString(r.ships.map(s => ({ id: s.id, cells: s.cells })));
             if (Nexus.core.hash.sha256Hex(fs + '#' + r.salt) !== this.peerCommit) return { ok: false, text: '⚠️ El tablero revelado no coincide con el que se comprometió al empezar.' };
             const occ = new Set(r.ships.flatMap(s => s.cells));
@@ -559,12 +619,13 @@
             const mult = online ? 2 : this.level.mult;
             const st = this.stats;
             const acc = st.shots ? st.hits / st.shots : 0;
-            const lost = this.mine ? FLEET.length - this.mine.afloat : 0;
-            const score = Math.round((won ? 1000 + Math.max(0, 100 - st.shots) * 12 + Math.round(acc * 400) + (FLEET.length - lost) * 60 : st.hits * 15) * mult);
+            const nShips = this.mine ? this.mine.ships.length : FLEET.length;
+            const lost = this.mine ? nShips - this.mine.afloat : 0;
+            const score = Math.round((won ? 1000 + Math.max(0, 100 - st.shots) * 12 + Math.round(acc * 400) + Math.round((nShips - lost) / nShips * 300) : st.hits * 15) * mult);
             const xp = Math.round((won ? 55 : 12) * mult);
             const result = (wasPlacing && reason !== 'forfeit') ? null : Nexus.services.progress.recordGame({
                 game: 'battleship', mode, won, score, time: 0, xp,
-                extra: { online, shots: st.shots, hits: st.hits, acc, maxStreak: st.maxStreak, lost, forfeit: reason || null, level: mode },
+                extra: { online, shots: st.shots, hits: st.hits, acc, maxStreak: st.maxStreak, lost, forfeit: reason || null, level: mode, variant: this.variant },
                 updateExtra: (x) => { x.sunk = (x.sunk || 0) + this.view.sunk.length; x.shots = (x.shots || 0) + st.shots; }
             });
             this.render();
@@ -574,7 +635,9 @@
             const open = () => {
                 if (this.destroyed) return;
                 let extra = '';
-                if (online && reason !== 'forfeit') { const v = this.verifyPeer(); extra = `<p class="bs-verify ${v.ok === true ? 'ok' : v.ok === false ? 'bad' : ''}">${esc(v.text)}</p>`; }
+                let verified = null;
+                if (online && reason !== 'forfeit') { const v = this.verifyPeer(); verified = v.ok; extra = `<p class="bs-verify ${v.ok === true ? 'ok' : v.ok === false ? 'bad' : ''}">${esc(v.text)}</p>`; }
+                extra += this.finalBoardsHtml(verified);
                 const actions = online ? [
                     { label: '🔄 Revancha', kind: 'primary', onClick: () => this.later(() => this.lobby.ready(), 50) },
                     { label: '🚪 Salir de la sala', kind: 'ghost', onClick: () => this.later(() => { this.lobby.leave(); this.lobby.show(); }, 50) }
@@ -584,13 +647,14 @@
                     { label: '🏠 Biblioteca', kind: 'ghost', onClick: () => { location.hash = '#/library'; } }
                 ];
                 const rm = this.resultModal = Nexus.ui.modal.resultModal({
+                    wide: true,
                     emoji: won ? '🏆' : '🌊', kind: won ? 'win' : 'lose', title: won ? '¡VICTORIA NAVAL!' : 'FLOTA HUNDIDA',
                     subtitle: (reason === 'forfeit' ? 'Tu rival abandonó la partida · ' : '') + `contra ${this.peerName()}`,
                     extraHtml: extra,
                     stats: [
                         { label: 'Disparos', value: String(st.shots) },
                         { label: 'Precisión', value: Math.round(acc * 100) + ' %' },
-                        { label: 'Barcos perdidos', value: `${lost}/${FLEET.length}` },
+                        { label: 'Barcos perdidos', value: `${lost}/${nShips}` },
                         { label: 'Puntuación', value: formatNumber(score) }
                     ],
                     result: result || { xp: 0, unlocked: [], records: {} }, actions
@@ -608,6 +672,34 @@
 
         revealFoe() { this.showFoe = true; this.render(); }
 
+        /** Los dos tableros al final de la partida: barcos de cada uno y todos los disparos (agua, tocado, hundido). */
+        finalBoardsHtml(verified) {
+            const board = (title, sub, ships, kindAt, note) => {
+                const shipAt = new Map();
+                ships.forEach((sh, n) => sh.cells.forEach(c => shipAt.set(c, { n, sunk: sh.cells.every(x => kindAt(x) === 'sunk') })));
+                const cells = Array.from({ length: CELLS }, (_, i) => {
+                    const k = kindAt(i), sh = shipAt.get(i);
+                    const cls = ['bsf-c'];
+                    if (sh) { cls.push('ship'); if (sh.sunk) cls.push('down'); }
+                    if (k) cls.push(k);
+                    const ttl = `${label(i)}${sh ? ' · barco' : ''}${k === 'miss' ? ' · agua' : k === 'hit' ? ' · tocado' : k === 'sunk' ? ' · hundido' : ''}`;
+                    return `<i class="${cls.join(' ')}" title="${ttl}"></i>`;
+                }).join('');
+                return `<div class="bsf-board"><div class="bsf-head"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
+                    <div class="bsf-grid">${cells}</div>${note ? `<p class="bsf-note">${esc(note)}</p>` : ''}</div>`;
+            };
+            const fromShots = (arr) => (i) => (arr[i] === MISS ? 'miss' : arr[i] === HIT ? 'hit' : arr[i] === SUNK ? 'sunk' : '');
+            const me = Nexus.services.users.current();
+            const mine = this.mine ? board(`⚓ ${me ? me.name : 'Tú'}`, `${this.mine.ships.length} barcos · ${this.foeStats.shots} disparos recibidos`, this.mine.ships, fromShots(this.mine.shots)) : '';
+            let foeShips = [], note = '';
+            if (this.kind === 'cpu' && this.foe) foeShips = this.foe.ships;
+            else if (this.peerReveal && Array.isArray(this.peerReveal.ships) && verified !== false && validFleet(this.peerReveal.ships, this.variant)) foeShips = this.peerReveal.ships;
+            else { foeShips = this.view ? this.view.sunk : []; note = 'Solo se ven los barcos hundidos: el rival no reveló su tablero.'; }
+            const foe = board(`🎯 ${this.peerName() === 'la CPU' ? 'CPU' : this.peerName()}`, `${foeShips.length} barcos · ${this.stats.shots} disparos tuyos`, foeShips, fromShots(this.view ? this.view.k : []), note);
+            return `<div class="bsf"><div class="bsf-boards">${mine}${foe}</div>
+                <div class="bsf-legend"><span><i class="bsf-c ship"></i> Barco</span><span><i class="bsf-c ship hit"></i> Tocado</span><span><i class="bsf-c ship down sunk"></i> Hundido</span><span><i class="bsf-c miss"></i> Agua</span></div></div>`;
+        }
+
         // ── Menús ───────────────────────────────────────────
         showHome() {
             if (this.phase !== 'battle' && this.phase !== 'place') this.phase = 'menu';
@@ -615,16 +707,22 @@
             const resumable = (this.phase === 'battle' || this.phase === 'place') && this.kind === 'cpu';
             this.overlay.innerHTML = `<div class="ax-panel">
                 <div class="bs-logo">HUNDIR <span>LA FLOTA</span></div>
-                <p class="ax-sub">Coloca tus 5 barcos y hunde los del rival antes que él. Si aciertas, repites.</p>
+                <p class="ax-sub">Coloca tu flota y hunde la del rival antes que él. Si aciertas, repites.</p>
+                <div class="bs-variants" role="radiogroup" aria-label="Variante">${Object.values(VARIANTS).map(v => `
+                    <button type="button" class="bs-variant ${this.variant === v.id ? 'on' : ''}" data-variant="${v.id}" role="radio" aria-checked="${this.variant === v.id}">
+                        <span>${v.emoji}</span><b>${esc(v.label)}</b><small>${esc(v.desc)}</small></button>`).join('')}</div>
                 <div class="ch-choices">
                     <button type="button" class="ch-choice bs-choice" data-do="go-cpu"><span>🤖</span><strong>Contra la máquina</strong><small>4 niveles, de Fácil a Maestro</small></button>
                     <button type="button" class="ch-choice bs-choice" data-do="go-online"><span>🌐</span><strong>Online 1 contra 1</strong><small>Crea una sala o entra con un código</small></button>
                 </div>
                 <details class="ax-help"><summary>📖 Cómo se juega</summary><ul>
-                    <li>Flota: Portaaviones (5), Acorazado (4), Crucero (3), Submarino (3) y Destructor (2). Los barcos <b>no pueden tocarse</b>, ni en diagonal.</li>
+                    <li><b>Clásica</b>: Portaaviones (5), Acorazado (4), Crucero (3), Submarino (3) y Destructor (2).</li>
+                    <li><b>Libre</b>: tienes <b>18 casillas</b> para repartir en los barcos que quieras (de 1 a 10 casillas, en línea recta). Cada jugador puede tener un número y tamaño de barcos distinto.</li>
+                    <li>Los barcos <b>pueden colocarse pegados</b>, también en diagonal.</li>
                     <li>Coloca cada barco tocando tu tablero; <kbd>R</kbd>, el botón «Girar» o el clic derecho lo giran. Tócalo de nuevo para moverlo.</li>
                     <li>Por turnos, dispara a una casilla del tablero rival: 💧 agua (pasa el turno), 🔥 tocado o ☠️ hundido (vuelves a disparar).</li>
-                    <li>Al hundir un barco se descubre el agua de su alrededor. Gana quien hunda antes la flota completa.</li>
+                    <li>Al hundir un barco solo se marcan sus casillas: su alrededor no se descubre, porque puede haber otro barco pegado. Gana quien hunda antes la flota completa.</li>
+                    <li>Al terminar verás los dos tableros: dónde estaba cada barco y todos los disparos.</li>
                     <li><b>Online</b>: al empezar cada jugador envía una huella cifrada (SHA-256) de su flota y al terminar la revela: así se comprueba que nadie movió sus barcos.</li>
                 </ul></details>
                 ${resumable ? '<div class="ax-play-row"><button class="btn btn-ghost" data-do="close" type="button">▶ Volver a la partida</button></div>' : ''}
@@ -638,6 +736,7 @@
             this.overlay.hidden = false;
             this.overlay.innerHTML = `<div class="ax-panel">
                 <h2 class="ax-big">CONTRA LA MÁQUINA</h2>
+                <p class="ax-sub">Variante: <b>${esc(VARIANTS[this.variant].emoji + ' ' + VARIANTS[this.variant].label)}</b></p>
                 ${Kit.modeCards(LEVELS.map(l => ({ ...l, desc: l.desc + ' (×' + String(l.mult).replace('.', ',') + ')' })), this.level.id)}
                 <div class="ax-best">${rec}</div>
                 <div class="ax-play-row">
@@ -668,6 +767,8 @@
         }
 
         onOverlay(e) {
+            const va = e.target.closest('[data-variant]');
+            if (va) { this.variant = va.dataset.variant === 'libre' ? 'libre' : 'clasica'; Nexus.services.settings.setUI('bsVariant', this.variant); Nexus.audio.play('click'); this.showHome(); return; }
             const lv = e.target.closest('[data-mode]');
             if (lv) { this.level = LEVELS.find(l => l.id === lv.dataset.mode) || this.level; Nexus.audio.play('click'); this.showCpu(); return; }
             const b = e.target.closest('[data-do]'); if (!b) return;
@@ -690,7 +791,9 @@
             this.$('#bs-enemy-side').hidden = place || this.phase === 'menu';
             this.renderMine(); this.renderEnemy(); this.renderDock(); this.renderPreview(); this.updateHud();
             if (place) this.banner(this.ready ? (this.kind === 'online' && !this.peerReady ? `Flota lista. Esperando a que ${this.peerName()} coloque la suya…` : 'Flota lista.') :
-                this.placing.length === FLEET.length ? 'Flota colocada. Pulsa «¡Listo!» para empezar.' : 'Coloca tu flota: elige un barco y toca tu tablero (R para girar).');
+                this.fleetComplete() ? 'Flota colocada. Pulsa «¡Listo!» para empezar.' : this.variant === 'libre'
+                    ? `Reparte tus casillas: elige un tamaño y toca tu tablero (R para girar). Te quedan ${this.freeLeft()} de ${FREE_CELLS}.`
+                    : 'Coloca tu flota: elige un barco y toca tu tablero (R para girar).');
             if (this.phase === 'menu') this.$('#bs-banner').textContent = '';
         }
 
@@ -771,13 +874,23 @@
             const dock = this.$('#bs-dock');
             if (this.phase !== 'place') { dock.hidden = true; return; }
             dock.hidden = false;
-            const all = this.placing.length === FLEET.length;
-            dock.innerHTML = `
+            const all = this.fleetComplete();
+            const left = this.freeLeft();
+            const ships = this.variant === 'libre' ? `
+                <div class="bs-free">
+                    <div class="bs-free-meter"><b>${FREE_CELLS - left}</b>/${FREE_CELLS} casillas · ${this.placing.length} barco${this.placing.length === 1 ? '' : 's'}
+                        <span class="bs-free-bar"><i style="width:${(FREE_CELLS - left) / FREE_CELLS * 100}%"></i></span></div>
+                    <div class="bs-free-lens" role="radiogroup" aria-label="Tamaño del barco">${Array.from({ length: FREE_MAX }, (_, k) => k + 1).map(n => `
+                        <button type="button" class="bs-len${this.sel === 'new' && this.selLen === n ? ' sel' : ''}" data-len="${n}" ${this.ready || n > left ? 'disabled' : ''} title="Barco de ${n}">
+                            <span class="bs-dock-hull">${'<i></i>'.repeat(n)}</span><small>${n}</small></button>`).join('')}</div>
+                    <p class="bs-free-tip">${left ? 'Elige un tamaño y toca tu tablero. Toca un barco colocado para recogerlo.' : '¡Has repartido las 18 casillas!'}</p>
+                </div>` : `
                 <div class="bs-dock-ships">${FLEET.map(f => {
                     const placed = this.placing.some(s => s.id === f.id);
                     return `<button type="button" class="bs-dock-ship${this.sel === f.id ? ' sel' : ''}${placed ? ' placed' : ''}" data-ship="${f.id}" ${this.ready ? 'disabled' : ''}>
                         <span class="bs-dock-hull">${'<i></i>'.repeat(f.len)}</span><span>${f.name} <small>(${f.len})</small></span>${placed ? '<em>✓</em>' : ''}</button>`;
-                }).join('')}</div>
+                }).join('')}</div>`;
+            dock.innerHTML = `${ships}
                 <div class="bs-dock-btns">
                     <button class="btn btn-ghost" data-dock="rotate" type="button" ${this.ready ? 'disabled' : ''}>↻ Girar (${this.vertical ? 'vertical' : 'horizontal'})</button>
                     <button class="btn btn-ghost" data-dock="random" type="button" ${this.ready ? 'disabled' : ''}>🎲 Aleatorio</button>
@@ -793,11 +906,17 @@
             set('[data-pill="shots"]', String(st.shots));
             set('[data-pill="acc"]', st.shots ? Math.round(st.hits / st.shots * 100) + ' %' : '–');
             set('[data-pill="ping"]', this.kind === 'online' && this.lobby && this.lobby.rtt != null ? Math.round(this.lobby.rtt) + ' ms' : '–');
-            const pips = (afloatIds) => FLEET.map(f => `<i class="${afloatIds.includes(f.id) ? '' : 'down'}" title="${f.name}" style="--l:${f.len}"></i>`).join('');
+            const pips = (list, afloatIds) => list.map(f => `<i class="${afloatIds.includes(f.id) ? '' : 'down'}" title="${esc(shipName(f))}" style="--l:${f.len}"></i>`).join('');
+            const myList = this.mine ? this.mine.ships : FLEET;
             const myAfloat = this.mine ? this.mine.ships.filter(s => s.hits < s.len).map(s => s.id) : FLEET.map(f => f.id);
-            const foeAfloat = this.view ? this.view.remaining().map(f => f.id) : FLEET.map(f => f.id);
-            this.$('#bs-my-fleet').innerHTML = this.phase === 'battle' || this.phase === 'over' ? pips(myAfloat) : '';
-            this.$('#bs-enemy-fleet').innerHTML = pips(foeAfloat);
+            this.$('#bs-my-fleet').innerHTML = this.phase === 'battle' || this.phase === 'over' ? pips(myList, myAfloat) : '';
+            if (this.variant === 'libre') {
+                const sunk = this.view ? this.view.sunk : [];
+                this.$('#bs-enemy-fleet').innerHTML = `${pips(sunk.map(sh => ({ id: sh.id, len: sh.cells.length })), [])}<em class="bs-left" title="Casillas de barco que le quedan al rival">${this.view ? this.view.cellsLeft() : FREE_CELLS}/${FREE_CELLS}</em>`;
+            } else {
+                const foeAfloat = this.view ? this.view.remaining().map(f => f.id) : FLEET.map(f => f.id);
+                this.$('#bs-enemy-fleet').innerHTML = pips(FLEET, foeAfloat);
+            }
         }
 
         later(fn, ms) {
@@ -847,12 +966,12 @@
     Nexus.games.registry.register({
         id: 'battleship', name: 'Hundir la flota', emoji: '🚢', accent: '#38bdf8',
         tagline: 'Contra la máquina · Online 1 contra 1',
-        description: 'La batalla naval de siempre: coloca tus 5 barcos y hunde los del rival. Si aciertas, repites. Contra la IA en 4 niveles o contra otra persona online, con verificación anti-trampas del tablero.',
+        description: 'La batalla naval de siempre en dos variantes: la flota clásica de 5 barcos o «Libre», repartiendo 18 casillas en los barcos que quieras. Los barcos pueden ir pegados y al final ves los dos tableros. Si aciertas, repites. Contra la IA en 4 niveles o contra otra persona online, con verificación anti-trampas del tablero.',
         tags: ['Estrategia', 'Multijugador'],
         modes: LEVELS.map(l => ({ id: l.id, label: l.label })).concat([{ id: 'online', label: 'Online' }]),
         metrics: [{ id: 'wins', label: 'Victorias' }, { id: 'score', label: 'Puntuación' }],
         mount: (root) => new BattleshipGame(root)
     });
 
-    Nexus.games.battleshipLogic = { randomFleet, canPlace, validFleet, fleetString, aiPick, Board, View, FLEET, shipCells };
+    Nexus.games.battleshipLogic = { randomFleet, randomFreeLengths, canPlace, validFleet, fleetString, aiPick, Board, View, FLEET, FREE_CELLS, shipCells };
 })();

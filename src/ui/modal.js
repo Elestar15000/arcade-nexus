@@ -198,7 +198,7 @@
 
         return open({
             icon: o.emoji, title: o.title, titleClass: o.kind || '',
-            className: 'modal-result', body: parts.join(''), actions: o.actions || []
+            className: 'modal-result' + (o.wide ? ' modal-wide' : ''), body: parts.join(''), actions: o.actions || []
         });
     }
 

@@ -121,3 +121,50 @@
 @media (prefers-reduced-motion: reduce) {
     .bs-field::before, .bs-mark.hit::before, .bs-mark.pending::before { animation: none; }
 }
+
+/* ── Variantes (clásica / libre) ───────────────────────────── */
+.bs-variants { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.bs-variant { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 14px; border-radius: 14px; text-align: left; cursor: pointer;
+    background: var(--panel, var(--bg-card)); border: 1px solid var(--border-light); color: var(--text); font: inherit; transition: border-color .15s, background .15s; }
+.bs-variant span { font-size: 1.4em; } .bs-variant b { font-size: .95em; } .bs-variant small { color: var(--text-muted); font-size: .78em; line-height: 1.3; }
+.bs-variant:hover { border-color: var(--text-muted); }
+.bs-variant.on { border-color: #38bdf8; background: rgba(56, 189, 248, .14); box-shadow: 0 0 0 2px rgba(56, 189, 248, .25); }
+@media (max-width: 520px) { .bs-variants { grid-template-columns: 1fr; } }
+
+/* Colocación libre */
+.bs-free { display: flex; flex-direction: column; gap: 8px; }
+.bs-free-meter { display: flex; align-items: center; gap: 10px; font-size: .88em; color: var(--text-dim); flex-wrap: wrap; }
+.bs-free-meter b { color: var(--text); font-size: 1.1em; }
+.bs-free-bar { flex: 1; min-width: 120px; height: 8px; border-radius: 99px; background: var(--bg-darkest); overflow: hidden; border: 1px solid var(--border-light); }
+.bs-free-bar i { display: block; height: 100%; background: linear-gradient(90deg, #38bdf8, #22c55e); transition: width .25s; }
+.bs-free-lens { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.bs-len { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 4px; border-radius: 10px; border: 1px solid var(--border-light); background: var(--bg-card); color: var(--text); cursor: pointer; font: inherit; }
+.bs-len .bs-dock-hull { flex-wrap: wrap; justify-content: center; max-width: 64px; }
+.bs-len .bs-dock-hull i { width: 7px; height: 7px; }
+.bs-len small { font-weight: 800; font-size: .78em; }
+.bs-len.sel { border-color: #38bdf8; background: rgba(56, 189, 248, .16); }
+.bs-len:disabled { opacity: .3; cursor: not-allowed; }
+.bs-free-tip { margin: 0; font-size: .8em; color: var(--text-muted); }
+.bs-left { font-style: normal; font-size: .78em; font-weight: 800; color: var(--text-dim); margin-left: 4px; }
+
+/* ── Tableros finales en el resultado ──────────────────────── */
+.modal.modal-wide { max-width: 640px; }
+.bsf { margin: 12px 0 4px; }
+.bsf-boards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.bsf-board { display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.bsf-head { display: flex; flex-direction: column; }
+.bsf-head b { font-size: .9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bsf-head small { font-size: .72em; color: var(--text-muted); }
+.bsf-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; padding: 4px; border-radius: 10px; background: #0b2a44; aspect-ratio: 1; }
+.bsf-c { position: relative; display: block; border-radius: 3px; background: rgba(56, 189, 248, .14); }
+.bsf-c.ship { background: linear-gradient(180deg, #cbd5e1, #64748b); }
+.bsf-c.ship.down { background: linear-gradient(180deg, #7f1d1d, #3f0d0d); }
+.bsf-c.miss::after { content: ''; position: absolute; inset: 34%; border-radius: 50%; background: #e0f2fe; opacity: .85; }
+.bsf-c.hit::after, .bsf-c.sunk::after { content: '✕'; position: absolute; inset: 0; display: grid; place-items: center; font-size: clamp(8px, 1.6vw, 12px); font-weight: 900; color: #fde047; }
+.bsf-c.hit:not(.ship)::after { color: #f87171; }
+.bsf-c.hit.ship { box-shadow: inset 0 0 0 2px #f97316; }
+.bsf-note { margin: 0; font-size: .72em; color: var(--text-muted); }
+.bsf-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 10px; font-size: .74em; color: var(--text-dim); }
+.bsf-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.bsf-legend .bsf-c { width: 13px; height: 13px; }
+@media (max-width: 480px) { .bsf-boards { gap: 8px; } .bsf-grid { gap: 1px; padding: 3px; } }
