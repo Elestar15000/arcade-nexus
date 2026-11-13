@@ -33,7 +33,7 @@
         parse() {
             const parts = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
             const name = parts[0] || DEFAULT_ROUTE;
-            return { name, params: { id: parts[1] }, key: name === 'game' ? `game/${parts[1]}` : name };
+            return { name, params: { id: parts[1] }, key: name === 'game' || name === 'info' ? `game/${parts[1]}` : name };
         },
 
         render() {
@@ -55,6 +55,12 @@
                 title = game.name;
                 page = { render: (root) => { const inst = game.mount(root); Nexus.ui.gameSettings.attach(root, game.id); return () => inst && inst.destroy && inst.destroy(); } };
                 Nexus.ui.sidebar.enterGame();
+            } else if (route.name === 'info') {
+                const game = Nexus.games.registry.get(route.params.id);
+                if (!game) return this.notFound();
+                title = game.name;
+                page = Nexus.ui.pages.info;
+                Nexus.ui.sidebar.exitGame();
             } else {
                 page = Nexus.ui.pages[route.name];
                 if (!page) return this.notFound();
@@ -66,6 +72,11 @@
             document.title = `${title} · Nexus Arcade`;
             const titleEl = document.getElementById('page-title');
             if (titleEl) titleEl.textContent = title;
+            if (Nexus.ui.launcher) {
+                const crumbs = { game: 'Jugando', info: 'Ficha de juego', library: 'Launcher', home: 'Launcher' };
+                Nexus.ui.launcher.topbar.setCrumb(crumbs[route.name] || 'Launcher');
+            }
+            document.body.classList.toggle('in-game', route.name === 'game');
             Nexus.ui.sidebar.setActive(route.key);
             this.container.classList.toggle('view-game', route.name === 'game');
 

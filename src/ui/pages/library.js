@@ -13,18 +13,7 @@
 
     const { esc, $, $$, formatNumber, formatDuration } = Nexus.util;
 
-    /** Colecciones de la biblioteca. Un juego que no esté en ninguna cae en «Otros». */
-    const COLLECTIONS = [
-        { id: 'clasicos', name: 'Clásicos', emoji: '🕹️', color: '#f97316', desc: 'Los arcades de toda la vida, con un toque moderno.',
-            games: ['tetris', 'pacman', 'snake', 'minesweeper', 'pong', 'g2048'] },
-        { id: 'cartas', name: 'Cartas', emoji: '🃏', color: '#ef4444', desc: 'Baraja española contra la máquina o con amigos online.',
-            games: ['guinote', 'brisca', 'chinchon'] },
-        { id: 'mentales', name: 'Retos mentales', emoji: '🧠', color: '#a855f7', desc: 'Palabras, lógica y acertijos. Muchos con reto diario.',
-            games: ['wordle', 'pasapalabra', 'crossword', 'wordsearch', 'connections', 'sudoku', 'escape'] },
-        { id: 'estrategia', name: 'Tablero y estrategia', emoji: '♟️', color: '#38bdf8', desc: 'Piensa cada movimiento: contra la IA o contra otra persona.',
-            games: ['chess', 'battleship'] }
-    ];
-    const OTHER = { id: 'otros', name: 'Otros', emoji: '✨', color: '#94a3b8', desc: 'Más juegos de la colección.', games: [] };
+    const CO = () => Nexus.games.collections;
     const FILTERS = [
         { id: '', label: 'Todos', icon: '🎮' },
         { id: 'online', label: 'Online', icon: '🌐' },
@@ -34,17 +23,10 @@
     ];
     const SORTS = [{ id: 'col', label: 'Por colecciones' }, { id: 'az', label: 'A–Z' }, { id: 'played', label: 'Más jugados' }];
 
-    const isOnline = (g) => g.modes.some(m => m.id === 'online');
-    const isDaily = (g) => g.modes.some(m => /diari|daily|phrase/.test(m.id));
-    const collectionOf = (id) => COLLECTIONS.find(c => c.games.includes(id)) || OTHER;
-
-    // Preferencias de la biblioteca (favoritos, orden) dentro de los datos del usuario
-    const prefs = () => {
-        const d = Nexus.services.users.data();
-        if (!d) return { favs: [], sort: 'col' };
-        if (!d.saves.library) d.saves.library = { favs: [], sort: 'col' };
-        return d.saves.library;
-    };
+    const isOnline = (g) => CO().isOnline(g);
+    const isDaily = (g) => CO().isDaily(g);
+    const collectionOf = (id) => CO().of(id);
+    const prefs = () => CO().prefs();
     const savePrefs = () => { if (Nexus.services.users.data()) Nexus.services.users.saveData(); };
 
     /** Tarjeta de juego de la biblioteca. */
@@ -73,6 +55,7 @@
                     </div>
                 </div>
                 <span class="lc-play" aria-hidden="true">▶ Jugar</span>
+                <button type="button" class="lc-info" data-info="${esc(g.id)}" aria-label="Ficha de ${esc(g.name)}" title="Ver ficha">ℹ️</button>
             </a>`;
     }
 
@@ -83,11 +66,9 @@
             const all = Nexus.games.registry.available();
             const soon = Nexus.games.registry.comingSoon();
             const byId = new Map(all.map(g => [g.id, g]));
-            const cols = COLLECTIONS.concat([OTHER]).map(c => Object.assign({}, c, {
-                list: c === OTHER ? all.filter(g => collectionOf(g.id) === OTHER) : c.games.map(id => byId.get(id)).filter(Boolean)
-            })).filter(c => c.list.length);
+            const cols = CO().withGames();
             const P = prefs();
-            let query = '', filter = '', sort = SORTS.some(s => s.id === P.sort) ? P.sort : 'col';
+            let query = Nexus.ui.searchQuery || '', filter = '', sort = SORTS.some(s => s.id === P.sort) ? P.sort : 'col';
             const totals = Nexus.services.progress.totals();
             const nOnline = all.filter(isOnline).length, nDaily = all.filter(isDaily).length;
 
@@ -99,7 +80,7 @@
                             <h2 class="lib-title">Elige tu próxima partida</h2>
                             <p class="lib-sub"><b>${all.length}</b> juegos · <b>${cols.length}</b> colecciones · <b>${nOnline}</b> con modo online · <b>${nDaily}</b> con reto diario</p>
                             <label class="search lib-search"><span aria-hidden="true">🔎</span>
-                                <input type="search" id="lib-search" placeholder="Buscar por nombre, tipo o colección…" aria-label="Buscar juego" autocomplete="off" /></label>
+                                <input type="search" id="lib-search" placeholder="Buscar por nombre, tipo o colección…" aria-label="Buscar juego" autocomplete="off" value="${esc(query)}" /></label>
                         </div>
                         <div class="lib-hero-stats">
                             <div><b>${formatNumber(totals.played)}</b><small>partidas</small></div>
@@ -188,6 +169,8 @@
 
             // Eventos
             $('#lib-search', root).addEventListener('input', (e) => { query = e.target.value.trim(); draw(); });
+            const onSearch = (q) => { if (!root.isConnected) return; query = q || ''; $('#lib-search', root).value = query; draw(); };
+            Nexus.bus.on('search:change', onSearch);
             $$('[data-filter]', root).forEach(b => b.addEventListener('click', () => {
                 filter = b.dataset.filter;
                 $$('[data-filter]', root).forEach(x => x.classList.toggle('active', x === b));
@@ -214,21 +197,25 @@
                 $$('[data-filter]', root).forEach(x => x.classList.toggle('active', x.dataset.filter === ''));
                 draw();
             });
-            // Favoritos: el botón está dentro del enlace de la tarjeta
+            // Ficha del juego y favoritos: botones dentro del enlace de la tarjeta
             root.addEventListener('click', (e) => {
+                const i = e.target.closest('[data-info]');
+                if (i) { e.preventDefault(); e.stopPropagation(); Nexus.ui.router.navigate('info/' + i.dataset.info); return; }
                 const f = e.target.closest('[data-fav]'); if (!f) return;
                 e.preventDefault(); e.stopPropagation();
-                const p = prefs(), id = f.dataset.fav;
-                p.favs = p.favs.includes(id) ? p.favs.filter(x => x !== id) : p.favs.concat([id]);
-                savePrefs();
-                Nexus.audio.play(p.favs.includes(id) ? 'orbCollect' : 'click');
-                Nexus.ui.toast(p.favs.includes(id) ? `${byId.get(id).name} añadido a favoritos` : `${byId.get(id).name} quitado de favoritos`, { icon: '★' });
+                const id = f.dataset.fav, on = CO().toggleFav(id);
+                Nexus.audio.play(on ? 'orbCollect' : 'click');
+                Nexus.ui.toast(on ? `${byId.get(id).name} añadido a favoritos` : `${byId.get(id).name} quitado de favoritos`, { icon: '★' });
                 draw();
             });
             $$('[data-soon]', root).forEach(c => c.addEventListener('click', () => Nexus.ui.toast('Este juego estará disponible próximamente', { icon: '🔒' })));
             draw();
+            if (Nexus.ui.gotoCollection) {
+                const sec = $(`#col-${Nexus.ui.gotoCollection}`, root); Nexus.ui.gotoCollection = null;
+                if (sec) setTimeout(() => { sec.scrollIntoView({ block: 'start' }); sec.classList.add('pulse'); }, 50);
+            }
+            return () => { Nexus.bus.off && Nexus.bus.off('search:change', onSearch); };
         }
     };
 
-    Nexus.games.collections = { list: COLLECTIONS, of: collectionOf, isOnline, isDaily };
 })();

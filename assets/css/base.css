@@ -29,9 +29,14 @@
     --text-muted: #7a82ad;
     --border: rgba(255, 255, 255, 0.09);
     --border-light: rgba(255, 255, 255, 0.16);
-    --edge: #2a3262;                 /* sombra dura de tarjetas y teclas */
+    --edge: #2a3262;                 /* borde grueso de teclas y tableros de los juegos */
     --glass: rgba(255, 255, 255, 0.04);
     --shadow: rgba(3, 5, 18, 0.6);
+    --panel: rgba(255, 255, 255, 0.035);         /* superficies del launcher */
+    --panel-hover: rgba(255, 255, 255, 0.07);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --shadow-pop: 0 18px 50px rgba(0, 0, 0, .5);
+    --radius-xl: 24px;
 
     --font-title: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
     --font-body: 'Manrope', 'Segoe UI', system-ui, sans-serif;

@@ -190,6 +190,20 @@ siempre abren en su modo por defecto.
 privada, unirse con código, enlace (`#/game/<juego>/<CÓDIGO>`) o buscador, sala con «¡Listo!» y revancha, y aviso si el rival se
 va. Lo usan Ajedrez y Hundir la flota sobre la misma red de `src/core/net.js` que Pong.
 
+## Launcher
+
+La interfaz funciona como un launcher de juegos:
+
+- **Barra lateral** con «Mi biblioteca» agrupada por colecciones plegables (Clásicos, Cartas, Retos mentales, Tablero y
+  estrategia) y tus favoritos arriba. Se pliega a iconos (Ctrl + B) y en móvil es un cajón.
+- **Barra superior**: buscador global (atajo `/`), botón de **Retos de hoy** con el número de retos pendientes y su lista,
+  y nivel con anillo de XP.
+- **Inicio**: carrusel de destacados (seguir jugando, reto pendiente, online, sin estrenar), retos de hoy, filas desplazables
+  de portadas (seguir jugando, favoritos, sin estrenar), colecciones, logros y actividad.
+- **Ficha de juego** (`#/info/<id>`): portada, jugar, modos con tus récords, tus números, logros del juego, últimas partidas
+  y más juegos de su colección.
+- Colecciones y retos diarios en `src/games/collections.js`; piezas comunes (portadas, filas, barra superior) en `src/ui/launcher.js`.
+
 ## Puzles: Sudoku, Crucigrama, Sopa de letras, Conexiones y 2048
 
 Los cinco comparten una base (`src/games/shared/puzzle.js`): menú de modos, reloj, pausa, **partida guardada para continuar**,

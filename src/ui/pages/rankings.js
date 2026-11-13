@@ -18,7 +18,8 @@
             const games = Nexus.games.registry.available();
             const tabs = [{ id: 'overall', label: '🌐 General' }]
                 .concat(games.map(g => ({ id: g.id, label: `${g.emoji} ${g.name}` })));
-            const state = { tab: 'overall', mode: 'all', metric: null };
+            const state = { tab: Nexus.ui.rankingsTab && games.some(g => g.id === Nexus.ui.rankingsTab) ? Nexus.ui.rankingsTab : 'overall', mode: 'all', metric: null };
+            Nexus.ui.rankingsTab = null;
 
             root.innerHTML = `
                 <div class="page-body">

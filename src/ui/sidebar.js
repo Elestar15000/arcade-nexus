@@ -59,6 +59,9 @@
 
             Nexus.bus.on('progress:update', () => this.renderUser());
             Nexus.bus.on('user:update', () => this.renderUser());
+            Nexus.bus.on('favs:change', () => this.buildNav());
+            Nexus.bus.on('user:login', () => this.buildNav());
+            Nexus.ui.launcher.topbar.init();
 
             this.buildNav();
             this.apply();
@@ -73,22 +76,32 @@
                     <span class="nav-icon" aria-hidden="true">${esc(n.icon)}</span>
                     <span class="nav-label">${esc(n.label)}</span>
                 </a>`;
-            const games = Nexus.games.registry.available().map(g => link({
-                route: 'game/' + g.id, icon: g.emoji, label: g.name
-            })).join('');
+            const CO = Nexus.games.collections;
+            const gameLink = (g) => link({ route: 'game/' + g.id, icon: g.emoji, label: g.name });
+            const favs = CO.favs().map(id => Nexus.games.registry.get(id)).filter(Boolean);
+            const open = Nexus.services.settings.getUI('navOpen', null) || {};
+            const groups = CO.withGames().map(c => `
+                <details class="nav-col" data-col="${esc(c.id)}" style="--col:${esc(c.color)}" ${open[c.id] === false ? '' : 'open'}>
+                    <summary class="nav-heading nav-col-head"><span class="nav-col-emo">${esc(c.emoji)}</span><span class="nav-label">${esc(c.name)}</span><small>${c.list.length}</small></summary>
+                    ${c.list.map(gameLink).join('')}
+                </details>`).join('');
 
             $('#sidebar-nav').innerHTML = `
                 <div class="nav-group">${NAV_MAIN.map(link).join('')}</div>
-                <div class="nav-group">
-                    <span class="nav-heading">Juegos</span>
-                    ${games}
-                </div>
+                ${favs.length ? `<div class="nav-group nav-favs"><span class="nav-heading"><span class="nav-col-emo">★</span><span class="nav-label">Favoritos</span></span>${favs.map(gameLink).join('')}</div>` : ''}
+                <div class="nav-group nav-games"><span class="nav-heading nav-heading-main"><span class="nav-label">Mi biblioteca</span></span>${groups}</div>
                 <div class="nav-group nav-group-bottom">${NAV_BOTTOM.map(link).join('')}</div>`;
 
             $$('#sidebar-nav .nav-item').forEach(a => a.addEventListener('click', () => this.closeMobile()));
+            $$('#sidebar-nav .nav-col').forEach(d => d.addEventListener('toggle', () => {
+                const st = Nexus.services.settings.getUI('navOpen', null) || {};
+                st[d.dataset.col] = d.open; Nexus.services.settings.setUI('navOpen', st);
+            }));
+            if (this.current) this.setActive(this.current);
         },
 
         setActive(routeKey) {
+            this.current = routeKey;
             $$('#sidebar-nav .nav-item').forEach(a => {
                 const on = a.dataset.route === routeKey;
                 a.classList.toggle('active', on);
@@ -110,6 +123,7 @@
             const chip = $('#topbar-level');
             if (chip) chip.textContent = `Nv. ${lv.level}`;
             card.title = `${user.name} · ver perfil`;
+            Nexus.ui.launcher.topbar.renderUser();
             this.renderSync();
         },
 
