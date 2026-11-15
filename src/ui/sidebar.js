@@ -61,6 +61,7 @@
             Nexus.bus.on('user:update', () => this.renderUser());
             Nexus.bus.on('favs:change', () => this.buildNav());
             Nexus.bus.on('user:login', () => this.buildNav());
+            Nexus.bus.on('user:update', () => this.buildNav());
             Nexus.ui.launcher.topbar.init();
 
             this.buildNav();
@@ -90,7 +91,7 @@
                 <div class="nav-group">${NAV_MAIN.map(link).join('')}</div>
                 ${favs.length ? `<div class="nav-group nav-favs"><span class="nav-heading"><span class="nav-col-emo">★</span><span class="nav-label">Favoritos</span></span>${favs.map(gameLink).join('')}</div>` : ''}
                 <div class="nav-group nav-games"><span class="nav-heading nav-heading-main"><span class="nav-label">Mi biblioteca</span></span>${groups}</div>
-                <div class="nav-group nav-group-bottom">${NAV_BOTTOM.map(link).join('')}</div>`;
+                <div class="nav-group nav-group-bottom">${NAV_BOTTOM.map(link).join('')}${Nexus.services.users.isAdmin() ? link({ route: 'admin', icon: '🛡️', label: 'Administración' }) : ''}</div>`;
 
             $$('#sidebar-nav .nav-item').forEach(a => a.addEventListener('click', () => this.closeMobile()));
             $$('#sidebar-nav .nav-col').forEach(d => d.addEventListener('toggle', () => {

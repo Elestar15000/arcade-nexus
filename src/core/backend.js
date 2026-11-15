@@ -51,7 +51,11 @@
         } catch (e) { throw fail(0, 'No se pudo conectar con el servidor.', { offline: true }); }
         let json = null;
         try { json = await res.json(); } catch (e) { /* sin cuerpo */ }
-        if (!res.ok) throw fail(res.status, (json && json.error) || `Error del servidor (${res.status}).`, { offline: res.status >= 502 });
+        if (!res.ok) {
+            const extra = { offline: res.status >= 502 && !(json && json.code) };
+            if (json && json.code) Object.assign(extra, { code: json.code, reason: json.reason, until: json.until });
+            throw fail(res.status, (json && json.error) || `Error del servidor (${res.status}).`, extra);
+        }
         return json;
     }
 
@@ -66,20 +70,60 @@
         password: (token, p) => http('POST', '/api/password', { token, body: p }),
         deleteAccount: (token, password) => http('DELETE', '/api/account', { token, body: { password } }),
         leaderboard: () => http('GET', '/api/leaderboard'),
-        ping: () => http('GET', '/api/health')
+        ping: () => http('GET', '/api/health'),
+        status: () => http('GET', '/api/status'),
+        notices: (token) => http('GET', '/api/notices', { token }),
+        ackNotices: (token, ids) => http('POST', '/api/notices/ack', { token, body: { ids } }),
+        admin: {
+            login: (p) => http('POST', '/api/admin/login', { body: p }),
+            overview: (t) => http('GET', '/api/admin/overview', { token: t }),
+            user: (t, name) => http('GET', '/api/admin/user?name=' + encodeURIComponent(name), { token: t }),
+            suspend: (t, p) => http('POST', '/api/admin/suspend', { token: t, body: p }),
+            unsuspend: (t, name) => http('POST', '/api/admin/unsuspend', { token: t, body: { name } }),
+            remove: (t, p) => http('POST', '/api/admin/delete', { token: t, body: p }),
+            message: (t, p) => http('POST', '/api/admin/message', { token: t, body: p }),
+            cancelMessage: (t, p) => http('POST', '/api/admin/message/cancel', { token: t, body: p }),
+            maintenance: (t, p) => http('POST', '/api/admin/maintenance', { token: t, body: p })
+        }
     };
 
     // ── Local (sin servidor) ────────────────────────────────
     const hash = Nexus.core.hash;
     const db = () => store.get('ldb', { users: [] });
     const saveDb = (d) => store.set('ldb', d);
-    const pub = (r) => ({ id: r.id, name: r.name, avatar: r.avatar, color: r.color, createdAt: r.createdAt });
+    const pub = (r) => Object.assign({ id: r.id, name: r.name, avatar: r.avatar, color: r.color, createdAt: r.createdAt }, isLocalAdmin(r.name) ? { admin: true } : {});
+    // Administración en modo local: config.js → LOCAL_ADMIN: { users: ['Ana'], key: 'clave' } (sólo para desarrollo)
+    const localAdminCfg = () => window.NEXUS_LOCAL_ADMIN || (window.NEXUS_CONFIG || {}).LOCAL_ADMIN || null;
+    const isLocalAdmin = (name) => { const c = localAdminCfg(); return !!(c && Array.isArray(c.users) && c.users.some(u => String(u).toLowerCase() === String(name).toLowerCase())); };
+    const ADMIN_TTL = 30 * 60 * 1000;
+    const adminState = (d) => (d.admin = Object.assign({ maintenance: { on: false, message: '', since: 0, by: '' }, suspended: {}, messages: {}, log: [] }, d.admin || {}));
+    const activeSusp = (s) => (s && (!s.until || s.until > Date.now()) ? s : null);
+    const suspendedFail = (s) => fail(403, `Tu cuenta está suspendida${s.until ? ' hasta el ' + new Date(s.until).toLocaleString('es-ES') : ''}${s.reason ? ': ' + s.reason : '.'}`, { code: 'suspended', reason: s.reason || '', until: s.until || null });
+    const maintFail = (m) => fail(503, m.message ? `Página en mantenimiento: ${m.message}` : 'La página está en mantenimiento. Vuelve en un rato.', { code: 'maintenance' });
+    const pubMaint = (m) => ({ on: !!m.on, message: m.message || '', since: m.since || 0 });
+    const logAction = (A, by, action, target, detail) => { A.log.unshift({ at: Date.now(), by, action, target: target || '', detail: detail || '' }); A.log = A.log.slice(0, 200); };
+    const clean = (v, max) => String(typeof v === 'string' ? v : '').trim().slice(0, max);
     const tokenFor = (r) => `local.${r.id}.${r.tokenVersion}`;
     function authed(token) {
-        const [, id, v] = String(token || '').split('.');
+        const [kind, id, v] = String(token || '').split('.');
         const d = db(), rec = d.users.find(u => u.id === id);
-        if (!rec || String(rec.tokenVersion) !== v) throw fail(401, 'Sesión no válida o caducada.');
+        if (kind !== 'local' || !rec) throw fail(401, 'Sesión no válida o caducada.');
+        const s = activeSusp(rec.suspended); if (s) throw suspendedFail(s);
+        if (String(rec.tokenVersion) !== v) throw fail(401, 'Sesión no válida o caducada.');
         return { d, rec };
+    }
+    function adminAuthed(token) {
+        const [kind, id, v, exp] = String(token || '').split('.');
+        const d = db(), rec = d.users.find(u => u.id === id);
+        if (kind !== 'ladm') throw fail(403, 'Hace falta una sesión de administrador.', { code: 'admin_required' });
+        if (!rec || String(rec.tokenVersion) !== v || !(Number(exp) > Date.now()) || !isLocalAdmin(rec.name)) throw fail(401, 'Sesión de administrador no válida.');
+        return { d, A: adminState(d), by: rec.name };
+    }
+    function target(d, name, allowAdmin) {
+        const rec = d.users.find(u => u.name.toLowerCase() === String(name || '').toLowerCase());
+        if (!rec) throw fail(404, 'No existe esa cuenta.');
+        if (!allowAdmin && isLocalAdmin(rec.name)) throw fail(403, 'No se puede aplicar a una cuenta administradora.');
+        return rec;
     }
     const nextTick = (v) => new Promise(r => setTimeout(() => r(v), 40));
     const run = (fn) => new Promise((res, rej) => setTimeout(() => {
@@ -97,6 +141,7 @@
         label: 'Modo local',
         register: ({ name, password, avatar, color }) => run(() => {
             const d = db();
+            { const m = adminState(d).maintenance; if (m.on) throw maintFail(m); }
             if (d.users.some(u => u.name.toLowerCase() === String(name).toLowerCase())) throw fail(409, 'Ese nombre de usuario ya está en uso.');
             const salt = hash.randomSalt(), now = Date.now();
             const rec = { id: Nexus.util.uid(), name, avatar, color, salt, hash: hash.hashPassword(password, salt),
@@ -105,9 +150,13 @@
             return { token: tokenFor(rec), user: pub(rec), data: rec.data, updatedAt: rec.updatedAt };
         }),
         login: ({ name, password }) => run(() => {
-            const rec = db().users.find(u => u.name.toLowerCase() === String(name).toLowerCase());
+            const d = db();
+            { const m = adminState(d).maintenance; if (m.on && !isLocalAdmin(name)) throw maintFail(m); }
+            const rec = d.users.find(u => u.name.toLowerCase() === String(name).toLowerCase());
             if (!rec) throw fail(404, 'No existe ninguna cuenta con ese usuario.');
             if (hash.hashPassword(password || '', rec.salt) !== rec.hash) throw fail(401, 'Contraseña incorrecta.');
+            { const s = activeSusp(rec.suspended); if (s) throw suspendedFail(s); }
+            rec.lastLoginAt = Date.now(); saveDb(d);
             return { token: tokenFor(rec), user: pub(rec), data: rec.data, updatedAt: rec.updatedAt };
         }),
         session: (token) => run(() => { const { rec } = authed(token); return { user: pub(rec), data: rec.data, updatedAt: rec.updatedAt }; }),
@@ -138,7 +187,98 @@
             updatedAt: Date.now(),
             players: db().users.map(r => summarize(pub(r), Nexus.schema.normalize(JSON.parse(JSON.stringify(r.data)))))
         })),
-        ping: () => (UNAVAILABLE ? Promise.reject(fail(0, 'Servidor no configurado', { offline: true })) : nextTick({ ok: true }))
+        ping: () => (UNAVAILABLE ? Promise.reject(fail(0, 'Servidor no configurado', { offline: true })) : nextTick({ ok: true })),
+        status: () => run(() => ({ maintenance: pubMaint(adminState(db()).maintenance) })),
+        notices: (token) => run(() => {
+            const [, id] = String(token || '').split('.');
+            const d = db(), A = adminState(d), rec = d.users.find(u => u.id === id);
+            if (!rec) throw fail(401, 'Sesión no válida o caducada.');
+            const ln = rec.name.toLowerCase(), s = activeSusp(A.suspended[ln]);
+            return { maintenance: pubMaint(A.maintenance), messages: (A.messages[ln] || []).filter(m => !m.readAt).map(({ id: i, title, body, kind, at }) => ({ id: i, title, body, kind, at })),
+                suspended: s ? { reason: s.reason || '', until: s.until || null } : null };
+        }),
+        ackNotices: (token, ids) => run(() => {
+            const [, id] = String(token || '').split('.');
+            const d = db(), A = adminState(d), rec = d.users.find(u => u.id === id);
+            if (!rec) throw fail(401, 'Sesión no válida o caducada.');
+            for (const m of A.messages[rec.name.toLowerCase()] || []) if (ids.includes(m.id) && !m.readAt) m.readAt = Date.now();
+            saveDb(d); return { ok: true };
+        }),
+        admin: {
+            login: ({ name, password, key }) => run(() => {
+                const c = localAdminCfg();
+                if (!c || !c.key) throw fail(503, 'El panel de administración no está configurado (LOCAL_ADMIN en config.js).');
+                const d = db(), rec = d.users.find(u => u.name.toLowerCase() === String(name || '').toLowerCase());
+                if (!rec || !isLocalAdmin(rec.name) || key !== c.key || hash.hashPassword(password || '', rec.salt) !== rec.hash) throw fail(401, 'Credenciales de administrador no válidas.');
+                logAction(adminState(d), rec.name, 'login'); saveDb(d);
+                const expiresAt = Date.now() + ADMIN_TTL;
+                return { token: `ladm.${rec.id}.${rec.tokenVersion}.${expiresAt}`, admin: { name: rec.name, avatar: rec.avatar }, expiresAt };
+            }),
+            overview: (t) => run(() => {
+                const { d, A } = adminAuthed(t);
+                const users = d.users.map(r => {
+                    const ln = r.name.toLowerCase(), p = summarize(pub(r), Nexus.schema.normalize(JSON.parse(JSON.stringify(r.data))));
+                    return Object.assign(p, { lname: ln, admin: isLocalAdmin(r.name), suspended: activeSusp(A.suspended[ln]), unread: (A.messages[ln] || []).filter(m => !m.readAt).length });
+                });
+                const messages = [];
+                for (const [to, list] of Object.entries(A.messages)) for (const m of list) messages.push(Object.assign({ to }, m));
+                messages.sort((a, b) => b.at - a.at);
+                return { users, maintenance: A.maintenance, messages, log: A.log.slice(0, 120), now: Date.now() };
+            }),
+            user: (t, name) => run(() => {
+                const { d, A } = adminAuthed(t);
+                const r = target(d, name, true), data = Nexus.schema.normalize(JSON.parse(JSON.stringify(r.data)));
+                return { account: { id: r.id, name: r.name, avatar: r.avatar, color: r.color, createdAt: r.createdAt, lastLoginAt: r.lastLoginAt || null, admin: isLocalAdmin(r.name), suspended: activeSusp(r.suspended) },
+                    updatedAt: r.updatedAt, data: { xp: data.xp, meta: data.meta, stats: data.stats, achievements: data.achievements, history: data.history.slice(0, 40) },
+                    summary: summarize(pub(r), data), messages: A.messages[r.name.toLowerCase()] || [] };
+            }),
+            suspend: (t, { name, reason, days }) => run(() => {
+                const { d, A, by } = adminAuthed(t), r = target(d, name);
+                days = Math.max(0, Math.min(3650, Number(days) || 0));
+                const s = { at: Date.now(), until: days ? Date.now() + days * 86400000 : null, reason: clean(reason, 200), by };
+                r.suspended = s; r.tokenVersion++;
+                A.suspended[r.name.toLowerCase()] = Object.assign({ name: r.name }, s);
+                logAction(A, by, 'suspend', r.name, (days ? days + ' días' : 'indefinida') + (s.reason ? ' · ' + s.reason : ''));
+                saveDb(d); return { ok: true, suspended: s };
+            }),
+            unsuspend: (t, name) => run(() => {
+                const { d, A, by } = adminAuthed(t), r = target(d, name);
+                delete r.suspended; delete A.suspended[r.name.toLowerCase()];
+                logAction(A, by, 'unsuspend', r.name); saveDb(d); return { ok: true };
+            }),
+            remove: (t, { name, confirm }) => run(() => {
+                const { d, A, by } = adminAuthed(t), r = target(d, name);
+                if (String(confirm || '').toLowerCase() !== r.name.toLowerCase()) throw fail(400, 'Escribe el nombre de la cuenta para confirmar.');
+                d.users = d.users.filter(u => u !== r);
+                delete A.suspended[r.name.toLowerCase()]; delete A.messages[r.name.toLowerCase()];
+                logAction(A, by, 'delete', r.name); saveDb(d); return { ok: true };
+            }),
+            message: (t, { to, title, body, kind }) => run(() => {
+                const { d, A, by } = adminAuthed(t);
+                title = clean(title, 80); body = clean(body, 1000);
+                if (!title || !body) throw fail(400, 'Escribe un título y un mensaje.');
+                const names = [...new Set((to || []).map(n => String(n).toLowerCase()))];
+                if (!names.length) throw fail(400, 'Elige al menos una cuenta.');
+                const missing = names.filter(n => !d.users.some(u => u.name.toLowerCase() === n));
+                if (missing.length) throw fail(400, 'No existen estas cuentas: ' + missing.join(', '));
+                const msg = { id: Nexus.util.uid(), title, body, kind: ['info', 'warn', 'alert'].includes(kind) ? kind : 'info', at: Date.now(), by, readAt: null };
+                for (const n of names) A.messages[n] = (A.messages[n] || []).concat([Object.assign({}, msg)]).slice(-30);
+                logAction(A, by, 'message', names.length === 1 ? names[0] : `${names.length} cuentas`, title);
+                saveDb(d); return { ok: true, id: msg.id, sent: names.length };
+            }),
+            cancelMessage: (t, { to, id }) => run(() => {
+                const { d, A, by } = adminAuthed(t), n = String(to || '').toLowerCase();
+                const list = (A.messages[n] || []).filter(m => m.id !== id);
+                if (list.length) A.messages[n] = list; else delete A.messages[n];
+                logAction(A, by, 'cancel', n); saveDb(d); return { ok: true };
+            }),
+            maintenance: (t, { on, message }) => run(() => {
+                const { d, A, by } = adminAuthed(t);
+                A.maintenance = { on: !!on, message: clean(message, 300), since: on ? (A.maintenance.on ? A.maintenance.since : Date.now()) : 0, by };
+                logAction(A, by, on ? 'maintenance-on' : 'maintenance-off', '', A.maintenance.message);
+                saveDb(d); return { maintenance: A.maintenance };
+            })
+        }
     };
 
     Nexus.backend = API ? Remote : Local;

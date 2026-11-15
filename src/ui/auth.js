@@ -64,6 +64,7 @@
                         <div class="auth-status" id="au-status" data-state="${blocked ? 'offline' : remote ? 'checking' : 'local'}">${blocked
                             ? 'Servidor de cuentas no configurado: sólo se puede entrar con cuentas del repositorio de datos (ver backend/README.md).'
                             : remote ? 'Conectando con el servidor…' : 'Modo local de desarrollo: las cuentas se guardan sólo en este navegador'}</div>
+                        <button type="button" class="auth-admin-link" id="au-admin">🛡️ Panel de administración</button>
                         ${Nexus.storage.volatile ? '<p class="auth-warning">Tu navegador bloquea el almacenamiento local: no se podrá mantener la sesión al recargar.</p>' : ''}
                     </section>
                 </div>`;
@@ -131,6 +132,7 @@
                     bar.dataset.level = lv; txt.textContent = STRENGTH_TEXT[lv];
                 });
             }
+            $('#au-admin', el).addEventListener('click', () => Nexus.ui.admin.openStandalone());
             $('#auth-form', el).addEventListener('submit', (e) => { e.preventDefault(); this.submit(); });
         },
 

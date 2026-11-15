@@ -73,7 +73,7 @@
             const titleEl = document.getElementById('page-title');
             if (titleEl) titleEl.textContent = title;
             if (Nexus.ui.launcher) {
-                const crumbs = { game: 'Jugando', info: 'Ficha de juego', library: 'Launcher', home: 'Launcher' };
+                const crumbs = { game: 'Jugando', info: 'Ficha de juego', library: 'Launcher', home: 'Launcher', admin: 'Control' };
                 Nexus.ui.launcher.topbar.setCrumb(crumbs[route.name] || 'Launcher');
             }
             document.body.classList.toggle('in-game', route.name === 'game');

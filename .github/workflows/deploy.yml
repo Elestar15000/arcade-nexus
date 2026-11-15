@@ -28,6 +28,8 @@ jobs:
       DATA_TOKEN: ${{ secrets.DATA_TOKEN }}
       SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
       DATA_REPO: ${{ vars.DATA_REPO }}
+      ADMIN_USERS: ${{ vars.ADMIN_USERS }}
+      ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
     steps:
       - uses: actions/checkout@v4
       - name: Desplegar Worker
@@ -41,9 +43,11 @@ jobs:
           OWNER="${GITHUB_REPOSITORY_OWNER}"
           sed -i "s|^GITHUB_REPO = .*|GITHUB_REPO = \"${DATA_REPO}\"|" wrangler.toml
           sed -i "s|^ALLOWED_ORIGIN = .*|ALLOWED_ORIGIN = \"https://${OWNER,,}.github.io\"|" wrangler.toml
+          sed -i "s|^ADMIN_USERS = .*|ADMIN_USERS = \"${ADMIN_USERS}\"|" wrangler.toml
           npx --yes wrangler@3 deploy 2>&1 | tee deploy.log
           printf '%s' "$DATA_TOKEN"     | npx wrangler@3 secret put GITHUB_TOKEN
           printf '%s' "$SESSION_SECRET" | npx wrangler@3 secret put SESSION_SECRET
+          if [ -n "$ADMIN_KEY" ]; then printf '%s' "$ADMIN_KEY" | npx wrangler@3 secret put ADMIN_KEY; fi
           URL=$(grep -Eo 'https://[A-Za-z0-9._-]+\.workers\.dev' deploy.log | head -1)
           echo "api_url=${URL}" >> "$GITHUB_OUTPUT"
 

@@ -9,6 +9,10 @@
 window.NEXUS_CONFIG = {
     API_URL: 'https://nexus-arcade-api.elestar150.workers.dev'
 
+    // Panel de administración en MODO LOCAL (sólo desarrollo, sin API_URL). Con servidor se configura en el Worker
+    // (ADMIN_USERS y ADMIN_KEY, ver backend/README.md), nunca aquí.
+    // , LOCAL_ADMIN: { users: ['TuCuenta'], key: 'clave-de-pruebas' }
+
     // Multijugador (opcional). Por defecto se usan brokers MQTT públicos y STUN de Google/Cloudflare.
     // Si muchos jugadores no logran conexión directa, añade un servidor TURN en ICE_SERVERS.
     // , P2P: {

@@ -46,6 +46,8 @@
         // ── Lectura ─────────────────────────────────────────
         current() { return this._user; }
         isLoggedIn() { return !!this._user; }
+        token() { return this._token; }
+        isAdmin() { return !!(this._user && this._user.admin); }
         data() { return this._data; }
         lastUsername() { return store.get('lastUser', ''); }
 
@@ -152,7 +154,8 @@
                 this._setSync('synced');
                 Nexus.bus.emit('user:update', this._user);
             } catch (e) {
-                if (e.status === 401) this._expire();
+                if (e.code === 'suspended') this.suspended(e);
+                else if (e.status === 401) this._expire();
                 else this._setSync(this._dirty ? 'pending' : 'offline');
             }
         }
@@ -161,6 +164,24 @@
             this._data = data; this._serverAt = at; this._dirty = false;
             Nexus.services.settings.apply();
             Nexus.bus.emit('progress:update', { synced: true });
+        }
+
+        /** La cuenta ha sido suspendida por un administrador: cierra la sesión y lo explica. */
+        suspended(info) {
+            if (!this._user) return;
+            const id = this._user.id;
+            this._dirty = false;
+            store.remove('cache:' + id);
+            if (Nexus.app && Nexus.app.logout) Nexus.app.logout(); else this.logout();
+            const until = info && info.until ? new Date(info.until).toLocaleString('es-ES', { dateStyle: 'long', timeStyle: 'short' }) : null;
+            const reason = info && info.reason;
+            if (Nexus.ui && Nexus.ui.modal) Nexus.ui.modal.open({
+                icon: '⛔', title: 'Cuenta suspendida', className: 'modal-sm notice-modal notice-alert',
+                body: `<p class="modal-text">Un administrador ha suspendido tu cuenta${until ? ` hasta el <strong>${Nexus.util.esc(until)}</strong>` : ''}.</p>
+                    ${reason ? `<p class="notice-quote">${Nexus.util.esc(reason)}</p>` : ''}
+                    <p class="modal-text muted small">Mientras dure la suspensión no podrás iniciar sesión.</p>`,
+                actions: [{ label: 'Entendido', kind: 'primary' }]
+            });
         }
 
         _expire() {
@@ -222,7 +243,8 @@
                     this._setSync(this._dirty ? 'pending' : 'synced');
                     if (this._dirty) this._timer = setTimeout(() => this.flush(), PUSH_DELAY);
                 } catch (e) {
-                    if (e.status === 401) this._expire();
+                    if (e.code === 'suspended') this.suspended(e);
+                    else if (e.status === 401) this._expire();
                     else if (e.offline || e.status === 0) this._setSync('offline');
                     else { this._setSync('error'); if (Nexus.ui && Nexus.ui.toast) Nexus.ui.toast(e.message, { type: 'error' }); }
                 } finally { this._pushing = null; }

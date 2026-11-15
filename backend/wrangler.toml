@@ -6,7 +6,9 @@ compatibility_date = "2024-09-23"
 GITHUB_REPO = "Elestar15000/arcade-nexus-data"   # repo PRIVADO con los datos
 GITHUB_BRANCH = "main"
 ALLOWED_ORIGIN = "https://elestar15000.github.io/arcade-nexus"  # varios: separados por comas
+ADMIN_USERS = ""            # cuentas administradoras, p. ej. "TuCuenta,OtraCuenta" (vacío = panel desactivado)
 
 # Secrets (NO van aquí; se crean con `wrangler secret put`):
 #   GITHUB_TOKEN   token fine-grained con Contents: Read and write sólo sobre el repo de datos
 #   SESSION_SECRET cadena aleatoria larga (p. ej. `openssl rand -hex 32`)
+#   ADMIN_KEY      clave extra del panel de administración (larga y distinta de tu contraseña)

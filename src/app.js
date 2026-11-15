@@ -51,6 +51,8 @@
 
         // Sesión persistente: si la hay, se entra directamente sin pasar por el login
         if (!users.restoreSession()) showAuth();
+        // Mantenimiento, pop-ups del administrador y suspensiones
+        Nexus.services.notices.start();
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

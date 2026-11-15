@@ -17,6 +17,8 @@ globalThis.fetch = async (url, init = {}) => {
         if (f) return json(200, { type: 'file', content: f.content, sha: f.sha });
         const list = [...files].filter(([k]) => k.startsWith(path + '/') && !k.slice(path.length + 1).includes('/'))
             .map(([k, v]) => ({ type: 'file', name: k.slice(path.length + 1), path: k, sha: v.sha }));
+        const dirs = new Set([...files.keys()].filter(k => k.startsWith(path + '/') && k.slice(path.length + 1).includes('/')).map(k => k.slice(path.length + 1).split('/')[0]));
+        for (const d of dirs) list.push({ type: 'dir', name: d, path: path + '/' + d });
         return list.length ? json(200, list) : json(404, {});     // las carpetas vacías no existen en Git
     }
     const body = JSON.parse(init.body);
@@ -33,7 +35,7 @@ globalThis.fetch = async (url, init = {}) => {
 };
 const readJson = (path) => JSON.parse(Buffer.from(files.get(path).content, 'base64').toString('utf8'));
 
-const env = { GITHUB_TOKEN: 't', GITHUB_REPO: 'o/r', GITHUB_BRANCH: 'main', SESSION_SECRET: 'secreto-de-prueba', ALLOWED_ORIGIN: 'https://yo.github.io' };
+const env = { GITHUB_TOKEN: 't', GITHUB_REPO: 'o/r', GITHUB_BRANCH: 'main', SESSION_SECRET: 'secreto-de-prueba', ALLOWED_ORIGIN: 'https://yo.github.io', ADMIN_USERS: 'Jefe', ADMIN_KEY: 'llave-maestra' };
 const O = 'https://yo.github.io';
 const call = async (method, path, body, token, origin = O) => {
     const headers = { 'Content-Type': 'application/json', 'CF-Connecting-IP': '1.1.1.' + Math.floor(Math.random() * 250) };
@@ -132,6 +134,67 @@ r = await call('OPTIONS', '/api/login'); ok(r.status === 204 && r.headers.get('A
 r = await call('POST', '/api/login', { name: 'x', password: 'y' }, null, 'https://malo.example'); ok(r.status === 403, 'origen no permitido → 403');
 r = await call('GET', '/api/nada'); ok(r.status === 401 || r.status === 404, 'ruta desconocida');
 r = await call('GET', '/api/leaderboard'); ok(r.headers.get('Access-Control-Allow-Origin') === O, 'CORS en respuestas normales');
+
+// ── Administración ──
+{
+    const jefe = (await call('POST', '/api/register', { name: 'Jefe', password: 'clave-jefe' })).json;
+    ok(jefe.user.admin === true, 'la cuenta de ADMIN_USERS se marca como administradora');
+    r = await call('POST', '/api/login', { name: 'ana_01', password: 'secreta1' }); ok(!r.json.user.admin, 'una cuenta normal no es administradora');
+    const anaTok = r.json.token;
+    r = await call('POST', '/api/admin/login', { name: 'jefe', password: 'clave-jefe', key: 'otra' }); ok(r.status === 401, 'admin: clave de administrador errónea → 401');
+    r = await call('POST', '/api/admin/login', { name: 'jefe', password: 'mal', key: 'llave-maestra' }); ok(r.status === 401, 'admin: contraseña errónea → 401');
+    r = await call('POST', '/api/admin/login', { name: 'ana_01', password: 'secreta1', key: 'llave-maestra' }); ok(r.status === 401, 'admin: una cuenta no administradora no entra aunque sepa la clave');
+    r = await call('GET', '/api/admin/overview', null, anaTok); ok(r.status === 403, 'admin: un token normal no abre el panel');
+    r = await call('POST', '/api/admin/login', { name: 'Jefe', password: 'clave-jefe', key: 'llave-maestra' });
+    ok(r.status === 200 && r.json.token && r.json.expiresAt - Date.now() <= 30 * 60000 + 1000, 'admin: acceso con contraseña + clave (sesión de 30 min)');
+    const adm = r.json.token;
+    r = await call('GET', '/api/session', null, adm); ok(r.status === 401, 'admin: el token de administrador no sirve como sesión de juego');
+    r = await call('GET', '/api/admin/overview', null, adm);
+    ok(r.status === 200 && r.json.users.length === 2 && r.json.users.find(u => u.lname === 'ana_01').level === 3 && r.json.users.find(u => u.lname === 'jefe').admin, 'admin: lista de cuentas con estadísticas');
+    ok(!JSON.stringify(r.json).includes('"hash"') && !JSON.stringify(r.json).includes('salt'), 'admin: la lista no expone credenciales');
+    r = await call('GET', '/api/admin/user?name=ana_01', null, adm);
+    ok(r.status === 200 && r.json.account.lastLoginAt > 0 && r.json.data.stats.snake && !JSON.stringify(r.json).includes('salt'), 'admin: ficha de una cuenta con sus estadísticas');
+    // Pop-ups
+    r = await call('POST', '/api/admin/message', { to: ['ana_01', 'nadie'], title: 'Hola', body: 'x' }, adm); ok(r.status === 400, 'admin: pop-up a una cuenta inexistente → 400');
+    r = await call('POST', '/api/admin/message', { to: ['Ana_01'], title: 'Aviso', body: 'Mañana hay torneo', kind: 'warn' }, adm); ok(r.status === 200 && r.json.sent === 1, 'admin: envía un pop-up');
+    r = await call('GET', '/api/notices', null, anaTok); ok(r.status === 200 && r.json.messages.length === 1 && r.json.messages[0].title === 'Aviso' && !r.json.maintenance.on, 'el jugador recibe el pop-up');
+    const mid = r.json.messages[0].id;
+    r = await call('POST', '/api/notices/ack', { ids: [mid] }, anaTok); ok(r.status === 200, 'el jugador marca el pop-up como leído');
+    r = await call('GET', '/api/notices', null, anaTok); ok(r.json.messages.length === 0, 'un pop-up leído no se repite');
+    r = await call('GET', '/api/admin/overview', null, adm); ok(r.json.messages[0].readAt > 0, 'admin: ve que el pop-up se leyó');
+    ok(readJson('admin.json').messages.ana_01.length === 1, 'los pop-ups se guardan en admin.json');
+    // Mantenimiento
+    r = await call('POST', '/api/admin/maintenance', { on: true, message: 'Volvemos a las 18:00' }, adm); ok(r.status === 200 && r.json.maintenance.on, 'admin: activa el mantenimiento');
+    r = await call('GET', '/api/status'); ok(r.json.maintenance.on && r.json.maintenance.message === 'Volvemos a las 18:00' && !r.json.maintenance.by, 'estado público: mantenimiento activo (sin datos del admin)');
+    r = await call('GET', '/api/notices', null, anaTok); ok(r.json.maintenance.on, 'los jugadores conectados reciben el mantenimiento');
+    r = await call('POST', '/api/login', { name: 'ana_01', password: 'secreta1' }); ok(r.status === 503 && r.json.code === 'maintenance', 'en mantenimiento un jugador no puede entrar');
+    r = await call('POST', '/api/register', { name: 'Nuevo', password: 'secreta1' }); ok(r.status === 503, 'en mantenimiento no se pueden crear cuentas');
+    r = await call('POST', '/api/login', { name: 'jefe', password: 'clave-jefe' }); ok(r.status === 200, 'en mantenimiento el administrador sí entra');
+    r = await call('POST', '/api/admin/maintenance', { on: false }, adm); r = await call('GET', '/api/status'); ok(!r.json.maintenance.on, 'admin: desactiva el mantenimiento');
+    // Suspensión
+    r = await call('POST', '/api/admin/suspend', { name: 'jefe', reason: 'x' }, adm); ok(r.status === 403, 'admin: no se puede suspender a un administrador');
+    r = await call('POST', '/api/admin/suspend', { name: 'ana_01', reason: 'Trampas', days: 7 }, adm); ok(r.status === 200 && r.json.suspended.until > Date.now(), 'admin: suspende 7 días');
+    r = await call('GET', '/api/session', null, anaTok); ok(r.status === 403 && r.json.code === 'suspended' && r.json.reason === 'Trampas', 'la sesión abierta de una cuenta suspendida se corta (403 suspended)');
+    r = await call('PUT', '/api/data', { data: data(1) }, anaTok); ok(r.status === 403, 'una cuenta suspendida no puede guardar');
+    r = await call('GET', '/api/notices', null, anaTok); ok(r.json.suspended && r.json.suspended.reason === 'Trampas', 'los avisos informan de la suspensión');
+    r = await call('POST', '/api/login', { name: 'ana_01', password: 'secreta1' }); ok(r.status === 403 && /suspendida/.test(r.json.error) && /Trampas/.test(r.json.error), 'una cuenta suspendida no puede iniciar sesión');
+    r = await call('GET', '/api/admin/overview', null, adm); ok(r.json.users.find(u => u.lname === 'ana_01').suspended.reason === 'Trampas', 'admin: la lista marca la cuenta suspendida');
+    r = await call('POST', '/api/admin/unsuspend', { name: 'ana_01' }, adm); ok(r.status === 200, 'admin: reactiva la cuenta');
+    r = await call('POST', '/api/login', { name: 'ana_01', password: 'secreta1' }); ok(r.status === 200, 'la cuenta reactivada vuelve a entrar');
+    r = await call('GET', '/api/session', null, anaTok); ok(r.status === 401, 'las sesiones de antes de suspender siguen cerradas');
+    // Eliminación
+    await call('POST', '/api/register', { name: 'Borrable', password: 'secreta1' });
+    r = await call('POST', '/api/admin/delete', { name: 'borrable', confirm: 'otro' }, adm); ok(r.status === 400, 'admin: borrar exige confirmar con el nombre');
+    r = await call('POST', '/api/admin/delete', { name: 'jefe', confirm: 'jefe' }, adm); ok(r.status === 403, 'admin: no se puede borrar a un administrador');
+    r = await call('POST', '/api/admin/delete', { name: 'borrable', confirm: 'Borrable' }, adm);
+    ok(r.status === 200 && ![...files.keys()].some(k => k.startsWith('users/borrable/')), 'admin: elimina la cuenta y su carpeta');
+    r = await call('GET', '/api/leaderboard'); ok(!r.json.players.some(p => p.name === 'Borrable'), 'admin: la cuenta eliminada sale del ranking');
+    r = await call('GET', '/api/admin/overview', null, adm);
+    const acts = r.json.log.map(l => l.action);
+    ok(['login', 'message', 'maintenance-on', 'maintenance-off', 'suspend', 'unsuspend', 'delete'].every(a => acts.includes(a)), 'admin: registro de acciones');
+    const fake = Buffer.from(JSON.stringify({ u: 'x', n: 'jefe', v: 1, adm: 1, exp: Date.now() + 1e6 })).toString('base64url');
+    r = await call('GET', '/api/admin/overview', null, fake + '.' + adm.split('.')[1]); ok(r.status === 401, 'admin: token de administrador falsificado → 401');
+}
 
 let n429 = 0; for (let i = 0; i < 14; i++) { const x = await worker.fetch(new Request('https://api.test/api/login', { method: 'POST', headers: { 'CF-Connecting-IP': '9.9.9.9', Origin: O }, body: JSON.stringify({ name: 'ana_01', password: 'mal' }) }), env); if (x.status === 429) n429++; }
 ok(n429 > 0, 'limitador de intentos de login → 429');
