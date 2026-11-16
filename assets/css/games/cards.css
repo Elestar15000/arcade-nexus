@@ -154,6 +154,17 @@
 .cg-seat-item.host, .cg-seat-item.guest { border-color: var(--success); }
 .cg-seat-item.bot { opacity: .7; border-style: dashed; }
 .cg-seat-item .ol-seat-av { font-size: 1.5em; }
+.cg-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; text-align: left; }
+.cg-team { padding: 10px; border-radius: 14px; border: 1px solid var(--border); background: rgba(255, 255, 255, .02); }
+.cg-team h3 { margin: 0 0 8px; font-size: .95em; display: flex; align-items: center; gap: 8px; }
+.cg-team h3::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--team, var(--primary)); }
+.cg-team-A { --team: #38bdf8; border-color: rgba(56, 189, 248, .35); }
+.cg-team-B { --team: #f472b6; border-color: rgba(244, 114, 182, .35); }
+.cg-seat-item.picked { outline: 2px solid var(--primary); outline-offset: 1px; }
+.cg-seat-item.pickable { cursor: pointer; border-style: solid; opacity: 1; }
+.cg-seat-item.pickable .cg-swap { background: rgba(var(--primary-rgb), .18); border-color: var(--primary); }
+.cg-team-tools { margin-top: 4px; }
+@media (max-width: 560px) { .cg-teams { grid-template-columns: 1fr; } }
 .cg-seat-n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--ax-accent); color: #000; font-weight: 800; font-size: .78em; flex: none; }
 .cg-seat-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .cg-seat-name small { color: var(--text-muted); font-size: .76em; }

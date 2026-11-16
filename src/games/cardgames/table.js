@@ -91,6 +91,8 @@
             this.o = o; this.el = o.el; this.game = o.game;
             this.net = null; this.lobby = null; this.view = 'off'; this.playing = false; this.destroyed = false;
             this.n = o.seats.default;
+            this.order = [];          // orden de los asientos: 'host' | 'g:<id>' | 'b:<n>' (en parejas: 1 y 3 contra 2 y 4)
+            this.pick = null;         // asiento elegido para cambiarlo de pareja
             this.onClick = (e) => this.click(e);
             this.onSubmit = (e) => { if (e.target.closest('.ol-join-form')) { e.preventDefault(); const i = this.el.querySelector('.ol-code-input'); this.join(i ? i.value : ''); } };
             this.onInput = (e) => { if (e.target.classList.contains('ol-code-input')) { const v = Nexus.net.normalizeCode(e.target.value); if (v !== e.target.value) e.target.value = v; } };
@@ -178,6 +180,8 @@
             else if (d === 'start') this.startGame();
             else if (d === 'seats') { this.n = Number(b.dataset.n); this.net.conn.maxPlayers = this.n; this.net.conn._list(); this.sendRoom(); this.showRoom(); }
             else if (d === 'kick') { this.net.conn.kick(b.dataset.id); this.sendRoom(); this.showRoom(); }
+            else if (d === 'swap') this.swapSeat(Number(b.dataset.i));
+            else if (d === 'shuffle') { this.pick = null; this.shuffleTeams(); }
         }
         copy(text, ok) {
             const done = () => Nexus.ui.toast(ok, { icon: '📋' });
@@ -190,6 +194,7 @@
             if (this.net) return;
             const cb = this.el.querySelector('[data-ol="public"]');
             this.n = this.o.seats.default;
+            this.order = []; this.pick = null;
             const host = new Nexus.net.RoomHost({ game: this.game, info: Nexus.games.OnlineLobby.myInfo(), isPublic: cb ? cb.checked : true, maxPlayers: this.n });
             this.net = { role: 'host', conn: host, code: host.code };
             this.view = 'opening';
@@ -211,15 +216,44 @@
             } catch (err) { host.close(); this.net = null; this.show('No se pudo abrir la mesa: ' + err.message); }
         }
 
-        /** Asientos actuales: anfitrión, invitados por orden de llegada y bots en los huecos. */
+        /**
+         * Asientos actuales. Por defecto: anfitrión, invitados por orden de llegada y bots en los huecos.
+         * En los juegos por parejas el anfitrión puede recolocarlos (this.order), y el orden se conserva
+         * aunque entre o salga gente: quien llega ocupa un hueco de bot y quien se va deja un bot.
+         */
         seatList() {
             const n = this.net;
             if (n.role === 'guest') return n.seats || [];
             const me = Nexus.games.OnlineLobby.myInfo();
-            const out = [{ kind: 'host', name: me.name, avatar: me.avatar }];
-            for (const g of n.conn.guestList()) if (out.length < this.n) out.push({ kind: g.ready ? 'guest' : 'joining', name: g.info.name, avatar: g.info.avatar, id: g.id });
-            while (out.length < this.n) out.push({ kind: 'bot', name: 'Bot', avatar: '🤖' });
-            return out;
+            const people = new Map([['host', { kind: 'host', name: me.name, avatar: me.avatar }]]);
+            for (const g of n.conn.guestList()) if (people.size < this.n) people.set('g:' + g.id, { kind: g.ready ? 'guest' : 'joining', name: g.info.name, avatar: g.info.avatar, id: g.id });
+            let ord = this.order.slice(0, this.n);
+            while (ord.length < this.n) ord.push(null);
+            ord = ord.map(k => (k && (k.startsWith('b:') || people.has(k)) ? k : null));
+            for (const k of people.keys()) {
+                if (ord.includes(k)) continue;
+                let i = ord.indexOf(null);
+                if (i < 0) i = ord.findIndex(x => x && x.startsWith('b:'));
+                if (i >= 0) ord[i] = k;
+            }
+            let b = 0;
+            ord = ord.map(k => { if (k) return k; while (ord.includes('b:' + b)) b++; return 'b:' + (b++); });
+            this.order = ord;
+            return ord.map(k => Object.assign({ key: k }, people.get(k) || { kind: 'bot', name: 'Bot', avatar: '🤖' }));
+        }
+        /** Parejas: primer toque elige un asiento, el segundo lo intercambia con otro. */
+        swapSeat(i) {
+            if (!this.net || this.net.role !== 'host' || !this.o.teams) return;
+            this.seatList();
+            if (this.pick === null || this.pick === i) this.pick = this.pick === i ? null : i;
+            else { const o = this.order; [o[this.pick], o[i]] = [o[i], o[this.pick]]; this.pick = null; this.sendRoom(); }
+            this.showRoom();
+        }
+        shuffleTeams() {
+            this.seatList();
+            const o = this.order;
+            for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
+            this.sendRoom(); this.showRoom();
         }
         sendRoom() { if (this.net && this.net.role === 'host') { const seats = this.seatList(); this.net.conn.send({ t: 'tb', k: 'room', seats, n: this.n }, true); } }
 
@@ -229,6 +263,14 @@
             const host = n.role === 'host';
             const seats = this.seatList();
             const teamOf = (i) => (this.o.teams ? (i % 2 === 0 ? 'A' : 'B') : null);
+            if (this.pick !== null && this.pick >= seats.length) this.pick = null;
+            const seatItem = (s, i) => `
+                    <div class="cg-seat-item ${s.kind}${this.pick === i ? ' picked' : ''}${host && this.o.teams && this.pick !== null && this.pick !== i ? ' pickable' : ''}" data-seat="${i}">
+                        <span class="cg-seat-n">${i + 1}</span><span class="ol-seat-av">${esc(s.avatar)}</span>
+                        <span class="cg-seat-name"><b>${esc(s.name)}</b><small>${s.kind === 'host' ? 'Anfitrión' : s.kind === 'bot' ? 'Hueco libre: lo jugará un bot' : s.kind === 'joining' ? 'Conectando…' : 'Jugador'}</small></span>
+                        ${host && this.o.teams ? `<button class="btn btn-ghost btn-sm cg-swap" data-ol-do="swap" data-i="${i}" type="button" aria-label="${this.pick === null ? 'Cambiar de sitio a ' + esc(s.name) : this.pick === i ? 'Cancelar' : 'Cambiar por ' + esc(s.name)}" title="${this.pick === i ? 'Cancelar' : 'Cambiar de sitio'}">${this.pick === i ? '✕' : '⇄'}</button>` : ''}
+                        ${host && (s.kind === 'guest' || s.kind === 'joining') ? `<button class="btn btn-ghost btn-sm" data-ol-do="kick" data-id="${esc(s.id)}" type="button">Echar</button>` : ''}
+                    </div>`;
             this.el.hidden = false;
             this.el.innerHTML = `<div class="ol-panel">
                 <h2 class="ol-title">MESA ${esc(n.code)}</h2>
@@ -236,13 +278,16 @@
                 <div class="ol-row"><button class="btn btn-ghost" data-ol-do="copy-code" type="button">📋 Copiar código</button><button class="btn btn-ghost" data-ol-do="copy-link" type="button">🔗 Copiar enlace</button></div>` : ''}
                 ${host && this.o.seats.min !== this.o.seats.max ? `<div class="segmented ol-seg" role="radiogroup" aria-label="Jugadores">${Array.from({ length: this.o.seats.max - this.o.seats.min + 1 }, (_, k) => this.o.seats.min + k)
                     .map(v => `<button type="button" class="${v === this.n ? 'active' : ''}" data-ol-do="seats" data-n="${v}" ${v < 1 + n.conn.guests.size ? 'disabled' : ''}>${v} jugadores</button>`).join('')}</div>` : ''}
-                <div class="cg-seats-list">${seats.map((s, i) => `
-                    <div class="cg-seat-item ${s.kind}">
-                        <span class="cg-seat-n">${i + 1}</span><span class="ol-seat-av">${esc(s.avatar)}</span>
-                        <span class="cg-seat-name"><b>${esc(s.name)}</b><small>${s.kind === 'host' ? 'Anfitrión' : s.kind === 'bot' ? 'Hueco libre: lo jugará un bot' : s.kind === 'joining' ? 'Conectando…' : 'Jugador'}${teamOf(i) ? ` · Pareja ${teamOf(i)}` : ''}</small></span>
-                        ${host && (s.kind === 'guest' || s.kind === 'joining') ? `<button class="btn btn-ghost btn-sm" data-ol-do="kick" data-id="${esc(s.id)}" type="button">Echar</button>` : ''}
+                ${this.o.teams ? `
+                <div class="cg-teams">${['A', 'B'].map((t, ti) => `
+                    <div class="cg-team cg-team-${t}">
+                        <h3>Pareja ${t}</h3>
+                        <div class="cg-seats-list">${seats.map((s, i) => (i % 2 === ti ? seatItem(s, i) : '')).join('')}</div>
                     </div>`).join('')}</div>
-                ${this.o.teams ? '<p class="ol-hint">Las parejas: asientos 1 y 3 (Pareja A) contra 2 y 4 (Pareja B).</p>' : ''}
+                ${host ? `<div class="ol-row cg-team-tools"><button class="btn btn-ghost btn-sm" data-ol-do="shuffle" type="button">🔀 Parejas al azar</button></div>
+                    <p class="ol-hint">${this.pick !== null ? `Toca el asiento con el que quieres cambiar a <b>${esc(seats[this.pick].name)}</b>.` : 'Toca ⇄ en un jugador y luego en otro para cambiarlos de sitio y elegir las parejas (también los bots).'}</p>`
+                    : '<p class="ol-hint">El anfitrión elige las parejas. Juegan alternos: Pareja A, Pareja B, Pareja A, Pareja B.</p>'}`
+                : `<div class="cg-seats-list">${seats.map((s, i) => seatItem(s, i)).join('')}</div>`}
                 <p class="ol-hint">${host ? 'Comparte el código. Los huecos libres los juegan bots; empieza cuando quieras.' : 'Esperando a que el anfitrión empiece la partida…'}</p>
                 <div class="ol-row">
                     ${host ? `<button class="btn btn-primary btn-glow" data-ol-do="start" type="button">▶ Empezar partida</button>` : '<div class="ol-spinner"></div>'}
@@ -258,8 +303,9 @@
             const seatSpec = seats.map(s => ({ kind: s.kind === 'host' ? 'me' : (s.kind === 'guest' ? 'remote' : 'bot'), name: s.name, avatar: s.avatar, guestId: s.id }));
             const pub = seats.map(s => ({ name: s.name, avatar: s.avatar, bot: s.kind !== 'host' && s.kind !== 'guest' }));
             seatSpec.forEach((s, i) => { if (s.kind === 'remote') n.conn.send({ t: 'tb', k: 'start', seats: pub, you: i }, true, s.guestId); });
-            this.playing = true; this.hide();
-            this.o.onStart({ role: 'host', seats: seatSpec, pub, you: 0, send: (gid, msg) => n.conn.send(msg, true, gid) });
+            this.playing = true; this.pick = null; this.hide();
+            const you = Math.max(0, seatSpec.findIndex(s => s.kind === 'me'));
+            this.o.onStart({ role: 'host', seats: seatSpec, pub, you, send: (gid, msg) => n.conn.send(msg, true, gid) });
         }
 
         // Invitado

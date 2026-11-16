@@ -98,7 +98,8 @@
             this.root = root;
             this.timers = new Set();
             this.busy = false;
-            this.cur = '';
+            this.cells = Array(LEN).fill('');   // letras de la fila en curso (se puede escribir en cualquier casilla)
+            this.pos = 0;                        // casilla seleccionada de la fila en curso
             this.shown = 0;          // filas ya reveladas (para el teclado)
             this.startTs = null;     // instante del primer toque (para el cronómetro)
             this.tickId = null;
@@ -172,12 +173,25 @@
                     e.preventDefault(); this.submit();
                 } else if (e.key === 'Backspace') {
                     e.preventDefault(); this.backspace();
+                } else if (e.key === 'Delete') {
+                    e.preventDefault(); this.del();
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                    e.preventDefault(); this.moveCursor(this.pos + (e.key === 'ArrowLeft' ? -1 : 1));
+                } else if (e.key === 'Home' || e.key === 'End') {
+                    e.preventDefault(); this.moveCursor(e.key === 'Home' ? 0 : LEN - 1);
                 } else if (e.key.length === 1) {
                     const ch = D().normalize(e.key);
                     if (/^[a-zñ]$/.test(ch)) { e.preventDefault(); this.typeLetter(ch); }
                 }
             };
             document.addEventListener('keydown', this.onKey);
+
+            // Tocar una casilla de la fila en curso la selecciona para escribir o corregir ahí
+            this.el('board').addEventListener('click', (e) => {
+                const t = e.target.closest('.tile[data-c]');
+                if (!t || !this.st || +t.dataset.r !== this.st.guesses.length) return;
+                this.moveCursor(+t.dataset.c);
+            });
 
             const kb = this.el('kb');
             kb.addEventListener('pointerdown', (e) => { if (e.target.closest('.key')) e.preventDefault(); }); // sin robar el foco
@@ -286,24 +300,61 @@
         // ── Entrada ─────────────────────────────────────────
         canInput() { return !this.busy && this.st.status === 'playing' && !this.destroyed; }
 
+        /** Palabra de la fila en curso (sólo cuenta si están las 5 letras). */
+        get cur() { return this.cells.every(Boolean) ? this.cells.join('') : this.cells.join('').slice(0, this.cells.indexOf('') === -1 ? LEN : this.cells.indexOf('')); }
+        set cur(v) { this.cells = Array.from({ length: LEN }, (_, i) => v[i] || ''); this.pos = Math.min(v.length, LEN - 1); }
+
         typeLetter(ch) {
-            if (!this.canInput() || this.cur.length >= LEN) return;
+            if (!this.canInput()) return;
             this.ensureTimer();
-            const c = this.cur.length;
-            this.cur += ch;
+            const c = this.pos;
+            this.cells[c] = ch;
+            // Avanza a la siguiente casilla vacía (a la derecha; si no hay, la primera vacía; si está llena, a la siguiente)
+            let next = this.cells.findIndex((x, i) => i > c && !x);
+            if (next === -1) next = this.cells.findIndex(x => !x);
+            if (next === -1) next = Math.min(c + 1, LEN - 1);
+            this.pos = next;
+            this.paintCur();
             const t = this.curTile(c);
-            t.textContent = ch.toUpperCase();
-            t.classList.add('filled', 'pop');
+            t.classList.remove('pop'); void t.offsetWidth; t.classList.add('pop');
             this.later(() => t.classList.remove('pop'), 120);
             Nexus.audio.play('key');
         }
 
+        /** Borra la letra seleccionada; si la casilla está vacía, borra la de su izquierda. */
         backspace() {
-            if (!this.canInput() || !this.cur.length) return;
-            const c = this.cur.length - 1;
-            this.cur = this.cur.slice(0, -1);
-            const t = this.curTile(c);
-            t.textContent = ''; t.classList.remove('filled');
+            if (!this.canInput()) return;
+            if (!this.cells[this.pos]) {
+                if (this.pos === 0) return;
+                this.pos--;
+            }
+            this.cells[this.pos] = '';
+            this.paintCur();
+        }
+        /** Suprimir: borra la letra seleccionada sin mover el cursor. */
+        del() {
+            if (!this.canInput() || !this.cells[this.pos]) return;
+            this.cells[this.pos] = '';
+            this.paintCur();
+        }
+        moveCursor(c) {
+            if (!this.canInput()) return;
+            this.pos = Math.max(0, Math.min(LEN - 1, c));
+            this.paintCur();
+        }
+        /** Pinta la fila en curso con sus letras y la casilla seleccionada. */
+        paintCur() {
+            if (!this.st) return;
+            const r = this.st.guesses.length, active = this.st.status === 'playing';
+            for (let c = 0; c < LEN; c++) {
+                const t = this.tile(r, c); if (!t) return;
+                const ch = active ? this.cells[c] : '';
+                t.textContent = ch ? ch.toUpperCase() : '';
+                t.classList.toggle('filled', !!ch);
+                t.classList.toggle('cursor', active && !this.busy && c === this.pos);
+                t.classList.toggle('editable', active);
+            }
+            for (let k = 0; k < MAX_TRIES; k++) if (k !== r) for (let c = 0; c < LEN; c++) { const t = this.tile(k, c); if (t) t.classList.remove('cursor', 'editable'); }
         }
 
         curTile(c) { return this.tile(this.st.guesses.length, c); }
@@ -320,7 +371,7 @@
             if (!this.canInput()) return;
             if (this.mode === 'phrase') return this.submitPhrase();
             const st = this.st, guess = this.cur;
-            if (guess.length < LEN) return this.reject('Faltan letras');
+            if (guess.length < LEN || !this.cells.every(Boolean)) { this.pos = Math.max(0, this.cells.indexOf('')); this.paintCur(); return this.reject('Faltan letras'); }
             if (!D().isValid(guess)) return this.reject('No está en el diccionario');
             if (st.guesses.includes(guess)) return this.reject('Ya has probado esa palabra');
             if (st.hard) {
@@ -335,6 +386,7 @@
             st.guesses.push(guess);
             this.cur = '';
             this.busy = true;
+            this.paintCur();
 
             const won = guess === st.target;
             const lost = !won && st.guesses.length >= MAX_TRIES;
@@ -352,6 +404,7 @@
                 this.shown = st.guesses.length;
                 this.drawKeyboard();
                 this.busy = false;
+                this.paintCur();
                 if (won || lost) this.finish(won, result, rowIdx);
             });
         }
@@ -369,7 +422,7 @@
 
         submitPhrase() {
             const st = this.st, guess = this.cur;
-            if (guess.length < LEN) return this.reject('Faltan letras');
+            if (guess.length < LEN || !this.cells.every(Boolean)) { this.pos = Math.max(0, this.cells.indexOf('')); this.paintCur(); return this.reject('Faltan letras'); }
             if (!D().isValid(guess)) return this.reject('No está en el diccionario');
             if (st.guesses.includes(guess)) return this.reject('Ya has probado esa palabra');
             this.ensureTimer(); this.commitElapsed();
@@ -379,6 +432,7 @@
             st.guesses.push(guess);
             this.cur = '';
             this.busy = true;
+            this.paintCur();
             const known = this.knownLetters();
             const won = this.phraseComplete(known);
             const lost = !won && st.guesses.length >= MAX_TRIES;
@@ -389,6 +443,7 @@
             this.revealRow(rowIdx, res, () => {
                 this.shown = st.guesses.length;
                 this.busy = false;
+                this.paintCur();
                 const fresh = [...known].filter(l => !before.has(l));
                 this.drawPhrase(fresh); this.drawKeyboard();
                 if (fresh.length && !won) { Nexus.audio.play('correct'); this.message(fresh.length === 1 ? `¡La ${fresh[0].toUpperCase()} está en la frase!` : `¡${fresh.length} letras nuevas en la frase!`); }
@@ -600,6 +655,7 @@
                     <div class="help-example">${ex('NUBES', ['absent', 'absent', 'absent', 'absent', 'absent'])}<p>Ninguna letra está en la palabra.</p></div>
                     <ul class="help-list">
                         <li>La <b>Ñ</b> es una letra distinta de la N.</li>
+                        <li>Toca una casilla (o usa <b>← →</b>) para escribir o corregir en mitad de la palabra; <b>⌫</b> borra la casilla seleccionada.</li>
                         <li><b>Aleatoria</b>: palabras ilimitadas. <b>Diaria</b>: una al día, igual para todos.</li>
                         <li><b>🧩 Frase del día</b>: debajo del tablero hay una frase oculta. Cada palabra que pruebas descubre en la frase <b>todas</b> las apariciones de sus letras: 🟩 letra nueva de la frase, 🟢 de la frase pero ya descubierta, ⬛ no está. Descubre la frase entera en ${MAX_TRIES} intentos.</li>
                         <li><b>Modo difícil</b>: debes reutilizar las pistas que ya has descubierto.</li>
@@ -627,6 +683,7 @@
                     }
                 }
             }
+            this.paintCur();
             if (phrase) this.drawPhrase();
             this.drawToolbar(); this.drawAttempt(); this.drawTimer(); this.drawKeyboard(); this.drawEnd();
         }

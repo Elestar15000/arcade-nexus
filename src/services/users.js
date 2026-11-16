@@ -246,6 +246,8 @@
                     if (e.code === 'suspended') this.suspended(e);
                     else if (e.status === 401) this._expire();
                     else if (e.offline || e.status === 0) this._setSync('offline');
+                    // 409: otro guardado se cruzó con este en el servidor; se reintenta solo en unos segundos
+                    else if (e.status === 409) { this._setSync('pending'); clearTimeout(this._timer); this._timer = setTimeout(() => this.flush(), 4000 + Math.random() * 2000); }
                     else { this._setSync('error'); if (Nexus.ui && Nexus.ui.toast) Nexus.ui.toast(e.message, { type: 'error' }); }
                 } finally { this._pushing = null; }
             })();

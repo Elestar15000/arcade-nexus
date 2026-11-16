@@ -50,6 +50,8 @@ siempre abren en su modo por defecto.
 ## Wordle ES
 
 - Palabras de 5 letras en español; la **Ñ** es una letra propia y las tildes se ignoran al escribir.
+- Se puede **escribir o corregir en cualquier casilla** de la fila: tócala (o usa ← → / Inicio / Fin) y escribe encima;
+  `⌫` borra la casilla seleccionada (o la de su izquierda si está vacía) y `Supr` la borra sin moverse. Sólo se envía con las 5 letras.
 - Cada intento se valida contra un diccionario de ~10.800 palabras (`assets/data/words-es.js`).
 - ~700 soluciones curadas de uso común. Modo **Aleatoria** (sin repetir las últimas 40), **Diaria**
   (misma palabra para todos cada día) y **🧩 Frase del día**.
@@ -300,6 +302,10 @@ Baraja española de 40 cartas (sin ochos, nueves ni comodines), dibujada en SVG 
   mismo palo (el 7 enlaza con la sota). Se cierra con 5 o menos sin combinar; −10 si se cierra con todo combinado; 7 seguidas del
   mismo palo = **chinchón** y gana la partida. Quien pasa de 100 queda eliminado. La mesa ordena sola tus combinaciones.
   Si en 40 turnos por jugador nadie cierra, la ronda es nula y se reparte de nuevo.
+
+- **Parejas en el Guiñote online**: el anfitrión las elige en la sala tocando ⇄ en un jugador y luego en otro para
+  intercambiarlos (también con los bots), o con «🔀 Parejas al azar». Los invitados ven las parejas en vivo; juegan alternos
+  (Pareja A, B, A, B), así que cada uno queda enfrente de su compañero.
 
 **Online**: `src/games/cardgames/table.js` monta una mesa **multiasiento** sobre la misma red de `src/core/net.js` (la sala ahora
 admite hasta 8 invitados; `RoomHost({ maxPlayers })`). El anfitrión crea la mesa (pública o privada, con código, enlace o buscador

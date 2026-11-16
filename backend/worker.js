@@ -36,7 +36,8 @@ const enc = new TextEncoder(), dec = new TextDecoder();
 class HttpError extends Error {
     constructor(status, message, extra) { super(message); this.status = status; this.extra = extra || null; }
 }
-class Conflict extends Error {}
+/** El archivo cambió en GitHub desde que lo leímos. `current` = su sha real si GitHub lo dice. */
+class Conflict extends Error { constructor(current) { super('conflict'); this.current = current || null; } }
 
 // ── Utilidades ──────────────────────────────────────────────
 const toB64 = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(s); };
@@ -101,31 +102,64 @@ async function readToken(env, request) {
 function ghUrl(env, path) {
     return `https://api.github.com/repos/${env.GITHUB_REPO}/contents/${path}`;
 }
+const GH_HEADERS = (env) => ({
+    Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json',
+    'User-Agent': 'nexus-arcade-api', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json', 'Cache-Control': 'no-cache'
+});
 async function gh(env, method, path, body) {
     let res;
     try {
-        res = await fetch(ghUrl(env, path) + (method === 'GET' ? `?ref=${encodeURIComponent(env.GITHUB_BRANCH || 'main')}` : ''), {
-            method,
-            headers: {
-                Authorization: `Bearer ${env.GITHUB_TOKEN}`, Accept: 'application/vnd.github+json',
-                'User-Agent': 'nexus-arcade-api', 'X-GitHub-Api-Version': '2022-11-28', 'Content-Type': 'application/json'
-            },
-            body: body ? JSON.stringify(body) : undefined
+        // Las lecturas llevan un parámetro único para que ninguna caché intermedia devuelva una versión vieja
+        res = await fetch(ghUrl(env, path) + (method === 'GET' ? `?ref=${encodeURIComponent(env.GITHUB_BRANCH || 'main')}&_=${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}` : ''), {
+            method, headers: GH_HEADERS(env), body: body ? JSON.stringify(body) : undefined
         });
     } catch (e) { throw new HttpError(502, 'No se pudo contactar con el almacenamiento.'); }
     return res;
+}
+/** Contenido exacto de un blob por su sha (inmutable: nunca devuelve una versión desfasada). */
+async function getBlob(env, sha) {
+    let res;
+    try { res = await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/git/blobs/${sha}`, { headers: GH_HEADERS(env) }); }
+    catch (e) { throw new HttpError(502, 'No se pudo contactar con el almacenamiento.'); }
+    if (!res.ok) return null;
+    try { const b = await res.json(); return JSON.parse(dec.decode(fromB64(String(b.content).replace(/\s/g, '')))); }
+    catch (e) { throw storageError(); }
+}
+
+/*
+ * GitHub tarda un poco en reflejar una escritura en las lecturas de /contents (réplicas): durante ese rato el
+ * listado y el archivo siguen dando el sha ANTERIOR, y escribir con él devuelve 409. Por eso se recuerda, por
+ * ruta, el sha que sustituyó a cada uno (lo sabemos por nuestras escrituras o porque el 409 dice cuál es el real)
+ * y, si una lectura devuelve el viejo, se usa el nuevo y su contenido se pide por blob, que siempre es exacto.
+ */
+const shaHints = new Map();          // ruta → { prev, sha, at }
+const HINT_MS = 10 * 60 * 1000;
+function hintSha(path, prev, sha) {
+    if (!sha || prev === sha) return;
+    shaHints.set(path, { prev: prev || null, sha, at: Date.now() });
+    if (shaHints.size > 2000) shaHints.delete(shaHints.keys().next().value);
+}
+/** sha vigente de una ruta dado el que devolvió GitHub (corrige lecturas desfasadas). */
+function freshSha(path, listed) {
+    const h = shaHints.get(path);
+    if (!h) return listed;
+    if (Date.now() - h.at > HINT_MS || listed === h.sha) { shaHints.delete(path); return listed; }
+    return listed === h.prev || (!listed && !h.prev) ? h.sha : listed;
 }
 const storageError = () => new HttpError(502, 'El almacenamiento no responde correctamente. Inténtalo de nuevo.');
 
 /** @returns {{json:any, sha:string}|null} */
 async function getFile(env, path) {
     const res = await gh(env, 'GET', path);
-    if (res.status === 404) return null;
-    if (!res.ok) throw storageError();
-    try {
-        const f = await res.json();
-        return { json: JSON.parse(dec.decode(fromB64(String(f.content).replace(/\s/g, '')))), sha: f.sha };
-    } catch (e) { throw storageError(); }
+    if (res.status !== 404 && !res.ok) throw storageError();
+    let f = null;
+    if (res.status !== 404) {
+        try { const x = await res.json(); f = { json: JSON.parse(dec.decode(fromB64(String(x.content).replace(/\s/g, '')))), sha: x.sha }; }
+        catch (e) { throw storageError(); }
+    }
+    const sha = freshSha(path, f ? f.sha : null);
+    if (sha && (!f || sha !== f.sha)) { const json = await getBlob(env, sha); if (json !== null) return { json, sha }; }
+    return f;
 }
 /** Lista los archivos de una carpeta del repo → [{name, sha}] o null si no existe. */
 async function listDir(env, path) {
@@ -157,10 +191,21 @@ async function putFile(env, path, obj, sha, message) {
     const body = { message, content: toB64(enc.encode(serialize(obj))), branch: env.GITHUB_BRANCH || 'main' };
     if (sha) body.sha = sha;
     const res = await gh(env, 'PUT', path, body);
-    if (res.status === 409 || res.status === 422 || (sha && res.status === 404)) throw new Conflict();
+    if (res.status === 409 || res.status === 422 || (sha && res.status === 404)) {
+        // GitHub suele decir el sha real: «is at <real> but expected <el nuestro>»
+        let current = null;
+        try { const m = String((await res.json()).message || '').match(/\b[0-9a-f]{40}\b/g) || []; current = m.find((x) => x !== sha) || null; } catch (e) { /* sin cuerpo */ }
+        if (current) hintSha(path, sha, current);
+        throw new Conflict(current);
+    }
     if (!res.ok) throw storageError();
-    try { return (await res.json()).content.sha; } catch (e) { throw storageError(); }
+    let out;
+    try { out = (await res.json()).content.sha; } catch (e) { throw storageError(); }
+    hintSha(path, sha, out);
+    return out;
 }
+/** Espera creciente entre reintentos por conflicto (≈ 0,15 s · 0,3 · 0,6 · 1,2 · 2,4), lo que tarda GitHub en ponerse al día. */
+const backoff = (attempt) => sleep(150 * 2 ** attempt + Math.random() * 120);
 async function deleteFile(env, path, sha, message) {
     const res = await gh(env, 'DELETE', path, { message, sha, branch: env.GITHUB_BRANCH || 'main' });
     if (res.status === 409 || res.status === 422) throw new Conflict();
@@ -237,7 +282,7 @@ async function updateLeaderboard(env, id, summary, label) {
         } catch (e) {
             if (!(e instanceof Conflict)) { lbCache = null; console.warn('ranking:', e.message); return; }
             lbCache = null;
-            await sleep(20 + Math.random() * 60);
+            await backoff(attempt);
         }
     }
     console.warn('ranking: demasiados conflictos');
@@ -289,8 +334,9 @@ async function openUser(env, name) {
     const listing = await listDir(env, userDir(lname));
     if (!listing || !listing.some((x) => x.name === 'account.json')) return null;
     const shas = {};
-    for (const x of listing) shas[x.name.replace(/\.json$/, '')] = x.sha;
-    return { lname, shas, account: null, data: null, updatedAt: 0 };
+    for (const x of listing) shas[x.name.replace(/\.json$/, '')] = freshSha(filePath(lname, x.name.replace(/\.json$/, '')), x.sha);
+    for (const f of ['account', ...DATA_FILES]) if (!shas[f]) { const h = freshSha(filePath(lname, f), null); if (h) shas[f] = h; }   // creado hace un momento
+    return { lname, shas, loaded: {}, account: null, data: null, updatedAt: 0 };
 }
 async function readFiles(env, u, names) {
     const cache = userCache.get(u.lname) || {}, out = {};
@@ -298,9 +344,13 @@ async function readFiles(env, u, names) {
         const sha = u.shas[f];
         if (!sha) return;
         if (cache[f] && cache[f].sha === sha) { out[f] = cache[f]; return; }
+        // Por blob: el contenido corresponde exactamente al sha del listado (sin lecturas desfasadas)
+        const json = await getBlob(env, sha);
+        if (json !== null) { out[f] = { sha, json }; return; }
         const got = await getFile(env, filePath(u.lname, f));
         if (got) out[f] = { sha: got.sha, json: got.json };
     }));
+    for (const [f, v] of Object.entries(out)) { u.loaded[f] = serialize(v.json); if (v.sha !== u.shas[f]) u.shas[f] = v.sha; }
     userCache.set(u.lname, { ...cache, ...out });
     if (userCache.size > 300) userCache.delete(userCache.keys().next().value);
     return out;
@@ -321,7 +371,8 @@ async function loadData(env, u) {
 /** Escribe un archivo sólo si su contenido cambió. Lanza Conflict si alguien lo modificó antes. */
 async function writeFile(env, u, name, obj, label) {
     const text = serialize(obj);
-    if (u.shas[name] && u.shas[name] === (await blobSha(text))) return false;
+    // Sin cambios respecto a lo leído → no se escribe (p. ej. guardar datos no reescribe account.json)
+    if (u.shas[name] && (u.loaded && u.loaded[name] === text || u.shas[name] === (await blobSha(text)))) return false;
     const sha = await putFile(env, filePath(u.lname, name), obj, u.shas[name] || null, label);
     u.shas[name] = sha;
     const c = userCache.get(u.lname) || {}; c[name] = { sha, json: obj }; userCache.set(u.lname, c);
@@ -352,10 +403,10 @@ async function mutateUser(env, tok, fn, label) {
         } catch (e) {
             if (!(e instanceof Conflict)) throw e;
             userCache.delete(u.lname);
-            await sleep(20 + Math.random() * 60);
+            await backoff(attempt);
         }
     }
-    throw new HttpError(409, 'Conflicto al guardar. Inténtalo de nuevo.');
+    throw new HttpError(409, 'Conflicto al guardar. Inténtalo de nuevo.', { code: 'conflict' });
 }
 /** La cuenta del token sigue siendo la misma, no está suspendida y no se cerraron sus sesiones. */
 function checkSession(u, tok) {
@@ -406,10 +457,10 @@ async function mutateAdmin(env, fn, label) {
         } catch (e) {
             if (!(e instanceof Conflict)) throw e;
             adminCache = null;
-            await sleep(20 + Math.random() * 60);
+            await backoff(attempt);
         }
     }
-    throw new HttpError(409, 'Conflicto al guardar. Inténtalo de nuevo.');
+    throw new HttpError(409, 'Conflicto al guardar. Inténtalo de nuevo.', { code: 'conflict' });
 }
 const logAction = (json, by, action, target, detail) => {
     json.log.unshift({ at: Date.now(), by, action, target: target || '', detail: detail ? String(detail).slice(0, 300) : '' });
@@ -443,9 +494,9 @@ async function mutateAccount(env, name, fn, label) {
         const u = await targetUser(env, name);
         fn(u.account);
         try { await writeFile(env, u, 'account', u.account, `${label}: ${u.account.name}`); return u; }
-        catch (e) { if (!(e instanceof Conflict)) throw e; userCache.delete(u.lname); await sleep(20 + Math.random() * 60); }
+        catch (e) { if (!(e instanceof Conflict)) throw e; userCache.delete(u.lname); await backoff(attempt); }
     }
-    throw new HttpError(409, 'Conflicto al guardar. Inténtalo de nuevo.');
+    throw new HttpError(409, 'Conflicto al guardar. Inténtalo de nuevo.', { code: 'conflict' });
 }
 const cleanText = (v, max) => String(typeof v === 'string' ? v : '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, max);
 

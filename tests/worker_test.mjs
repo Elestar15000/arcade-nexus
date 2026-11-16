@@ -4,18 +4,27 @@ import worker from '../backend/worker.js';
 import { createHash } from 'node:crypto';
 const files = new Map();            // path -> {content(b64), sha}  (sha = sha de blob de Git, como GitHub)
 let forceConflicts = 0, puts = [];
+// Como el GitHub real: tras escribir, las lecturas de /contents pueden devolver la versión anterior un rato
+// (réplicas). staleMs > 0 lo simula. Los blobs por sha (/git/blobs/<sha>) son inmutables y siempre exactos.
+let staleMs = 0;
+const lagged = new Map();           // path -> { old: {content, sha}|null, until }
+const blobs = new Map();            // sha -> content(b64)
+const view = (path) => { const l = lagged.get(path); if (l && Date.now() < l.until) return l.old; return files.get(path) || null; };
 const gitSha = (b64) => { const buf = Buffer.from(b64, 'base64'); return createHash('sha1').update(Buffer.concat([Buffer.from(`blob ${buf.length}\0`), buf])).digest('hex'); };
 const realFetch = globalThis.fetch;
 globalThis.fetch = async (url, init = {}) => {
     const u = new URL(url);
     if (u.hostname !== 'api.github.com') return realFetch(url, init);
-    const path = decodeURIComponent(u.pathname.replace(/^\/repos\/[^/]+\/[^/]+\/contents\//, ''));
     const json = (status, obj) => new Response(JSON.stringify(obj), { status });
+    const bm = u.pathname.match(/^\/repos\/[^/]+\/[^/]+\/git\/blobs\/([0-9a-f]{40})$/);
+    if (bm) return blobs.has(bm[1]) ? json(200, { sha: bm[1], content: blobs.get(bm[1]), encoding: 'base64' }) : json(404, { message: 'Not Found' });
+    const path = decodeURIComponent(u.pathname.replace(/^\/repos\/[^/]+\/[^/]+\/contents\//, ''));
     const method = init.method || 'GET';
     if (method === 'GET') {
-        const f = files.get(path);
+        const f = view(path);
         if (f) return json(200, { type: 'file', content: f.content, sha: f.sha });
-        const list = [...files].filter(([k]) => k.startsWith(path + '/') && !k.slice(path.length + 1).includes('/'))
+        const keys = new Set([...files.keys(), ...lagged.keys()]);
+        const list = [...keys].map(k => [k, view(k)]).filter(([k, v]) => v && k.startsWith(path + '/') && !k.slice(path.length + 1).includes('/'))
             .map(([k, v]) => ({ type: 'file', name: k.slice(path.length + 1), path: k, sha: v.sha }));
         const dirs = new Set([...files.keys()].filter(k => k.startsWith(path + '/') && k.slice(path.length + 1).includes('/')).map(k => k.slice(path.length + 1).split('/')[0]));
         for (const d of dirs) list.push({ type: 'dir', name: d, path: path + '/' + d });
@@ -25,9 +34,11 @@ globalThis.fetch = async (url, init = {}) => {
     const cur = files.get(path);
     if (method === 'PUT') {
         if (forceConflicts > 0 && path === 'leaderboard.json') { forceConflicts--; return json(409, {}); }
-        if (cur && body.sha !== cur.sha) return json(body.sha ? 409 : 422, {});
+        if (cur && body.sha !== cur.sha) return body.sha ? json(409, { message: `is at ${cur.sha} but expected ${body.sha}` }) : json(422, { message: 'Invalid request.\n\n"sha" wasn\'t supplied.' });
         if (!cur && body.sha) return json(404, {});
-        const sha = gitSha(body.content); files.set(path, { content: body.content, sha }); puts.push(path);
+        const sha = gitSha(body.content);
+        if (staleMs) lagged.set(path, { old: cur || null, until: Date.now() + staleMs });
+        files.set(path, { content: body.content, sha }); blobs.set(sha, body.content); puts.push(path);
         return json(200, { content: { sha } });
     }
     if (method === 'DELETE') { if (!cur) return json(404, {}); if (body.sha !== cur.sha) return json(409, {}); files.delete(path); return json(200, {}); }
@@ -134,6 +145,31 @@ r = await call('OPTIONS', '/api/login'); ok(r.status === 204 && r.headers.get('A
 r = await call('POST', '/api/login', { name: 'x', password: 'y' }, null, 'https://malo.example'); ok(r.status === 403, 'origen no permitido → 403');
 r = await call('GET', '/api/nada'); ok(r.status === 401 || r.status === 404, 'ruta desconocida');
 r = await call('GET', '/api/leaderboard'); ok(r.headers.get('Access-Control-Allow-Origin') === O, 'CORS en respuestas normales');
+
+// ── Lecturas desfasadas de GitHub (réplicas): login seguido de guardar al momento no debe dar 409 ──
+{
+    staleMs = 1500;
+    r = await call('POST', '/api/login', { name: 'ana_01', password: 'secreta1' });
+    const t = r.json.token;
+    r = await call('PUT', '/api/data', { data: data(4321) }, t);
+    ok(r.status === 200, `con lecturas desfasadas, guardar justo tras el login no da 409 (${r.status})`);
+    r = await call('PUT', '/api/data', { data: data(5555) }, t);
+    ok(r.status === 200, `dos guardados seguidos con lecturas desfasadas no dan 409 (${r.status})`);
+    r = await call('PUT', '/api/data', { data: data(6666) }, t);
+    ok(r.status === 200 && readJson('users/ana_01/stats.json').snake.bestScore === 6666, 'el último guardado es el que queda');
+    r = await call('GET', '/api/session', null, t);
+    ok(r.status === 200 && r.json.data.stats.snake.bestScore === 6666, 'la sesión devuelve los datos recién guardados aunque GitHub lea desfasado');
+    // Otra instancia del Worker escribió stats.json hace un momento (esta no conoce el sha nuevo y GitHub aún lee el viejo)
+    const pth = 'users/ana_01/stats.json', old = files.get(pth);
+    const other = Buffer.from(JSON.stringify({ snake: { played: 9, wins: 9, bestScore: 1, bestTime: null, bestStreak: 0, byMode: {} } }, null, 2) + '\n').toString('base64');
+    const osha = gitSha(other); files.set(pth, { content: other, sha: osha }); blobs.set(osha, other);
+    lagged.set(pth, { old, until: Date.now() + 1500 });
+    const t0 = Date.now();
+    r = await call('PUT', '/api/data', { data: data(7777) }, t);
+    ok(r.status === 200 && readJson(pth).snake.bestScore === 7777, `un cambio hecho por otra instancia tampoco da 409: se usa el sha real que indica GitHub (${r.status}, ${Date.now() - t0} ms)`);
+    await new Promise(res => setTimeout(res, 1600));
+    staleMs = 0;
+}
 
 // ── Administración ──
 {

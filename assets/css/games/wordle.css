@@ -21,6 +21,11 @@
     border: 2px solid var(--w-empty); border-radius: 6px; background: transparent; color: var(--text); user-select: none;
 }
 .tile.filled { border-color: rgba(255,255,255,.4); }
+.tile.editable { cursor: pointer; }
+.tile.cursor { border-color: var(--secondary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--secondary) 45%, transparent); position: relative; }
+.tile.cursor:not(.filled)::after { content: ''; width: 2px; height: 46%; border-radius: 2px; background: currentColor; opacity: .7; animation: wCaret 1s steps(1) infinite; }
+@keyframes wCaret { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .tile.cursor:not(.filled)::after { animation: none; } }
 .tile.pop { animation: popIn .12s ease; }
 .tile.flip { animation: tileFlip .5s ease; }
 .tile[data-state] { color: #fff; border-color: transparent; }
