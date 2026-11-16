@@ -1,0 +1,58 @@
+/* ============================================================
+   NEXUS ARCADE · solitaire.css — Solitario (Klondike)
+   ============================================================ */
+.pz-solitaire .pz-main { align-items: stretch; }
+.sol-bar { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.sol {
+    --cw: 80px; --gap: 8px; position: relative; width: 100%; max-width: 760px; margin: 0 auto; padding: 14px;
+    border-radius: 18px; user-select: none; -webkit-user-select: none; touch-action: none;
+    background: radial-gradient(ellipse at 50% 0%, #1b7a4b 0%, #0f5132 55%, #0a3a24 100%);
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .06), inset 0 0 60px rgba(0, 0, 0, .35), 0 12px 30px rgba(0, 0, 0, .35);
+}
+.sol-top, .sol-tab { display: grid; grid-template-columns: repeat(7, var(--cw)); gap: var(--gap); justify-content: center; }
+.sol-tab { margin-top: calc(var(--cw) * .28); }
+.sol-slot { position: relative; width: var(--cw); height: calc(var(--cw) * 1.4); border-radius: calc(var(--cw) * .09); }
+.sol-found, .sol-stock { background: rgba(0, 0, 0, .16); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .14); }
+.sol-ghost { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--cw) * .5); color: rgba(255, 255, 255, .16); }
+.sol-stock { cursor: pointer; }
+.sol-stock:focus-visible { outline: 3px solid #fde047; outline-offset: 2px; }
+.sol-recycle { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--cw) * .5); color: rgba(255, 255, 255, .5); }
+.sol-col { position: relative; min-height: calc(var(--cw) * 1.4); height: calc(var(--cw) * var(--h, 1.4)); border-radius: calc(var(--cw) * .09); }
+.sol-col:empty { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .1); }
+.sol-col:empty::after { content: 'K'; position: absolute; top: calc(var(--cw) * .45); left: 0; right: 0; text-align: center; font-weight: 900; font-size: calc(var(--cw) * .32); color: rgba(255, 255, 255, .12); }
+
+/* Cartas */
+.sol-card {
+    position: absolute; left: 0; top: 0; width: var(--cw); height: calc(var(--cw) * 1.4); border-radius: calc(var(--cw) * .09);
+    background: linear-gradient(170deg, #fff, #eef1f6); border: 1px solid #aeb8c6; box-shadow: 0 1px 3px rgba(0, 0, 0, .4);
+    font-family: var(--font-title); color: #111827; cursor: grab; transition: box-shadow .15s, filter .15s;
+}
+.sol-card.red { color: #dc2626; }
+.sol-card.down { cursor: default; background: repeating-linear-gradient(45deg, #1d4ed8 0 5px, #1e40af 5px 10px); border: 2px solid #e0e7ff; }
+.sol-card.down i { position: absolute; inset: 10%; border-radius: 4px; border: 2px solid rgba(224, 231, 255, .55); }
+.sol-stock .sol-card.down { cursor: pointer; }
+.sol-stock .sol-card b { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: calc(var(--cw) * .24); text-shadow: 0 1px 3px #000; }
+.sc-c { position: absolute; left: 6%; top: 3%; display: flex; flex-direction: column; align-items: center; line-height: .9; font-size: calc(var(--cw) * .24); font-weight: 900; }
+.sc-c i { font-style: normal; font-size: .82em; }
+.sc-c.br { left: auto; top: auto; right: 6%; bottom: 3%; transform: rotate(180deg); }
+.sc-mid { position: absolute; inset: 0; display: grid; place-items: center; font-size: calc(var(--cw) * .52); padding-top: 8%; }
+.sol-card.fig { background: linear-gradient(170deg, #fff, #f1ecdf); }
+.sol-card.fig .sc-mid { font-weight: 900; font-size: calc(var(--cw) * .48); }
+.sol-card.lifted { opacity: .25; }
+.sol-card.hint, .sol-slot.target, .sol-col.target, .sol-recycle.hint { box-shadow: 0 0 0 3px #fde047, 0 0 18px rgba(253, 224, 71, .6); animation: sol-hint 1s ease-in-out infinite; }
+.sol-recycle.hint { border-radius: calc(var(--cw) * .09); }
+@keyframes sol-hint { 50% { box-shadow: 0 0 0 3px #fde047, 0 0 4px rgba(253, 224, 71, .2); } }
+.sol-card.shake { animation: sol-shake .3s; }
+@keyframes sol-shake { 25% { translate: -4px 0; } 75% { translate: 4px 0; } }
+.sol-drop { box-shadow: inset 0 0 0 3px rgba(74, 222, 128, .9); background: rgba(74, 222, 128, .12); }
+.sol-ghostpile { position: fixed; left: 0; top: 0; z-index: 3000; pointer-events: none; width: var(--cw); }
+.sol-ghostpile .sol-card { box-shadow: 0 10px 24px rgba(0, 0, 0, .5); cursor: grabbing; }
+.sol.won .sol-found .sol-card { animation: sol-win 1s ease-in-out infinite alternate; }
+.sol.won .sol-found:nth-child(5) .sol-card { animation-delay: .15s; } .sol.won .sol-found:nth-child(6) .sol-card { animation-delay: .3s; } .sol.won .sol-found:nth-child(7) .sol-card { animation-delay: .45s; }
+@keyframes sol-win { to { transform: translateY(-10px) rotate(-4deg); box-shadow: 0 12px 24px rgba(0, 0, 0, .5); } }
+@media (prefers-reduced-motion: reduce) { .sol-card.hint, .sol-slot.target, .sol-col.target, .sol.won .sol-found .sol-card { animation: none; } }
+@media (max-width: 600px) {
+    .sol { --gap: 4px; padding: 8px 4px; border-radius: 12px; }
+    .sc-c { font-size: calc(var(--cw) * .3); }
+    .sc-c.br { display: none; }
+}

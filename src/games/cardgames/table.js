@@ -1,6 +1,7 @@
 /* ============================================================
    NEXUS ARCADE · games/cardgames/table.js
-   Mesa común de los juegos de cartas (Brisca, Guiñote, Chinchón):
+   Mesa común de los juegos de cartas (Brisca, Guiñote, Chinchón,
+   Póker y Mentiroso):
      · Cartas de baraja española dibujadas en SVG propio.
      · TableSession: el anfitrión (o tu navegador, contra la
        máquina) lleva el estado completo y manda a cada jugador sólo
@@ -30,6 +31,7 @@
     const FIG = { 10: 'S', 11: 'C', 12: 'R' };
 
     function cardHtml(c, o = {}) {
+        if (c && !o.back && /^[SHDC]/.test(c) && Nexus.games.frenchCards) return Nexus.games.frenchCards.html(c, o);   // baraja francesa (Póker)
         if (!c || o.back) return `<span class="pc back ${o.cls || ''}" ${o.attrs || ''}><i></i></span>`;
         const s = suitOf(c), r = rankOf(c), fig = r >= 10;
         const pips = fig ? `<span class="pc-fig">${FIG[r]}</span>${suitSvg(s, 'mid')}` : (r === 1 ? suitSvg(s, 'ace') : suitSvg(s, 'mid'));
@@ -42,7 +44,7 @@
         /** seats: [{ kind: 'me'|'remote'|'bot', name, avatar, guestId }] */
         constructor(rules, seats, { onView, send, botDelay = [650, 1150] }) {
             this.rules = rules; this.seats = seats; this.onView = onView; this.send = send; this.botDelay = botDelay;
-            this.state = rules.setup(seats.length, seats.map(s => s.name));
+            this.state = rules.setup(seats.length, seats.map(s => s.name), seats.map(s => s.kind));
             this.seq = 0; this.timer = 0; this.destroyed = false;
         }
         start() { this.broadcast(); this.schedule(); }
@@ -614,6 +616,7 @@
             if (v.lastCante && (!p.lastCante || p.lastCante.at !== v.lastCante.at)) { Nexus.audio.play('achievement'); this.bubble(`🎵 ${this.pub[v.lastCante.seat].name}: ¡las ${v.lastCante.v}!`, v.lastCante.seat); }
             if (v.turn === v.me && p.turn !== v.me) Nexus.audio.play('click');
             if (v.roundResult && !p.roundResult) Nexus.audio.play('achievement');
+            if (this.spec.sounds) this.spec.sounds(p, v, this);
         }
 
         bubble(text, seat) {

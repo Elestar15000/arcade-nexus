@@ -207,3 +207,74 @@
 .gu-phase.vueltas { border-color: #4ade80; }
 .gu-final { text-align: center; margin: 4px 0 0; }
 .cg-summary b.gu-malas, .cg-summary b.gu-buenas { font-size: 1em; }
+
+/* ── Baraja francesa (Póker) ─────────────────────────────── */
+.pc.fr { background: linear-gradient(170deg, #ffffff, #eef1f6); border-color: #b8c0cc; box-shadow: 0 2px 4px rgba(0, 0, 0, .35), inset 0 0 0 3px #fff, inset 0 0 0 4px rgba(148, 163, 184, .4); }
+.pc.fr.fr-red { --sc: #dc2626; } .pc.fr.fr-black { --sc: #111827; }
+.fr-c { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: .95; font-size: calc(var(--cw) * .22); font-weight: 900; color: var(--sc); }
+.fr-c i { font-style: normal; font-size: .8em; }
+.fr-c.tl { left: 7%; top: 5%; } .fr-c.br { right: 7%; bottom: 5%; transform: rotate(180deg); }
+.fr-mid { font-size: calc(var(--cw) * .5); color: var(--sc); line-height: 1; }
+.fr-mid.ace { font-size: calc(var(--cw) * .7); }
+.fr-fig { font-size: calc(var(--cw) * .44); font-weight: 900; color: var(--sc); line-height: 1; }
+.fr-figsuit { position: absolute; bottom: 18%; font-size: calc(var(--cw) * .26); color: var(--sc); }
+.pc.fr.fig { background: linear-gradient(170deg, #fff, color-mix(in srgb, var(--sc) 10%, #eef1f6)); }
+.pc.xs { --cw: 26px; border-radius: 4px; box-shadow: 0 1px 2px rgba(0, 0, 0, .4); }
+.pc.xs .fr-c.br { display: none; } .pc.xs .fr-c { font-size: 9px; left: 4%; top: 3%; }
+.pc.xs .fr-mid { font-size: 13px; margin-top: 6px; } .pc.xs .fr-fig { font-size: 11px; margin-top: 6px; } .pc.xs .fr-figsuit { display: none; }
+
+/* ── Póker ───────────────────────────────────────────────── */
+.pk-center { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
+.pk-street { font-size: .78em; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; opacity: .75; }
+.pk-board { display: flex; gap: 6px; }
+.pk-board .pc { --cw: clamp(40px, 7vmin, 66px); }
+.pk-board .pc.deal { animation: pk-deal .45s ease-out; }
+@keyframes pk-deal { from { transform: translateY(-24px) rotateY(80deg); opacity: 0; } }
+.pk-pot { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: rgba(0, 0, 0, .35); font-weight: 700; }
+.pk-pot b { font-family: var(--font-title); font-size: 1.15em; color: #fde047; }
+.pk-chip { width: 16px; height: 16px; border-radius: 50%; background: repeating-conic-gradient(#ef4444 0 30deg, #fff 30deg 60deg); box-shadow: 0 0 0 2px #7f1d1d inset, 0 1px 2px rgba(0, 0, 0, .5); }
+.pk-btn { display: inline-grid; place-items: center; width: 17px; height: 17px; margin-right: 4px; border-radius: 50%; background: #fff; color: #111; font-size: .78em; font-weight: 900; vertical-align: -3px; }
+.pk-tag { display: inline-block; margin-right: 4px; padding: 0 5px; border-radius: 6px; background: rgba(255, 255, 255, .15); font-size: .78em; font-weight: 800; }
+.pk-show { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: 4px; }
+.cg-poker .cg-hand .pc.pk-hole { --cw: clamp(58px, 9vmin, 84px); }
+.cg-poker .cg-hand .pc.pk-hole + .pc.pk-hole { margin-left: -14px; transform: rotate(5deg); }
+.pk-mine { align-self: center; margin-left: 12px; padding: 4px 10px; border-radius: 999px; background: rgba(0, 0, 0, .3); font-weight: 800; font-size: .86em; }
+.pk-result { padding: 8px 14px; border-radius: 14px; background: rgba(0, 0, 0, .55); border: 1px solid rgba(253, 224, 71, .45); text-align: center; font-size: .9em; animation: cg-pop .3s ease-out; max-width: 100%; }
+.pk-result b { color: #fde047; } .pk-result small { opacity: .75; }
+.pk-result ul { list-style: none; margin: 4px 0 0; padding: 0; font-size: .85em; opacity: .8; }
+.cg-poker .cg-seat .pk-show .pc.xs { --cw: 30px; }
+
+/* ── Mentiroso ───────────────────────────────────────────── */
+.mt-center { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; position: relative; }
+.mt-claim { font-size: 1.05em; } .mt-claim b { font-family: var(--font-title); font-size: 1.3em; color: #fde047; }
+.mt-pile { position: relative; width: calc(var(--cw) + 40px); height: calc(var(--cw) * 1.6 + 16px); display: grid; place-items: center; }
+.mt-pile .pc { position: absolute; transform: rotate(calc(var(--i) * 23deg - 60deg)) translate(calc(var(--i) * 1px), calc(var(--i) * -1px)); }
+.mt-pile > b { position: absolute; bottom: -4px; right: -4px; z-index: 2; padding: 2px 9px; border-radius: 999px; background: var(--ax-accent); color: #fff; font-weight: 900; }
+.mt-last { font-size: .92em; } .mt-last b { color: #c4b5fd; }
+.mt-warn { padding: 6px 12px; border-radius: 10px; background: rgba(239, 68, 68, .18); border: 1px solid rgba(239, 68, 68, .5); font-weight: 800; font-size: .88em; animation: cg-pop .3s ease-out; }
+.mt-dead { font-size: .78em; opacity: .8; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; align-items: center; }
+.mt-dead span { padding: 1px 7px; border-radius: 6px; background: rgba(255, 255, 255, .1); text-decoration: line-through; }
+.mt-reveal { position: static; margin: 0 auto; width: min(100%, 460px); max-height: none; border: 2px solid #22c55e; background: rgba(6, 20, 14, .94); }
+.mt-reveal.lie { border-color: #ef4444; }
+.mt-reveal h4 { font-size: 1.3em; margin-bottom: 4px; }
+.mt-reveal p { margin: 4px 0 0; opacity: .95; }
+.mt-cards { display: flex; justify-content: center; gap: 6px; margin: 8px 0; }
+.mt-cards .pc.bad { box-shadow: 0 0 0 3px #ef4444, 0 4px 10px rgba(0, 0, 0, .5); }
+.mt-cards .pc.ok { box-shadow: 0 0 0 3px #22c55e, 0 4px 10px rgba(0, 0, 0, .5); }
+.cg-hand .pc.sel { transform: translateY(-16px); box-shadow: 0 0 0 3px #fde047, 0 8px 18px rgba(0, 0, 0, .5) !important; }
+.cg-hand .mt-group { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .12); }
+.mt-ranks { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.mt-ranks .btn { padding: 6px 9px; min-width: 0; }
+.mt-call { animation: mt-pulse 1.4s ease-in-out infinite; }
+@keyframes mt-pulse { 50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, .25); } }
+@media (prefers-reduced-motion: reduce) { .mt-call, .pk-board .pc.deal { animation: none; } }
+
+@media (max-width: 900px) {
+    /* Póker y Mentiroso: el centro va por debajo de los asientos laterales */
+    .cg-poker .cg-table, .cg-mentiroso .cg-table { min-height: 400px; }
+    .cg-poker .cg-center, .cg-mentiroso .cg-center { inset: 128px 8px 10px; }
+    .pk-board .pc { --cw: clamp(34px, 11vw, 52px); }
+    .pk-street { font-size: .7em; }
+    .cg-poker .cg-hand .pc.pk-hole { --cw: clamp(52px, 15vw, 70px); }
+    .mt-pile { transform: scale(.85); }
+}

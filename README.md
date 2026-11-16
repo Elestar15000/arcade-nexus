@@ -15,15 +15,15 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   (y las de Wordle y Pasapalabra) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
 - **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días. No hay exportación de datos.
-- **183 logros** (generales y de cada juego) con rareza, progreso y XP.
+- **199 logros** (generales y de cada juego) con rareza, progreso y XP.
 - **Rankings globales** (general y por juego/modo/métrica).
 - **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
   de la barra lateral y opciones propias de cada juego.
 - **Barra lateral desplegable**: se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`,
   se pliega sola al jugar (configurable) y recuerda su estado.
 - **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón**, **Escape Room**, los puzles **Sudoku**, **Crucigrama**,
-  **Sopa de letras**, **Conexiones** y **2048**, y los multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez**, **Hundir la flota** y los de cartas **Brisca**,
-  **Guiñote** y **Chinchón**.
+  **Sopa de letras**, **Conexiones** y **2048**, el **Solitario**, y los multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez**, **Hundir la flota** y los de cartas **Brisca**,
+  **Guiñote**, **Chinchón**, **Póker** y **Mentiroso**.
 
 ## Activar cuentas y rankings globales
 
@@ -318,6 +318,26 @@ Las reglas son módulos puros (`rules-tricks.js` para Brisca y Guiñote, `rules-
 (`setup / validate / apply / step / view / bot / turn`) y se prueban con `node tests/cardgames_rules_test.mjs`, que juega cientos de
 partidas completas entre bots.
 
+## Póker, Mentiroso y Solitario
+
+- **Póker** (Texas Hold'em sin límite, **baraja francesa**, 2 a 4 jugadores, contra bots u online): 1000 fichas para cada uno,
+  ciegas 10/20 que suben cada 6 manos, botón rotatorio (en mano a mano el botón pone la ciega pequeña y habla primero antes del flop).
+  Pasar, igualar, subir (mínimo la última subida; botones de mínimo, ½ bote, bote y all-in) o retirarse. **Botes secundarios** con
+  all-in, reparto en empates y showdown con las cartas a la vista en cada asiento. Quien se queda sin fichas queda eliminado; contra la
+  máquina, si te quedas sin fichas la partida acaba. Los bots calculan su probabilidad de ganar (Monte Carlo) contra las pot odds y
+  farolean de vez en cuando. Reglas en `src/games/cardgames/rules-poker.js`.
+- **Mentiroso** (baraja española, 2 a 4 jugadores, contra bots u online): se reparte todo; quien junta los cuatro de un número los
+  descarta. Quien abre pone de 1 a 4 cartas boca abajo y dice un número; los demás tienen que poner cartas «de ese número», sea verdad
+  o no. En tu turno puedes acusar («**¡Mentiroso!**»: se levantan las últimas cartas; si mentía se lleva el montón, si no, te lo
+  llevas tú y abre él), jugar o pasar (si todos pasan, el montón se retira). Gana el primero sin cartas si el siguiente no le pilla.
+  Tocas las cartas para elegirlas. Los bots cuentan lo que tienen y lo que ya ha salido para saber cuándo una jugada es imposible.
+  Reglas en `src/games/cardgames/rules-mentiroso.js`.
+- **Solitario** (Klondike, baraja francesa, un jugador): **robar 1**, **robar 3** y **solitario diario** (el mismo reparto para todos).
+  Toca una carta para mandarla sola a su mejor sitio o **arrástrala** (también pilas). Deshacer (`Ctrl+Z`), pista (`H`), robar
+  (`Espacio`) y «⚡ Terminar» cuando todo está a la vista. Puntuación clásica (+5/+10/−15/−100) con bonus de tiempo; partida guardada
+  para continuar. En `src/games/solitaire/game.js`.
+- Baraja francesa en `src/games/cardgames/french.js` (cartas `S/H/D/C` + número; la mesa común las dibuja junto a las españolas).
+
 ## Estructura
 
 ```
@@ -374,6 +394,7 @@ python3 tests/e2e_pong.py         # Pong: CPU y online entre navegadores (P2P, r
 python3 tests/e2e_admin.py       # panel de administración: acceso, cuentas, pop-ups, mantenimiento, suspensión y borrado
 python3 tests/e2e_turnbased.py    # Ajedrez y Hundir la flota: CPU y online (sincronía, tablas, revancha, anti-trampas, abandono)
 python3 tests/e2e_cards.py        # Brisca, Guiñote y Chinchón: CPU y online con 2 y 3 navegadores + bot, sustitución, vuelta a la mesa
+python3 tests/e2e_cards_more.py   # Póker y Mentiroso (CPU y online) y Solitario (tocar, arrastrar, deshacer, pista, terminar, diario)
                                   # (las tres anteriores arrancan brokers MQTT locales: tests/mqtt_test_broker.mjs; sin Internet)
 node tests/chess_engine_test.mjs  # perft, reglas especiales, SAN, FEN y búsqueda del motor de ajedrez
 node tests/battleship_ai_test.mjs # flotas válidas y fuerza de los 4 niveles de IA
@@ -382,6 +403,7 @@ node tests/puzzles_logic_test.mjs # generadores: sudoku único, crucigramas vál
 python3 tests/e2e_escape.py       # Escape Room: sala completa, candados, inventario, pistas, continuar, diaria, móvil
 node tests/escape_rooms_test.mjs  # todas las salas tienen salida (y las diarias de 365 días)
 node tests/cardgames_rules_test.mjs # reglas de Brisca, Guiñote y Chinchón con cientos de partidas entre bots
+node tests/cards_more_test.mjs     # Póker (manos, botes secundarios, partidas de bots), Mentiroso y lógica del Solitario
 node tests/worker_test.mjs        # API del Worker contra un GitHub falso en memoria
 ```
 
