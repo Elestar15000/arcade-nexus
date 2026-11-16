@@ -1,7 +1,16 @@
 // Prueba de punta a punta del Worker con un GitHub falso en memoria.  node tests/worker_test.mjs
 import worker from '../backend/worker.js';
 
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
+// Código TOTP como Google Authenticator (RFC 6238)
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function totp(secret, at = Date.now(), skew = 0) {
+    let bits = 0, val = 0; const key = [];
+    for (const ch of secret) { val = (val << 5) | B32.indexOf(ch); bits += 5; if (bits >= 8) { key.push((val >>> (bits - 8)) & 255); bits -= 8; } }
+    const ctr = Buffer.alloc(8); ctr.writeBigUInt64BE(BigInt(Math.floor(at / 30000) + skew));
+    const h = createHmac('sha1', Buffer.from(key)).update(ctr).digest(), o = h[19] & 15;
+    return String((h.readUInt32BE(o) & 0x7fffffff) % 1000000).padStart(6, '0');
+}
 const files = new Map();            // path -> {content(b64), sha}  (sha = sha de blob de Git, como GitHub)
 let forceConflicts = 0, puts = [];
 // Como el GitHub real: tras escribir, las lecturas de /contents pueden devolver la versión anterior un rato
@@ -177,13 +186,34 @@ r = await call('GET', '/api/leaderboard'); ok(r.headers.get('Access-Control-Allo
     ok(jefe.user.admin === true, 'la cuenta de ADMIN_USERS se marca como administradora');
     r = await call('POST', '/api/login', { name: 'ana_01', password: 'secreta1' }); ok(!r.json.user.admin, 'una cuenta normal no es administradora');
     const anaTok = r.json.token;
-    r = await call('POST', '/api/admin/login', { name: 'jefe', password: 'clave-jefe', key: 'otra' }); ok(r.status === 401, 'admin: clave de administrador errónea → 401');
-    r = await call('POST', '/api/admin/login', { name: 'jefe', password: 'mal', key: 'llave-maestra' }); ok(r.status === 401, 'admin: contraseña errónea → 401');
-    r = await call('POST', '/api/admin/login', { name: 'ana_01', password: 'secreta1', key: 'llave-maestra' }); ok(r.status === 401, 'admin: una cuenta no administradora no entra aunque sepa la clave');
+    r = await call('POST', '/api/admin/login', { name: 'Jefe', password: 'clave-jefe', code: '123456' });
+    ok(r.status === 403 && r.json.code === 'totp_setup', 'admin: sin Google Authenticator vinculado no se puede entrar');
+    r = await call('POST', '/api/admin/totp/setup', { name: 'jefe', password: 'clave-jefe', key: 'otra' }); ok(r.status === 401, 'authenticator: vincular exige la clave de alta');
+    r = await call('POST', '/api/admin/totp/setup', { name: 'jefe', password: 'mal', key: 'llave-maestra' }); ok(r.status === 401, 'authenticator: vincular exige la contraseña');
+    r = await call('POST', '/api/admin/totp/setup', { name: 'ana_01', password: 'secreta1', key: 'llave-maestra' }); ok(r.status === 401, 'authenticator: una cuenta normal no puede vincularlo');
+    r = await call('POST', '/api/admin/totp/setup', { name: 'Jefe', password: 'clave-jefe', key: 'llave-maestra' });
+    ok(r.status === 200 && /^[A-Z2-7]{32}$/.test(r.json.secret) && r.json.uri.startsWith('otpauth://totp/Nexus%20Arcade%3AJefe?secret=' + r.json.secret), 'authenticator: genera un secreto y el enlace otpauth para el QR');
+    const sec = r.json.secret, setupToken = r.json.setupToken;
+    ok(!JSON.stringify(readJson('users/jefe/account.json')).includes('totp'), 'authenticator: nada se guarda hasta confirmar con un código');
+    r = await call('POST', '/api/admin/totp/enable', { setupToken, code: '000000' === totp(sec) ? '111111' : '000000' }); ok(r.status === 400, 'authenticator: confirmar con un código erróneo falla');
+    r = await call('POST', '/api/admin/totp/enable', { setupToken: setupToken.replace(/.$/, 'A'), code: totp(sec) }); ok(r.status === 400, 'authenticator: token de alta manipulado → rechazado');
+    const enableCode = totp(sec);
+    r = await call('POST', '/api/admin/totp/enable', { setupToken, code: enableCode }); ok(r.status === 200, 'authenticator: vinculado con el primer código');
+    const acc = readJson('users/jefe/account.json');
+    ok(acc.totp && acc.totp.ct && !JSON.stringify(acc).includes(sec), 'authenticator: el secreto se guarda cifrado (no en claro)');
+    r = await call('POST', '/api/admin/login', { name: 'jefe', password: 'mal', code: totp(sec) }); ok(r.status === 401, 'admin: contraseña errónea → 401');
+    r = await call('POST', '/api/admin/login', { name: 'jefe', password: 'clave-jefe', code: '12345' }); ok(r.status === 401 && r.json.code === 'totp_bad', 'admin: código mal formado → 401');
+    r = await call('POST', '/api/admin/login', { name: 'jefe', password: 'clave-jefe', code: totp(sec, Date.now(), -3) }); ok(r.status === 401, 'admin: un código de hace minuto y medio ya no vale');
+    r = await call('POST', '/api/admin/login', { name: 'ana_01', password: 'secreta1', code: totp(sec) }); ok(r.status === 401, 'admin: una cuenta no administradora no entra aunque tenga un código');
     r = await call('GET', '/api/admin/overview', null, anaTok); ok(r.status === 403, 'admin: un token normal no abre el panel');
-    r = await call('POST', '/api/admin/login', { name: 'Jefe', password: 'clave-jefe', key: 'llave-maestra' });
-    ok(r.status === 200 && r.json.token && r.json.expiresAt - Date.now() <= 30 * 60000 + 1000, 'admin: acceso con contraseña + clave (sesión de 30 min)');
-    const adm = r.json.token;
+    r = await call('POST', '/api/admin/login', { name: 'Jefe', password: 'clave-jefe', code: enableCode });
+    ok(r.status === 401, 'admin: el código usado para vincular no sirve para entrar');
+    r = await call('POST', '/api/admin/login', { name: 'Jefe', password: 'clave-jefe', code: totp(sec, Date.now(), 1) });
+    const firstAdm = r.json.token;
+    ok(r.status === 200 && r.json.token && r.json.expiresAt - Date.now() <= 30 * 60000 + 1000, 'admin: acceso con contraseña + código de Google Authenticator (sesión de 30 min)');
+    r = await call('POST', '/api/admin/login', { name: 'Jefe', password: 'clave-jefe', code: totp(sec, Date.now(), 1) }); ok(r.status === 401, `admin: el mismo código no se puede usar dos veces (${r.status} ${r.json.error})`);
+    r = await call('POST', '/api/admin/login', { name: 'Jefe', password: 'clave-jefe', key: 'llave-maestra' }); ok(r.status === 401, 'admin: la clave de alta ya no sirve para entrar');
+    const adm = firstAdm;
     r = await call('GET', '/api/session', null, adm); ok(r.status === 401, 'admin: el token de administrador no sirve como sesión de juego');
     r = await call('GET', '/api/admin/overview', null, adm);
     ok(r.status === 200 && r.json.users.length === 2 && r.json.users.find(u => u.lname === 'ana_01').level === 3 && r.json.users.find(u => u.lname === 'jefe').admin, 'admin: lista de cuentas con estadísticas');

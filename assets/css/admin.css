@@ -80,6 +80,22 @@ body.admin-standalone #modal-root .modal-overlay { z-index: 1950; }
 .adm-login-lead { color: var(--text-dim); margin: 0 0 18px; font-size: .94em; }
 .adm-login-note { margin: 0 0 14px; padding: 10px 12px; border-radius: 12px; background: rgba(var(--warning-rgb), .1); border: 1px solid rgba(var(--warning-rgb), .35); font-size: .88em; }
 .adm-login-card form .btn { width: 100%; }
+.adm-otp { font-family: var(--font-title); font-size: 1.5em; letter-spacing: .25em; text-align: center; font-variant-numeric: tabular-nums; }
+.adm-otp::placeholder { letter-spacing: .25em; opacity: .35; }
+.adm-setup-link { display: block; margin: 14px auto 0; background: none; border: none; color: var(--secondary); font-weight: 700; font-size: .88em; cursor: pointer; padding: 6px 10px; border-radius: 8px; }
+.adm-setup-link:hover { background: var(--panel-hover); }
+.adm-steps { list-style: none; display: flex; justify-content: center; gap: 6px; padding: 0; margin: 0 0 16px; counter-reset: st; font-size: .78em; font-weight: 700; }
+.adm-steps li { counter-increment: st; display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 999px; background: var(--bg-darkest); color: var(--text-muted); }
+.adm-steps li::before { content: counter(st); width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--panel-hover); }
+.adm-steps li.on { color: var(--text); } .adm-steps li.on::before { background: var(--primary); color: var(--on-primary); }
+.adm-steps li.done::before { content: '✓'; background: var(--success); color: #062b14; }
+.adm-qr { display: grid; place-items: center; margin: 0 auto 14px; padding: 10px; width: fit-content; border-radius: 16px; background: #fff; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
+.adm-qr svg { display: block; width: min(220px, 60vw); height: auto; }
+.adm-manual { margin: 0 0 16px; text-align: left; font-size: .86em; color: var(--text-dim); }
+.adm-manual summary { cursor: pointer; font-weight: 700; color: var(--secondary); text-align: center; }
+.adm-manual p { margin: 8px 0; }
+.adm-secret { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.adm-secret code { flex: 1; padding: 8px 10px; border-radius: 10px; background: var(--bg-darkest); border: 1px solid var(--panel-border); font-size: 1.05em; letter-spacing: .08em; word-break: break-all; color: var(--text); }
 .adm-login-facts { list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 6px; text-align: left; font-size: .82em; color: var(--text-muted); }
 
 /* ── Cabecera del panel ───────────────────────────────────── */

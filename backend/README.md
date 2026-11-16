@@ -16,7 +16,9 @@ y escribe solo la URL del Worker en `config.js`. Configuración única:
    - **Secrets**: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `DATA_TOKEN` (el token del paso 2) y `SESSION_SECRET` (`openssl rand -hex 32`).
    - **Variable**: `DATA_REPO` = `tu-usuario/nexus-arcade-data`.
    - Panel de administración (opcional): **variable** `ADMIN_USERS` = tus cuentas administradoras separadas por comas y
-     **secret** `ADMIN_KEY` = una clave larga (p. ej. `openssl rand -base64 24`). Sin ambas el panel queda desactivado.
+     **secret** `ADMIN_KEY` = una clave larga (p. ej. `openssl rand -base64 24`). `ADMIN_KEY` es la **clave de alta**: sólo se usa
+     para vincular Google Authenticator a una cuenta administradora (desde el panel, «📱 Configurar Google Authenticator»).
+     Después se entra con la contraseña y el código de 6 cifras de la app.
 5. *Settings → Pages → Source*: **GitHub Actions**. Haz un push (o *Actions → Deploy → Run workflow*).
 
 Si falta algún dato, la web se publica igualmente en modo local (sin ranking global) y el log lo avisa.
@@ -31,7 +33,7 @@ Si falta algún dato, la web se publica igualmente en modo local (sin ranking gl
    # edita wrangler.toml: GITHUB_REPO y ALLOWED_ORIGIN (https://<usuario>.github.io, sin barra final)
    npx wrangler secret put GITHUB_TOKEN
    npx wrangler secret put SESSION_SECRET      # p. ej. openssl rand -hex 32
-   npx wrangler secret put ADMIN_KEY           # clave del panel de administración (y ADMIN_USERS en wrangler.toml)
+   npx wrangler secret put ADMIN_KEY           # clave de alta para vincular Google Authenticator (y ADMIN_USERS en wrangler.toml)
    npx wrangler deploy
    ```
 4. **Sitio**: copia la URL que muestra `deploy` (`https://nexus-arcade-api.<cuenta>.workers.dev`) en `config.js` del sitio (`API_URL`) y publica en GitHub Pages.
@@ -73,7 +75,9 @@ Sólo se aceptan peticiones de los orígenes de `ALLOWED_ORIGIN` (lista separada
 `POST register` · `POST login` · `GET session` · `PUT data` · `PATCH profile` · `POST password` · `DELETE account` · `GET leaderboard` · `GET health`
 · `GET status` (mantenimiento, público) · `GET notices` y `POST notices/ack` (pop-ups y suspensión del jugador).
 
-**Administración** (token de administrador de 30 min obtenido con `POST admin/login` {name, password, key}):
+**Administración** (token de administrador de 30 min obtenido con `POST admin/login` {name, password, code} — `code` = 6 cifras de
+Google Authenticator; el móvil se vincula con `POST admin/totp/setup` {name, password, key: ADMIN_KEY} → {secret, uri, setupToken} y
+`POST admin/totp/enable` {setupToken, code}):
 `GET admin/overview` · `GET admin/user?name=` · `POST admin/suspend` {name, reason, days} · `POST admin/unsuspend` · `POST admin/delete` {name, confirm}
 · `POST admin/message` {to[], title, body, kind} · `POST admin/message/cancel` · `POST admin/maintenance` {on, message}.
 Respuestas de error con código: `403 {code:'suspended', reason, until}` (cuenta suspendida), `503 {code:'maintenance'}` (login/registro en mantenimiento).

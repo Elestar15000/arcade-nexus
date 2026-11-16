@@ -1,7 +1,9 @@
 /* ============================================================
    NEXUS ARCADE · ui/admin.js — Panel de control de administración
-   Acceso: cuenta administradora + su contraseña + clave de
-   administrador (las comprueba el servidor). La sesión dura 30 min
+   Acceso: cuenta administradora + su contraseña + código de
+   Google Authenticator (TOTP de 6 cifras, de un solo uso). El móvil
+   se vincula una vez con la clave de alta del servidor (todo lo
+   comprueba el servidor). La sesión dura 30 min
    y sólo vive en esta pestaña (sessionStorage).
    Secciones: Resumen · Cuentas (ficha, suspender, eliminar) ·
    Pop-ups · Mantenimiento · Registro.
@@ -17,7 +19,7 @@
     const KINDS = [['info', '📣', 'Aviso'], ['warn', '⚠️', 'Importante'], ['alert', '🚨', 'Urgente']];
     const KIND = Object.fromEntries(KINDS.map(([k, i, l]) => [k, { icon: i, label: l }]));
     const ACTIONS = {
-        login: ['🔑', 'Acceso al panel'], suspend: ['⛔', 'Suspensión'], unsuspend: ['✅', 'Reactivación'], delete: ['🗑️', 'Cuenta eliminada'],
+        login: ['🔑', 'Acceso al panel'], 'totp-setup': ['📱', 'Google Authenticator vinculado'], suspend: ['⛔', 'Suspensión'], unsuspend: ['✅', 'Reactivación'], delete: ['🗑️', 'Cuenta eliminada'],
         message: ['📨', 'Pop-up enviado'], cancel: ['↩️', 'Pop-up retirado'], 'maintenance-on': ['🛠️', 'Mantenimiento activado'], 'maintenance-off': ['🟢', 'Mantenimiento desactivado']
     };
     const TABS = [['overview', '📊', 'Resumen'], ['accounts', '👥', 'Cuentas'], ['messages', '📨', 'Pop-ups'], ['maintenance', '🛠️', 'Mantenimiento'], ['log', '📜', 'Registro']];
@@ -83,53 +85,145 @@
             this.load();
         }
 
-        renderLogin(notice) {
+        renderLogin(notice, prefill) {
             const me = Nexus.services.users.current();
+            const nameVal = prefill || (me ? me.name : '');
             this.root.innerHTML = `
                 <div class="adm-login">
                     <div class="adm-login-card">
                         <div class="adm-login-badge" aria-hidden="true">🛡️</div>
                         <h2>Panel de administración</h2>
-                        <p class="adm-login-lead">Acceso restringido. Entra con una <b>cuenta administradora</b>, su contraseña y la <b>clave de administrador</b>.</p>
+                        <p class="adm-login-lead">Acceso restringido. Entra con una <b>cuenta administradora</b>, su contraseña y el <b>código de 6 cifras</b> que te da <b>Google Authenticator</b>.</p>
                         ${notice ? `<p class="adm-login-note">${esc(notice)}</p>` : ''}
                         <form id="adm-login-form" novalidate>
                             <label class="field"><span class="field-label">Cuenta administradora</span>
-                                <input class="input" id="adm-name" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(me ? me.name : '')}" /></label>
+                                <input class="input" id="adm-name" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(nameVal)}" /></label>
                             <label class="field"><span class="field-label">Contraseña de la cuenta</span>
                                 <input class="input" id="adm-pass" type="password" autocomplete="current-password" /></label>
-                            <label class="field"><span class="field-label">Clave de administrador</span>
-                                <input class="input" id="adm-key" type="password" autocomplete="off" /></label>
+                            <label class="field"><span class="field-label">Código de Google Authenticator</span>
+                                <input class="input adm-otp" id="adm-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]*" maxlength="7" placeholder="123 456" spellcheck="false" /></label>
                             <p class="form-error" id="adm-error" role="alert" hidden></p>
                             <button class="btn btn-primary btn-lg" id="adm-submit" type="submit">🔓 Entrar al panel</button>
                         </form>
+                        <button type="button" class="adm-setup-link" id="adm-setup">📱 Configurar Google Authenticator</button>
                         <ul class="adm-login-facts">
-                            <li>🔐 Lo comprueba el servidor: el navegador no sabe quién es administrador.</li>
+                            <li>🔐 Doble factor: tu contraseña y un código que cambia cada 30 segundos y sólo sirve una vez.</li>
                             <li>⏱️ La sesión dura 30 minutos y sólo vale en esta pestaña.</li>
                             <li>📜 Cada acceso y cada acción quedan en el registro.</li>
                         </ul>
                     </div>
                 </div>`;
             const f = $('#adm-login-form', this.root);
-            const first = $(me ? '#adm-pass' : '#adm-name', this.root);
+            const first = $(nameVal ? '#adm-pass' : '#adm-name', this.root);
             // Foco inicial sin robárselo a un campo que ya se esté rellenando
             if (first) requestAnimationFrame(() => { if (!f.contains(document.activeElement)) first.focus({ preventScroll: true }); });
+            const codeIn = $('#adm-code', this.root);
+            codeIn.addEventListener('input', () => {
+                const d = codeIn.value.replace(/\D/g, '').slice(0, 6);
+                codeIn.value = d.length > 3 ? d.slice(0, 3) + ' ' + d.slice(3) : d;
+                if (d.length === 6 && $('#adm-name', this.root).value.trim() && $('#adm-pass', this.root).value) f.requestSubmit();     // al completar el código, entra
+            });
+            $('#adm-setup', this.root).addEventListener('click', () => this.renderSetup($('#adm-name', this.root).value.trim()));
             f.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const err = $('#adm-error', this.root), btn = $('#adm-submit', this.root);
-                const name = $('#adm-name', this.root).value.trim(), password = $('#adm-pass', this.root).value, key = $('#adm-key', this.root).value;
+                if (btn.disabled) return;
+                const name = $('#adm-name', this.root).value.trim(), password = $('#adm-pass', this.root).value, code = codeIn.value.replace(/\D/g, '');
                 err.hidden = true;
-                if (!name || !password || !key) { err.textContent = 'Rellena los tres campos.'; err.hidden = false; return; }
+                if (!name || !password || !code) { err.textContent = 'Rellena la cuenta, la contraseña y el código.'; err.hidden = false; return; }
+                if (code.length !== 6) { err.textContent = 'El código de Google Authenticator tiene 6 cifras.'; err.hidden = false; return; }
                 btn.classList.add('is-loading'); btn.disabled = true;
                 try {
-                    const r = await B().login({ name, password, key });
+                    const r = await B().login({ name, password, code });
                     writeSession({ token: r.token, name: r.admin.name, avatar: r.admin.avatar, expiresAt: r.expiresAt });
                     Nexus.audio.play('orbCollect');
                     this.render();
                 } catch (x) {
                     btn.classList.remove('is-loading'); btn.disabled = false;
+                    if (x.code === 'totp_setup') { this.renderSetup(name, x.message); return; }
                     err.textContent = x.message || 'No se pudo entrar.'; err.hidden = false;
-                    $('#adm-pass', this.root).value = ''; $('#adm-key', this.root).value = '';
+                    codeIn.value = '';
+                    if (x.code === 'totp_bad') codeIn.focus(); else { $('#adm-pass', this.root).value = ''; $('#adm-pass', this.root).focus(); }
                 }
+            });
+        }
+
+        /** Vincular Google Authenticator: 1) cuenta + contraseña + clave de alta → 2) QR → 3) confirmar con un código. */
+        renderSetup(prefill, notice) {
+            this.root.innerHTML = `
+                <div class="adm-login">
+                    <div class="adm-login-card adm-setup">
+                        <div class="adm-login-badge" aria-hidden="true">📱</div>
+                        <h2>Configurar Google Authenticator</h2>
+                        <ol class="adm-steps"><li class="on">Identifícate</li><li>Escanea el QR</li><li>Confirma</li></ol>
+                        ${notice ? `<p class="adm-login-note">${esc(notice)}</p>` : ''}
+                        <div id="adm-setup-body">
+                            <p class="adm-login-lead">Para vincular (o cambiar) el móvil de una cuenta administradora hace falta su contraseña y la <b>clave de alta</b> del servidor (<code>ADMIN_KEY</code>). Sólo se usa esta vez.</p>
+                            <form id="adm-setup-form" novalidate>
+                                <label class="field"><span class="field-label">Cuenta administradora</span>
+                                    <input class="input" id="ads-name" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(prefill || '')}" /></label>
+                                <label class="field"><span class="field-label">Contraseña de la cuenta</span>
+                                    <input class="input" id="ads-pass" type="password" autocomplete="current-password" /></label>
+                                <label class="field"><span class="field-label">Clave de alta (ADMIN_KEY)</span>
+                                    <input class="input" id="ads-key" type="password" autocomplete="off" /></label>
+                                <p class="form-error" id="ads-error" role="alert" hidden></p>
+                                <button class="btn btn-primary btn-lg" id="ads-submit" type="submit">Continuar →</button>
+                            </form>
+                        </div>
+                        <button type="button" class="adm-setup-link" id="ads-back">← Volver al acceso</button>
+                    </div>
+                </div>`;
+            $('#ads-back', this.root).addEventListener('click', () => this.renderLogin(null, $('#ads-name', this.root) ? $('#ads-name', this.root).value.trim() : prefill));
+            const first = $(prefill ? '#ads-pass' : '#ads-name', this.root);
+            requestAnimationFrame(() => { if (first && !this.root.querySelector('form').contains(document.activeElement)) first.focus({ preventScroll: true }); });
+            const steps = $$('.adm-steps li', this.root);
+            const stepTo = (n) => steps.forEach((li, i) => { li.classList.toggle('on', i === n); li.classList.toggle('done', i < n); });
+            $('#adm-setup-form', this.root).addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const err = $('#ads-error', this.root), btn = $('#ads-submit', this.root);
+                const name = $('#ads-name', this.root).value.trim(), password = $('#ads-pass', this.root).value, key = $('#ads-key', this.root).value;
+                err.hidden = true;
+                if (!name || !password || !key) { err.textContent = 'Rellena los tres campos.'; err.hidden = false; return; }
+                btn.classList.add('is-loading'); btn.disabled = true;
+                let r;
+                try { r = await B().totpSetup({ name, password, key }); }
+                catch (x) { btn.classList.remove('is-loading'); btn.disabled = false; err.textContent = x.message; err.hidden = false; $('#ads-key', this.root).value = ''; return; }
+                stepTo(1);
+                const oldNote = $('.adm-setup > .adm-login-note', this.root); if (oldNote) oldNote.remove();
+                const pretty = r.secret.replace(/(.{4})/g, '$1 ').trim();
+                $('#adm-setup-body', this.root).innerHTML = `
+                    ${r.replaces ? '<p class="adm-login-note">Esta cuenta ya tenía un móvil vinculado: al confirmar, el anterior dejará de servir.</p>' : ''}
+                    <p class="adm-login-lead">Abre <b>Google Authenticator</b> → <b>+</b> → <b>Escanear un código QR</b>.</p>
+                    <div class="adm-qr">${Nexus.ui.qr.svg(r.uri, { size: 200, label: 'Código QR para Google Authenticator' })}</div>
+                    <details class="adm-manual"><summary>¿No puedes escanearlo? Introduce la clave a mano</summary>
+                        <p>En la app: <b>+</b> → <b>Introducir clave de configuración</b>. Nombre: <b>Nexus Arcade</b>, tipo: <b>basada en el tiempo</b>.</p>
+                        <div class="adm-secret"><code id="ads-secret">${esc(pretty)}</code><button type="button" class="btn btn-ghost btn-sm" id="ads-copy">Copiar</button></div>
+                        <a class="btn btn-ghost btn-sm" href="${esc(r.uri)}">📲 Abrir en la app (desde el móvil)</a>
+                    </details>
+                    <form id="adm-enable-form" novalidate>
+                        <label class="field"><span class="field-label">Escribe el código de 6 cifras que aparece en la app</span>
+                            <input class="input adm-otp" id="ads-code" inputmode="numeric" autocomplete="one-time-code" maxlength="7" placeholder="123 456" spellcheck="false" /></label>
+                        <p class="form-error" id="ads-error2" role="alert" hidden></p>
+                        <button class="btn btn-primary btn-lg" id="ads-enable" type="submit">✅ Vincular</button>
+                    </form>`;
+                const codeIn = $('#ads-code', this.root);
+                codeIn.focus({ preventScroll: true });
+                $('#ads-copy', this.root).addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(r.secret).then(() => Nexus.ui.toast('Clave copiada', { icon: '📋' }), () => {}); });
+                $('.adm-qr', this.root).addEventListener('click', () => stepTo(2));
+                codeIn.addEventListener('input', () => { const d = codeIn.value.replace(/\D/g, '').slice(0, 6); codeIn.value = d.length > 3 ? d.slice(0, 3) + ' ' + d.slice(3) : d; if (d.length) stepTo(2); });
+                $('#adm-enable-form', this.root).addEventListener('submit', async (ev) => {
+                    ev.preventDefault();
+                    const err2 = $('#ads-error2', this.root), b2 = $('#ads-enable', this.root), code = codeIn.value.replace(/\D/g, '');
+                    err2.hidden = true;
+                    if (code.length !== 6) { err2.textContent = 'El código tiene 6 cifras.'; err2.hidden = false; return; }
+                    b2.classList.add('is-loading'); b2.disabled = true;
+                    try {
+                        await B().totpEnable({ setupToken: r.setupToken, code });
+                        Nexus.audio.play('achievement');
+                        Nexus.ui.toast('Google Authenticator vinculado', { icon: '📱', type: 'success' });
+                        this.renderLogin('¡Listo! A partir de ahora entra con tu contraseña y el código de la app. Espera al siguiente código para entrar.', name);
+                    } catch (x) { b2.classList.remove('is-loading'); b2.disabled = false; err2.textContent = x.message; err2.hidden = false; codeIn.value = ''; codeIn.focus(); }
+                });
             });
         }
 
@@ -333,7 +427,7 @@
                     <header class="adm-user-head" style="--user-color:${esc(a.color)}">
                         <span class="avatar avatar-lg" aria-hidden="true">${esc(a.avatar)}</span>
                         <div><h2>${esc(a.name)}</h2>
-                            <div class="chips">${a.admin ? '<span class="adm-badge admin">🛡️ Administrador</span>' : ''}
+                            <div class="chips">${a.admin ? `<span class="adm-badge admin">🛡️ Administrador</span><span class="adm-badge ${a.totp ? 'ok' : 'susp'}">${a.totp ? '📱 Authenticator activo' : '📱 Sin Authenticator'}</span>` : ''}
                                 ${a.suspended ? `<span class="adm-badge susp">⛔ Suspendida ${a.suspended.until ? 'hasta ' + esc(dateTime(a.suspended.until)) : 'indefinidamente'}</span>` : '<span class="adm-badge ok">Activa</span>'}</div>
                             ${a.suspended && a.suspended.reason ? `<p class="adm-user-reason">Motivo: ${esc(a.suspended.reason)}</p>` : ''}</div>
                     </header>

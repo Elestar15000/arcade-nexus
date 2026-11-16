@@ -11,6 +11,7 @@ window.NEXUS_CONFIG = {
 
     // Panel de administración en MODO LOCAL (sólo desarrollo, sin API_URL). Con servidor se configura en el Worker
     // (ADMIN_USERS y ADMIN_KEY, ver backend/README.md), nunca aquí.
+    // (key = clave de alta para vincular Google Authenticator; luego se entra con los códigos de la app)
     // , LOCAL_ADMIN: { users: ['TuCuenta'], key: 'clave-de-pruebas' }
 
     // Multijugador (opcional). Por defecto se usan brokers MQTT públicos y STUN de Google/Cloudflare.

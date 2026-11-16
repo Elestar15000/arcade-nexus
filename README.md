@@ -217,14 +217,24 @@ Una o varias cuentas pueden ser **administradoras**. Desde el panel de control (
 - **Registro** de todos los accesos y acciones del panel.
 
 **Seguridad** (todo se comprueba en el servidor; el navegador no decide quién es administrador):
-- Las cuentas administradoras se definen en el Worker con la variable `ADMIN_USERS` (nombres separados por comas) y el panel exige
-  además la **clave de administrador** (`ADMIN_KEY`, un *secret* del Worker), junto con la contraseña de la cuenta.
+- Las cuentas administradoras se definen en el Worker con la variable `ADMIN_USERS` (nombres separados por comas).
+- **Doble factor con Google Authenticator**: para entrar al panel hace falta la contraseña de la cuenta y el **código de 6 cifras**
+  que da la app (TOTP estándar, RFC 6238: cambia cada 30 s, se acepta ±30 s de desfase y **cada código sólo sirve una vez**).
+  También vale cualquier app compatible (Microsoft Authenticator, Authy, 1Password…).
+- **Vincular el móvil** (una vez, o para cambiarlo si lo pierdes): en el acceso al panel, «📱 Configurar Google Authenticator» →
+  cuenta + contraseña + **clave de alta** (`ADMIN_KEY`, un *secret* del Worker) → escaneas el **QR** (o escribes la clave a mano) →
+  confirmas con el primer código. Hasta confirmar no se guarda nada; al volver a vincular, el móvil anterior deja de servir.
+  La clave de alta ya **no** sirve para entrar.
+- El secreto de cada administrador se guarda **cifrado** (AES-GCM con una clave derivada de `SESSION_SECRET`) en su `account.json`.
+  Si cambias `SESSION_SECRET`, hay que volver a vincular el móvil.
 - La sesión de administrador es un token aparte de **30 minutos**, guardado sólo en la pestaña (`sessionStorage`); no sirve como sesión de
-  juego ni un token de juego sirve para el panel. Se revalida la cuenta en cada petición. Intentos de acceso limitados (5/min por IP).
+  juego ni un token de juego sirve para el panel. Se revalida la cuenta en cada petición. Intentos de acceso limitados (por IP y por cuenta).
 - No se puede suspender ni borrar a otra cuenta administradora.
-- Los datos viven en `admin.json` del repo de datos (mantenimiento, suspensiones, pop-ups y registro); la suspensión se guarda también
-  en el `account.json` de la cuenta.
-- En modo local (desarrollo) se activa con `LOCAL_ADMIN: { users: ['TuCuenta'], key: 'tu-clave' }` en `config.js`.
+- Los datos viven en `admin.json` del repo de datos (mantenimiento, suspensiones, pop-ups, registro y último código usado por cada
+  administrador); la suspensión se guarda también en el `account.json` de la cuenta.
+- En modo local (desarrollo) se activa con `LOCAL_ADMIN: { users: ['TuCuenta'], key: 'clave-de-alta' }` en `config.js` y funciona igual
+  (vinculas Google Authenticator con esa clave y entras con los códigos).
+- El QR se genera en el navegador sin librerías externas (`src/ui/qr.js`).
 
 ## Launcher
 
@@ -391,7 +401,7 @@ node tests/wordle_phrases_test.mjs  # valida que todas las frases se pueden reso
 node tests/pasapalabra_bank_test.mjs  # valida el banco de definiciones
 python3 tests/e2e_arcade.py       # Tetris, Pac-Man y Snake
 python3 tests/e2e_pong.py         # Pong: CPU y online entre navegadores (P2P, retransmisión, sala llena, abandono…)
-python3 tests/e2e_admin.py       # panel de administración: acceso, cuentas, pop-ups, mantenimiento, suspensión y borrado
+python3 tests/e2e_admin.py       # panel de administración: Google Authenticator (QR leído con OpenCV), cuentas, pop-ups, mantenimiento, suspensión y borrado
 python3 tests/e2e_turnbased.py    # Ajedrez y Hundir la flota: CPU y online (sincronía, tablas, revancha, anti-trampas, abandono)
 python3 tests/e2e_cards.py        # Brisca, Guiñote y Chinchón: CPU y online con 2 y 3 navegadores + bot, sustitución, vuelta a la mesa
 python3 tests/e2e_cards_more.py   # Póker y Mentiroso (CPU y online) y Solitario (tocar, arrastrar, deshacer, pista, terminar, diario)

@@ -17,7 +17,9 @@
    Sólo WebCrypto + fetch, sin dependencias.
    Variables: GITHUB_REPO ("owner/repo"), GITHUB_BRANCH, ALLOWED_ORIGIN,
               ADMIN_USERS (cuentas administradoras, separadas por comas)
-   Secrets:   GITHUB_TOKEN, SESSION_SECRET, ADMIN_KEY (clave extra del panel)
+   Secrets:   GITHUB_TOKEN, SESSION_SECRET, ADMIN_KEY (clave de alta: sólo para vincular
+              Google Authenticator a una cuenta administradora; el acceso diario pide
+              contraseña + código temporal de 6 cifras)
    ============================================================ */
 
 const PBKDF2_ITER = 100000;          // máximo permitido en Workers
@@ -433,7 +435,8 @@ function normalizeAdmin(j) {
         maintenance: isObj(j.maintenance) ? j.maintenance : { on: false, message: '', since: 0, by: '' },
         suspended: isObj(j.suspended) ? j.suspended : {},
         messages: isObj(j.messages) ? j.messages : {},
-        log: Array.isArray(j.log) ? j.log : []
+        log: Array.isArray(j.log) ? j.log : [],
+        totpLast: isObj(j.totpLast) ? j.totpLast : {}      // último intervalo de Google Authenticator usado por cada admin (anti-reutilización)
     };
 }
 let adminCache = null;     // { json, sha, at }
@@ -466,6 +469,72 @@ const logAction = (json, by, action, target, detail) => {
     json.log.unshift({ at: Date.now(), by, action, target: target || '', detail: detail ? String(detail).slice(0, 300) : '' });
     json.log = json.log.slice(0, 200);
 };
+// ── Google Authenticator (TOTP, RFC 6238: HMAC-SHA1, 30 s, 6 cifras) ──
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+function b32encode(bytes) {
+    let bits = 0, val = 0, out = '';
+    for (const b of bytes) { val = (val << 8) | b; bits += 8; while (bits >= 5) { out += B32[(val >>> (bits - 5)) & 31]; bits -= 5; } }
+    if (bits > 0) out += B32[(val << (5 - bits)) & 31];
+    return out;
+}
+function b32decode(str) {
+    const clean = String(str || '').toUpperCase().replace(/[^A-Z2-7]/g, '');
+    let bits = 0, val = 0; const out = [];
+    for (const ch of clean) { val = (val << 5) | B32.indexOf(ch); bits += 5; if (bits >= 8) { out.push((val >>> (bits - 8)) & 255); bits -= 8; } }
+    return new Uint8Array(out);
+}
+const TOTP_STEP = 30;
+async function hotp(secretBytes, counter) {
+    const key = await crypto.subtle.importKey('raw', secretBytes, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+    const msg = new Uint8Array(8);
+    let c = counter;
+    for (let i = 7; i >= 0; i--) { msg[i] = c & 255; c = Math.floor(c / 256); }
+    const h = new Uint8Array(await crypto.subtle.sign('HMAC', key, msg));
+    const o = h[19] & 15;
+    const n = ((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3];
+    return String(n % 1000000).padStart(6, '0');
+}
+/** Comprueba un código (±1 intervalo por desfase de reloj). → intervalo usado o -1. */
+async function totpCheck(secretB32, code, now = Date.now()) {
+    code = String(code || '').replace(/\s/g, '');
+    if (!/^\d{6}$/.test(code)) return -1;
+    const secret = b32decode(secretB32), t = Math.floor(now / 1000 / TOTP_STEP);
+    let hit = -1;
+    for (const d of [-1, 0, 1]) if (timingSafeEqual(enc.encode(await hotp(secret, t + d)), enc.encode(code))) hit = t + d;
+    return hit;
+}
+/** Cifra/descifra el secreto TOTP antes de guardarlo en el repo (AES-GCM con clave derivada de SESSION_SECRET). */
+async function totpKey(env) {
+    const raw = await crypto.subtle.digest('SHA-256', enc.encode('nexus-totp:' + env.SESSION_SECRET));
+    return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+}
+async function sealTotp(env, secretB32) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await totpKey(env), enc.encode(secretB32)));
+    return { iv: toB64(iv), ct: toB64(ct), at: Date.now() };
+}
+async function openTotp(env, sealed) {
+    try { return dec.decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(sealed.iv) }, await totpKey(env), fromB64(sealed.ct))); }
+    catch (e) { return null; }
+}
+const totpUri = (name, secret) => `otpauth://totp/${encodeURIComponent('Nexus Arcade:' + name)}?secret=${secret}&issuer=${encodeURIComponent('Nexus Arcade')}&algorithm=SHA1&digits=6&period=${TOTP_STEP}`;
+/** Token firmado (10 min) que lleva el secreto nuevo entre «generar» y «confirmar» sin guardarlo aún. */
+async function signSetup(env, payload) {
+    const body = b64url(enc.encode(JSON.stringify({ ...payload, exp: Date.now() + 10 * 60 * 1000, k: 'totp-setup' })));
+    const sig = new Uint8Array(await crypto.subtle.sign('HMAC', await hmacKey(env), enc.encode('setup.' + body)));
+    return body + '.' + b64url(sig);
+}
+async function readSetup(env, token) {
+    const [body, sig] = String(token || '').split('.');
+    const bad = new HttpError(400, 'La configuración ha caducado. Vuelve a empezar.');
+    if (!body || !sig) throw bad;
+    const expect = new Uint8Array(await crypto.subtle.sign('HMAC', await hmacKey(env), enc.encode('setup.' + body)));
+    if (!timingSafeEqual(expect, unb64url(sig))) throw bad;
+    let p; try { p = JSON.parse(dec.decode(unb64url(body))); } catch (e) { throw bad; }
+    if (p.k !== 'totp-setup' || !(p.exp > Date.now())) throw bad;
+    return p;
+}
+
 async function adminKeyOk(env, key) {
     const a = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(String(env.ADMIN_KEY || ''))));
     const b = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(String(key || ''))));
@@ -489,9 +558,9 @@ async function targetUser(env, name, allowAdmin = false) {
     return u;
 }
 /** Cambia account.json de una cuenta con reintentos. */
-async function mutateAccount(env, name, fn, label) {
+async function mutateAccount(env, name, fn, label, allowAdmin = false) {
     for (let attempt = 0; attempt < 5; attempt++) {
-        const u = await targetUser(env, name);
+        const u = await targetUser(env, name, allowAdmin);
         fn(u.account);
         try { await writeFile(env, u, 'account', u.account, `${label}: ${u.account.name}`); return u; }
         catch (e) { if (!(e instanceof Conflict)) throw e; userCache.delete(u.lname); await backoff(attempt); }
@@ -527,7 +596,7 @@ async function adminRoute(env, tok, pathname, method, body, url) {
         const a = u.account, d = u.data, st = await readAdmin(env);
         return [200, {
             account: { id: a.id, name: a.name, avatar: a.avatar, color: a.color, createdAt: a.createdAt, lastLoginAt: a.lastLoginAt || null,
-                admin: isAdminName(env, a.name), suspended: activeSusp(a.suspended) },
+                admin: isAdminName(env, a.name), totp: !!a.totp, suspended: activeSusp(a.suspended) },
             updatedAt: u.updatedAt,
             data: { xp: d.xp, meta: d.meta, stats: d.stats, achievements: d.achievements, history: d.history.slice(0, 40) },
             summary: summaryOf(u),
@@ -624,17 +693,55 @@ async function route(request, env, url, body) {
         return [200, { maintenance: publicMaint(st.json.maintenance) }, { 'Cache-Control': 'no-store' }];
     }
 
+    // Acceso al panel: contraseña + código de 6 cifras de Google Authenticator (de un solo uso)
     if (pathname === '/api/admin/login' && method === 'POST') {
         rateLimit('adm:' + ip, 5);
-        if (!env.ADMIN_KEY || !adminNames(env).length) throw new HttpError(503, 'El panel de administración no está configurado en el servidor.');
+        if (!adminNames(env).length) throw new HttpError(503, 'El panel de administración no está configurado en el servidor.');
         const denied = new HttpError(401, 'Credenciales de administrador no válidas.');
         const name = typeof body.name === 'string' ? body.name : '';
+        rateLimit('admn:' + name.toLowerCase(), 8);
         const u = isAdminName(env, name) ? await openUser(env, name) : null;
         if (u) await loadAccount(env, u);
         const pwOk = await checkPassword(u && u.account, body.password);     // hashea siempre (mismo tiempo)
-        if (!(await adminKeyOk(env, body.key)) || !pwOk || !u) throw denied;
-        await mutateAdmin(env, (j) => logAction(j, u.account.name, 'login'), `acceso de ${u.lname}`).catch(() => {});
+        if (!pwOk || !u) throw denied;
+        if (!u.account.totp) throw new HttpError(403, 'Esta cuenta aún no tiene Google Authenticator. Configúralo primero.', { code: 'totp_setup' });
+        const secret = await openTotp(env, u.account.totp);
+        if (!secret) throw new HttpError(403, 'No se pudo leer tu Google Authenticator (¿ha cambiado SESSION_SECRET?). Vuelve a configurarlo.', { code: 'totp_setup' });
+        const step = await totpCheck(secret, body.code);
+        if (step < 0) throw new HttpError(401, 'Código de Google Authenticator incorrecto o caducado.', { code: 'totp_bad' });
+        // Cada código sólo vale una vez: se guarda el último intervalo usado
+        await mutateAdmin(env, (j) => {
+            j.totpLast = isObj(j.totpLast) ? j.totpLast : {};
+            if ((j.totpLast[u.lname] || 0) >= step) throw new HttpError(401, 'Ese código ya se ha usado. Espera al siguiente.', { code: 'totp_bad' });
+            j.totpLast[u.lname] = step;
+            logAction(j, u.account.name, 'login');
+        }, `acceso de ${u.lname}`);
         return [200, { token: await signToken(env, u.account, true), admin: { name: u.account.name, avatar: u.account.avatar }, expiresAt: Date.now() + ADMIN_TTL }];
+    }
+
+    // Vincular Google Authenticator: contraseña + clave de alta (ADMIN_KEY) → secreto nuevo y QR; se confirma con un código
+    if (pathname === '/api/admin/totp/setup' && method === 'POST') {
+        rateLimit('adm:' + ip, 5);
+        if (!env.ADMIN_KEY || !adminNames(env).length) throw new HttpError(503, 'Falta la clave de alta (ADMIN_KEY) en el servidor para vincular Google Authenticator.');
+        const denied = new HttpError(401, 'Cuenta, contraseña o clave de alta no válidas.');
+        const name = typeof body.name === 'string' ? body.name : '';
+        const u = isAdminName(env, name) ? await openUser(env, name) : null;
+        if (u) await loadAccount(env, u);
+        const pwOk = await checkPassword(u && u.account, body.password);
+        if (!(await adminKeyOk(env, body.key)) || !pwOk || !u) throw denied;
+        const secret = b32encode(crypto.getRandomValues(new Uint8Array(20)));
+        return [200, { secret, uri: totpUri(u.account.name, secret), setupToken: await signSetup(env, { n: u.lname, s: secret, v: u.account.tokenVersion }), replaces: !!u.account.totp }];
+    }
+    if (pathname === '/api/admin/totp/enable' && method === 'POST') {
+        rateLimit('adm:' + ip, 8);
+        const p = await readSetup(env, body.setupToken);
+        if (!isAdminName(env, p.n)) throw new HttpError(403, 'Esa cuenta no es administradora.');
+        const step = await totpCheck(p.s, body.code);
+        if (step < 0) throw new HttpError(400, 'El código no coincide. Comprueba la hora del móvil y escribe el código que se ve ahora.', { code: 'totp_bad' });
+        const sealed = await sealTotp(env, p.s);
+        const u = await mutateAccount(env, p.n, (a) => { if (a.tokenVersion !== p.v) throw new HttpError(400, 'La cuenta ha cambiado. Vuelve a empezar.'); a.totp = sealed; }, 'google authenticator', true);
+        await mutateAdmin(env, (j) => { j.totpLast[u.lname] = step; logAction(j, u.account.name, 'totp-setup'); }, `authenticator de ${u.lname}`);     // el código de confirmación ya no sirve para entrar
+        return [200, { ok: true }];
     }
 
     if (pathname === '/api/leaderboard' && method === 'GET') {

@@ -76,6 +76,8 @@
         ackNotices: (token, ids) => http('POST', '/api/notices/ack', { token, body: { ids } }),
         admin: {
             login: (p) => http('POST', '/api/admin/login', { body: p }),
+            totpSetup: (p) => http('POST', '/api/admin/totp/setup', { body: p }),
+            totpEnable: (p) => http('POST', '/api/admin/totp/enable', { body: p }),
             overview: (t) => http('GET', '/api/admin/overview', { token: t }),
             user: (t, name) => http('GET', '/api/admin/user?name=' + encodeURIComponent(name), { token: t }),
             suspend: (t, p) => http('POST', '/api/admin/suspend', { token: t, body: p }),
@@ -96,6 +98,28 @@
     const localAdminCfg = () => window.NEXUS_LOCAL_ADMIN || (window.NEXUS_CONFIG || {}).LOCAL_ADMIN || null;
     const isLocalAdmin = (name) => { const c = localAdminCfg(); return !!(c && Array.isArray(c.users) && c.users.some(u => String(u).toLowerCase() === String(name).toLowerCase())); };
     const ADMIN_TTL = 30 * 60 * 1000;
+    const pendingTotp = {};
+    // TOTP (RFC 6238) con WebCrypto, igual que Google Authenticator
+    const TOTP = {
+        B32: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567',
+        newSecret() { const b = crypto.getRandomValues(new Uint8Array(20)); let bits = 0, val = 0, out = ''; for (const x of b) { val = (val << 8) | x; bits += 8; while (bits >= 5) { out += this.B32[(val >>> (bits - 5)) & 31]; bits -= 5; } } return out; },
+        uri: (name, secret) => `otpauth://totp/${encodeURIComponent('Nexus Arcade:' + name)}?secret=${secret}&issuer=${encodeURIComponent('Nexus Arcade')}&algorithm=SHA1&digits=6&period=30`,
+        async code(secret, counter) {
+            let bits = 0, val = 0; const key = [];
+            for (const ch of secret) { val = (val << 5) | this.B32.indexOf(ch); bits += 5; if (bits >= 8) { key.push((val >>> (bits - 8)) & 255); bits -= 8; } }
+            const k = await crypto.subtle.importKey('raw', new Uint8Array(key), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+            const msg = new Uint8Array(8); let c = counter; for (let i = 7; i >= 0; i--) { msg[i] = c & 255; c = Math.floor(c / 256); }
+            const h = new Uint8Array(await crypto.subtle.sign('HMAC', k, msg)), o = h[19] & 15;
+            return String((((h[o] & 127) << 24) | (h[o + 1] << 16) | (h[o + 2] << 8) | h[o + 3]) % 1000000).padStart(6, '0');
+        },
+        async check(secret, code) {
+            code = String(code || '').replace(/\s/g, '');
+            if (!/^\d{6}$/.test(code)) return -1;
+            const t = Math.floor(Date.now() / 30000);
+            for (const d of [0, -1, 1]) if ((await this.code(secret, t + d)) === code) return t + d;
+            return -1;
+        }
+    };
     const adminState = (d) => (d.admin = Object.assign({ maintenance: { on: false, message: '', since: 0, by: '' }, suspended: {}, messages: {}, log: [] }, d.admin || {}));
     const activeSusp = (s) => (s && (!s.until || s.until > Date.now()) ? s : null);
     const suspendedFail = (s) => fail(403, `Tu cuenta está suspendida${s.until ? ' hasta el ' + new Date(s.until).toLocaleString('es-ES') : ''}${s.reason ? ': ' + s.reason : '.'}`, { code: 'suspended', reason: s.reason || '', until: s.until || null });
@@ -205,14 +229,41 @@
             saveDb(d); return { ok: true };
         }),
         admin: {
-            login: ({ name, password, key }) => run(() => {
+            // Igual que el servidor: contraseña + código de Google Authenticator; la clave de LOCAL_ADMIN sólo sirve para vincularlo
+            login: ({ name, password, code }) => run(async () => {
                 const c = localAdminCfg();
-                if (!c || !c.key) throw fail(503, 'El panel de administración no está configurado (LOCAL_ADMIN en config.js).');
+                if (!c) throw fail(503, 'El panel de administración no está configurado (LOCAL_ADMIN en config.js).');
                 const d = db(), rec = d.users.find(u => u.name.toLowerCase() === String(name || '').toLowerCase());
-                if (!rec || !isLocalAdmin(rec.name) || key !== c.key || hash.hashPassword(password || '', rec.salt) !== rec.hash) throw fail(401, 'Credenciales de administrador no válidas.');
-                logAction(adminState(d), rec.name, 'login'); saveDb(d);
+                if (!rec || !isLocalAdmin(rec.name) || hash.hashPassword(password || '', rec.salt) !== rec.hash) throw fail(401, 'Credenciales de administrador no válidas.');
+                if (!rec.totp) throw fail(403, 'Esta cuenta aún no tiene Google Authenticator. Configúralo primero.', { code: 'totp_setup' });
+                const step = await TOTP.check(rec.totp, code);
+                if (step < 0) throw fail(401, 'Código de Google Authenticator incorrecto o caducado.', { code: 'totp_bad' });
+                const A = adminState(d); A.totpLast = A.totpLast || {};
+                if ((A.totpLast[rec.name.toLowerCase()] || 0) >= step) throw fail(401, 'Ese código ya se ha usado. Espera al siguiente.', { code: 'totp_bad' });
+                A.totpLast[rec.name.toLowerCase()] = step;
+                logAction(A, rec.name, 'login'); saveDb(d);
                 const expiresAt = Date.now() + ADMIN_TTL;
                 return { token: `ladm.${rec.id}.${rec.tokenVersion}.${expiresAt}`, admin: { name: rec.name, avatar: rec.avatar }, expiresAt };
+            }),
+            totpSetup: ({ name, password, key }) => run(() => {
+                const c = localAdminCfg();
+                if (!c || !c.key) throw fail(503, 'Falta la clave de alta (LOCAL_ADMIN.key en config.js) para vincular Google Authenticator.');
+                const d = db(), rec = d.users.find(u => u.name.toLowerCase() === String(name || '').toLowerCase());
+                if (!rec || !isLocalAdmin(rec.name) || key !== c.key || hash.hashPassword(password || '', rec.salt) !== rec.hash) throw fail(401, 'Cuenta, contraseña o clave de alta no válidas.');
+                const secret = TOTP.newSecret();
+                pendingTotp[rec.id] = { secret, exp: Date.now() + 10 * 60 * 1000 };
+                return { secret, uri: TOTP.uri(rec.name, secret), setupToken: `lset.${rec.id}`, replaces: !!rec.totp };
+            }),
+            totpEnable: ({ setupToken, code }) => run(async () => {
+                const id = String(setupToken || '').split('.')[1], p = pendingTotp[id];
+                if (!p || p.exp < Date.now()) throw fail(400, 'La configuración ha caducado. Vuelve a empezar.');
+                const step = await TOTP.check(p.secret, code);
+                if (step < 0) throw fail(400, 'El código no coincide. Comprueba la hora del móvil y escribe el código que se ve ahora.', { code: 'totp_bad' });
+                const d = db(), rec = d.users.find(u => u.id === id);
+                rec.totp = p.secret; delete pendingTotp[id];
+                const A = adminState(d); A.totpLast = A.totpLast || {}; A.totpLast[rec.name.toLowerCase()] = step;
+                logAction(A, rec.name, 'totp-setup'); saveDb(d);
+                return { ok: true };
             }),
             overview: (t) => run(() => {
                 const { d, A } = adminAuthed(t);
@@ -228,7 +279,7 @@
             user: (t, name) => run(() => {
                 const { d, A } = adminAuthed(t);
                 const r = target(d, name, true), data = Nexus.schema.normalize(JSON.parse(JSON.stringify(r.data)));
-                return { account: { id: r.id, name: r.name, avatar: r.avatar, color: r.color, createdAt: r.createdAt, lastLoginAt: r.lastLoginAt || null, admin: isLocalAdmin(r.name), suspended: activeSusp(r.suspended) },
+                return { account: { id: r.id, name: r.name, avatar: r.avatar, color: r.color, createdAt: r.createdAt, lastLoginAt: r.lastLoginAt || null, admin: isLocalAdmin(r.name), totp: !!r.totp, suspended: activeSusp(r.suspended) },
                     updatedAt: r.updatedAt, data: { xp: data.xp, meta: data.meta, stats: data.stats, achievements: data.achievements, history: data.history.slice(0, 40) },
                     summary: summarize(pub(r), data), messages: A.messages[r.name.toLowerCase()] || [] };
             }),
@@ -285,5 +336,6 @@
     Nexus.backend.unavailable = UNAVAILABLE;
     Nexus.backend.NAME_RE = NAME_RE;
     Nexus.backend.RESERVED = RESERVED;
+    if (Nexus.backend.kind === 'local') Nexus.backend.totpNow = (secret, skew = 0) => TOTP.code(secret, Math.floor(Date.now() / 30000) + skew);   // pruebas en modo local
     Nexus.core.summarize = summarize;
 })();

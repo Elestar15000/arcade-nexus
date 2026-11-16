@@ -11,4 +11,4 @@ ADMIN_USERS = ""            # cuentas administradoras, p. ej. "TuCuenta,OtraCuen
 # Secrets (NO van aquí; se crean con `wrangler secret put`):
 #   GITHUB_TOKEN   token fine-grained con Contents: Read and write sólo sobre el repo de datos
 #   SESSION_SECRET cadena aleatoria larga (p. ej. `openssl rand -hex 32`)
-#   ADMIN_KEY      clave extra del panel de administración (larga y distinta de tu contraseña)
+#   ADMIN_KEY      clave de alta: sólo para vincular Google Authenticator a una cuenta administradora

@@ -11,13 +11,28 @@ bad = []
 def check(c, m): print(('PASS ' if c else 'FAIL ') + m); (not c) and bad.append(m)
 ADMIN = "window.NEXUS_LOCAL_ADMIN = { users: ['Jefe'], key: 'llave-maestra' };"
 
-def admin_login(pg, key='llave-maestra', pw='clave-jefe'):
-    pg.fill('#adm-name', 'Jefe'); pg.fill('#adm-pass', pw); pg.fill('#adm-key', key); pg.click('#adm-submit')
-    if key == 'llave-maestra':
+SECRET = {'v': None, 'last': -10}
+import cv2
+
+def next_code(pg):
+    """Código de Google Authenticator nuevo (cada uno sólo vale una vez: si ya se usó el de este intervalo, el siguiente)."""
+    import time
+    while True:
+        now = int(time.time() // 30)
+        step = max(SECRET['last'] + 1, now - 1)
+        if step <= now + 1: break
+        time.sleep(1)
+    SECRET['last'] = step
+    return pg.evaluate("([s, k]) => Nexus.backend.totpNow(s, k)", [SECRET['v'], step - now])
+
+def admin_login(pg, code=None, pw='clave-jefe', expect_ok=True):
+    pg.fill('#adm-name', 'Jefe'); pg.fill('#adm-pass', pw)
+    pg.fill('#adm-code', code or next_code(pg))        # al completar las 6 cifras el formulario se envía solo
+    if expect_ok:
         try: pg.wait_for_selector('.adm-head', timeout=5000)
         except Exception:
             pg.screenshot(path=str(SHOTS / 'dbg_fail.png'))
-            print('DBG', pg.evaluate("[document.querySelectorAll('#admin-screen').length, document.querySelector('#adm-error') && document.querySelector('#adm-error').textContent, sessionStorage.getItem('nexus-admin'), document.querySelectorAll('.adm-login').length, document.body.className]")); raise
+            print('DBG', pg.evaluate("[document.querySelector('#adm-error') && document.querySelector('#adm-error').textContent]")); raise
 
 with sync_playwright() as p:
     b = p.chromium.launch(); ctx = b.new_context(viewport={'width': 1366, 'height': 820})
@@ -44,12 +59,37 @@ with sync_playwright() as p:
     check(A.locator('.nav-item[data-route=admin]').count() == 1, 'la cuenta administradora ve «Administración» en la barra lateral')
     A.click('.nav-item[data-route=admin]'); A.wait_for_selector('#adm-login-form')
     check(A.input_value('#adm-name') == 'Jefe', 'admin: el acceso propone la cuenta actual')
-    admin_login(A, key='mala'); A.wait_for_timeout(300)
-    check('no válidas' in A.inner_text('#adm-error'), 'admin: clave de administrador errónea rechazada')
+    # Sin Google Authenticator vinculado no se puede entrar: lleva a configurarlo
+    A.fill('#adm-name', 'Jefe'); A.fill('#adm-pass', 'clave-jefe'); A.fill('#adm-code', '123456'); A.wait_for_selector('#adm-setup-form', timeout=4000)
+    check('aún no tiene Google Authenticator' in A.inner_text('.adm-setup'), 'authenticator: sin vincular, el acceso lleva a configurarlo')
+    A.fill('#ads-pass', 'clave-jefe'); A.fill('#ads-key', 'mala'); A.click('#ads-submit'); A.wait_for_timeout(300)
+    check('no válidas' in A.inner_text('#ads-error'), 'authenticator: vincular exige la clave de alta')
+    A.fill('#ads-pass', 'clave-jefe'); A.fill('#ads-key', 'llave-maestra'); A.click('#ads-submit'); A.wait_for_selector('.adm-qr svg')
+    SECRET['v'] = A.text_content('#ads-secret').replace(' ', '')
+    check(len(SECRET['v']) == 32, 'authenticator: muestra el QR y la clave para introducirla a mano')
+    A.locator('.adm-qr').screenshot(path='/tmp/qr_admin.png')
+    val, _, _ = cv2.QRCodeDetector().detectAndDecode(cv2.imread('/tmp/qr_admin.png'))
+    check(val.startswith('otpauth://totp/Nexus%20Arcade%3AJefe?secret=' + SECRET['v']), 'authenticator: el QR contiene el enlace otpauth correcto (lo lee una cámara)')
+    A.screenshot(path=str(SHOTS / 'admin_totp_setup.png'))
+    A.fill('#ads-code', '000000' if next_code(A) != '000000' else '111111'); SECRET['last'] -= 1; A.click('#ads-enable'); A.wait_for_timeout(300)
+    check('no coincide' in A.inner_text('#ads-error2'), 'authenticator: un código erróneo no lo vincula')
+    A.fill('#ads-code', next_code(A)); A.click('#ads-enable'); A.wait_for_selector('#adm-login-form')
+    check('Listo' in A.inner_text('.adm-login-card'), 'authenticator: vinculado con el primer código')
+    check(A.input_value('#adm-name') == 'Jefe', 'authenticator: vuelve al acceso con la cuenta puesta')
+    # Acceso
+    A.fill('#adm-pass', 'clave-jefe'); A.fill('#adm-code', '000000' if next_code(A) != '000000' else '111111'); SECRET['last'] -= 1
+    A.wait_for_timeout(400)
+    check('incorrecto' in A.inner_text('#adm-error'), 'admin: código de Google Authenticator erróneo rechazado')
     P.evaluate("() => sessionStorage.clear()")
-    r = P.evaluate("async () => { try { await Nexus.backend.admin.login({ name: 'Ana', password: 'secreta1', key: 'llave-maestra' }); return 'ok'; } catch (e) { return e.status; } }")
-    check(r == 401, 'admin: una cuenta normal no entra aunque conozca la clave')
-    admin_login(A); A.wait_for_selector('.adm-kpis')
+    r = P.evaluate("async () => { try { await Nexus.backend.admin.login({ name: 'Ana', password: 'secreta1', code: '123456' }); return 'ok'; } catch (e) { return e.status; } }")
+    check(r == 401, 'admin: una cuenta normal no entra')
+    r = P.evaluate("async () => { try { await Nexus.backend.admin.login({ name: 'Jefe', password: 'clave-jefe', key: 'llave-maestra' }); return 'ok'; } catch (e) { return e.status; } }")
+    check(r == 401, 'admin: la clave de alta ya no sirve para entrar')
+    used = next_code(A)
+    A.fill('#adm-name', 'Jefe'); A.fill('#adm-pass', 'clave-jefe'); A.fill('#adm-code', used)       # al completar las 6 cifras entra solo
+    A.wait_for_selector('.adm-kpis')
+    r = P.evaluate("async (c) => { try { await Nexus.backend.admin.login({ name: 'Jefe', password: 'clave-jefe', code: c }); return 'ok'; } catch (e) { return e.message; } }", used)
+    check('ya se ha usado' in r, 'admin: un código no se puede usar dos veces')
     check(A.locator('.adm-kpi').first.inner_text().startswith('👥') and '3' in A.locator('.adm-kpi').first.inner_text(), 'admin: el resumen cuenta las 3 cuentas')
     check('Serpiente' in A.inner_text('.adm-bars') or 'Snake' in A.inner_text('.adm-bars'), 'admin: juegos más jugados')
     check(A.evaluate("JSON.parse(sessionStorage.getItem('nexus-admin')).expiresAt - Date.now()") <= 30 * 60000, 'admin: sesión de 30 min en sessionStorage')
