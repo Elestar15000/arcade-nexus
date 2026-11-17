@@ -1,36 +1,89 @@
 /* ============================================================
    NEXUS ARCADE · ui/pages/home.js — Inicio del launcher
-   Carrusel de destacados, retos de hoy, seguir jugando,
-   colecciones, novedades y actividad.
+   Diseño corporativo (índigo + Arcade Yellow, Outfit/Inter):
+     · banner con carrusel: la marca (rombo 3D y «Explorar
+       juegos»), el reto de hoy y tu último juego
+     · «Tu progreso»: nivel con barra de XP y 4 contadores
+     · Juegos destacados (fichas de colores), retos de hoy,
+       seguir jugando, categorías, logros y actividad
    ============================================================ */
 (function () {
     'use strict';
 
-    const { esc, $, $$, formatNumber, formatTime, timeAgo } = Nexus.util;
+    const { esc, $, $$, formatNumber, timeAgo } = Nexus.util;
     const C = Nexus.ui.components;
-    const L = () => Nexus.ui.launcher;
     const CO = () => Nexus.games.collections;
+    const R = () => Nexus.games.registry;
+    const B = () => Nexus.ui.brand;
+
+    /** Juegos destacados y su color de ficha (violeta, azul, verde, naranja, azul y morado). */
+    const FEATURED = ['chess', 'solitaire', 'snake', 'minesweeper', 'g2048', 'tetris', 'poker', 'wordle', 'pacman', 'battleship', 'sudoku', 'pong'];
+    const TILE = [['#7b4dff', '#3a1d9a'], ['#2196f3', '#0b4aa8'], ['#2fbf5b', '#0d6b33'], ['#ff8a2a', '#b74708'], ['#3d74ff', '#1c3bb8'], ['#a046ff', '#5a1fa6']];
+    /** Color de cada categoría (secundarios de la marca). */
+    const CAT = { clasicos: ['#FF914D', '🕹️'], cartas: ['#FF6584', '🃏'], mentales: ['#A879FF', '🧩'], estrategia: ['#4B8DFF', '♟️'] };
 
     function greeting() {
         const h = new Date().getHours();
         return h < 6 ? 'Buenas noches' : h < 13 ? 'Buenos días' : h < 21 ? 'Buenas tardes' : 'Buenas noches';
     }
 
-    /** Diapositivas del carrusel: último jugado, un reto diario pendiente, uno online y uno sin estrenar. */
-    function slides(games, data) {
-        const R = Nexus.games.registry, P = Nexus.services.progress;
-        const out = [], used = new Set();
-        const add = (g, badge, extra) => { if (g && !used.has(g.id)) { used.add(g.id); out.push(Object.assign({ g, badge }, extra || {})); } };
-        const last = data.history[0] && R.get(data.history[0].game);
-        if (last) { const gs = P.stats(last.id); add(last, 'Sigue jugando', { note: `${gs.played} partida${gs.played === 1 ? '' : 's'} · récord ${gs.bestScore ? formatNumber(gs.bestScore) : '—'}` }); }
-        const pend = CO().dailies().find(d => !d.done);
-        if (pend) add(pend.game, 'Reto de hoy', { note: `${pend.label}: ${pend.text}`, href: pend.href, cta: 'Jugar el reto' });
-        add(games.filter(g => CO().isOnline(g))[Math.floor(Math.random() * games.filter(g => CO().isOnline(g)).length)], 'Multijugador online', { note: 'Crea una sala y comparte el código con quien quieras.' });
-        const fresh = games.filter(g => !P.stats(g.id).played && !used.has(g.id));
-        add(fresh[Math.floor(Math.random() * fresh.length)], 'Sin estrenar', { note: 'Todavía no lo has probado.' });
-        if (out.length < 3) add(games[Math.floor(Math.random() * games.length)], 'Destacado');
-        return out.slice(0, 4);
+    /** Ficha de juego de colores (como en el diseño): icono grande sobre degradado y nombre. */
+    function tile(g, i, sub) {
+        const [a, b] = TILE[i % TILE.length];
+        return `<a class="nh-tile" href="#/game/${esc(g.id)}" style="--ta:${a};--tb:${b}" title="${esc(g.name)} · ${esc(g.tagline || '')}">
+            <span class="nh-tile-spot" aria-hidden="true"></span>
+            <span class="nh-tile-ic" aria-hidden="true">${esc(g.emoji)}</span>
+            <span class="nh-tile-name">${esc(g.name)}</span>
+            ${sub ? `<span class="nh-tile-sub">${sub}</span>` : ''}
+        </a>`;
     }
+
+    /** Diapositivas: la marca siempre primero; luego el reto pendiente y tu último juego (o uno sin estrenar). */
+    function slides(data) {
+        const P = Nexus.services.progress, out = [{ kind: 'brand' }];
+        const pend = CO().dailies().find(d => !d.done);
+        if (pend) out.push({ kind: 'game', g: pend.game, badge: '📅 Reto de hoy', title: pend.label, text: `${pend.name} · ${pend.text}`, href: pend.href, cta: 'Jugar el reto' });
+        const last = data.history[0] && R().get(data.history[0].game);
+        if (last && (!pend || last.id !== pend.game.id)) {
+            const gs = P.stats(last.id);
+            out.push({ kind: 'game', g: last, badge: '⏯️ Sigue jugando', title: last.name, text: `${gs.played} partida${gs.played === 1 ? '' : 's'} · récord ${gs.bestScore ? formatNumber(gs.bestScore) : '—'}. ${last.tagline || ''}`, href: `#/game/${last.id}`, cta: 'Continuar' });
+        } else {
+            const fresh = R().available().filter(g => !P.stats(g.id).played);
+            const g = fresh[Math.floor(Math.random() * fresh.length)];
+            if (g) out.push({ kind: 'game', g, badge: '✨ Sin estrenar', title: g.name, text: g.description || g.tagline, href: `#/game/${g.id}`, cta: 'Probarlo' });
+        }
+        return out;
+    }
+
+    function slideHtml(s, i) {
+        if (s.kind === 'brand') return `
+            <article class="nh-slide nh-slide-brand ${i === 0 ? 'on' : ''}" data-i="${i}">
+                ${B().decor('hero')}
+                <div class="nh-slide-body">
+                    <h2 class="nh-word"><span>Nexus</span><span class="y">Arcade</span></h2>
+                    <p class="nh-slogan">Muchos juegos. Un solo universo.</p>
+                    <a class="nh-cta" href="#/library">${B().icon('play', 20)} Explorar juegos</a>
+                </div>
+                <div class="nh-slide-art">${B().logo3d('nh-logo3d')}</div>
+            </article>`;
+        return `
+            <article class="nh-slide ${i === 0 ? 'on' : ''}" data-i="${i}" style="--c:${esc(s.g.accent || '#7b4dff')}" aria-hidden="true">
+                ${B().decor('hero')}
+                <div class="nh-slide-body">
+                    <span class="nh-badge">${esc(s.badge)}</span>
+                    <h2 class="nh-title">${esc(s.title)}</h2>
+                    <p class="nh-text">${esc(s.text || '')}</p>
+                    <div class="nh-acts"><a class="nh-cta" href="${esc(s.href)}">${B().icon('play', 20)} ${esc(s.cta)}</a>
+                        <a class="nh-ghost" href="#/info/${esc(s.g.id)}">Ficha del juego</a></div>
+                </div>
+                <div class="nh-slide-art"><span class="nh-gamegem" aria-hidden="true"><span>${esc(s.g.emoji)}</span></span></div>
+            </article>`;
+    }
+
+    /** Cabecera de sección: icono amarillo, título y botón «Ver todos». */
+    const head = (icon, title, link, linkText, extra = '') => `
+        <header class="nh-head"><h2><span class="nh-head-ic" aria-hidden="true">${icon}</span>${esc(title)}</h2>
+            <span class="nh-head-tools">${extra}${link ? `<a class="nh-more" href="${esc(link)}">${esc(linkText || 'Ver todos')} ${B().icon('arrow', 16)}</a>` : ''}</span></header>`;
 
     Nexus.ui.pages.home = {
         title: 'Inicio',
@@ -38,88 +91,87 @@
         render(root) {
             const users = Nexus.services.users, progress = Nexus.services.progress;
             const user = users.current(), data = users.data();
-            const games = Nexus.games.registry.available();
+            const games = R().available();
             const totals = progress.totals();
             const lv = progress.level();
             const A = Nexus.services.achievements;
             const dailies = CO().dailies();
             const dailyDone = dailies.filter(d => d.done).length;
-            const sl = slides(games, data);
-
-            // Seguir jugando: últimos juegos distintos del historial
+            const sl = slides(data);
+            const featured = FEATURED.map(id => R().get(id)).filter(Boolean).slice(0, 6);
             const recentIds = [];
-            for (const h of data.history) { if (!recentIds.includes(h.game) && Nexus.games.registry.get(h.game)) recentIds.push(h.game); if (recentIds.length >= 8) break; }
+            for (const h of data.history) { if (!recentIds.includes(h.game) && R().get(h.game)) recentIds.push(h.game); if (recentIds.length >= 6) break; }
             const lastOf = (id) => data.history.find(h => h.game === id);
-            const fresh = games.filter(g => !progress.stats(g.id).played);
-            const favs = CO().favs().map(id => Nexus.games.registry.get(id)).filter(Boolean);
             const unlockedIds = Object.entries(data.achievements).sort((a, b) => b[1] - a[1]).slice(0, 4);
-            const recent = progress.history(6);
+            const recent = progress.history(5);
 
             root.innerHTML = `
-                <div class="page-body launcher-home">
-                    <section class="hcar" id="hcar" aria-roledescription="carrusel" aria-label="Juegos destacados">
-                        <div class="hcar-track">${sl.map((s, i) => {
-                            const col = CO().of(s.g.id);
-                            return `<article class="hslide ${i === 0 ? 'on' : ''}" data-i="${i}" style="--game-accent:${esc(s.g.accent || col.color)}" ${i === 0 ? '' : 'aria-hidden="true"'}>
-                                <div class="hslide-art" aria-hidden="true"><span class="hslide-emoji">${esc(s.g.emoji)}</span><span class="hslide-ghost">${esc(s.g.emoji)}</span></div>
-                                <div class="hslide-body">
-                                    <span class="hslide-badge">${esc(s.badge)}</span>
-                                    ${i === 0 ? `<p class="hslide-greet">${esc(greeting())}, <strong>${esc(user.name)}</strong></p>` : `<p class="hslide-greet">${esc(col.emoji + ' ' + col.name)}</p>`}
-                                    <h2 class="hslide-title">${esc(s.g.name)}</h2>
-                                    <p class="hslide-desc">${esc(s.note || s.g.description)}</p>
-                                    <div class="hslide-actions">
-                                        <a class="btn btn-primary btn-lg" href="${esc(s.href || `#/game/${s.g.id}`)}">▶ ${esc(s.cta || 'Jugar ahora')}</a>
-                                        <a class="btn btn-ghost" href="#/info/${esc(s.g.id)}">Ficha del juego</a>
-                                    </div>
-                                </div>
-                            </article>`; }).join('')}
-                            ${sl.length > 1 ? `<div class="hcar-dots" role="tablist">${sl.map((s, i) => `<button type="button" role="tab" aria-selected="${i === 0}" class="${i === 0 ? 'on' : ''}" data-dot="${i}" aria-label="${esc(s.g.name)}"><span>${esc(s.g.emoji)}</span></button>`).join('')}</div>` : ''}
-                        </div>
-                        <div class="hcar-side">
-                            <div class="hcar-stat"><b>${formatNumber(totals.played)}</b><small>partidas</small></div>
-                            <div class="hcar-stat"><b>${formatNumber(totals.wins)}</b><small>victorias</small></div>
-                            <div class="hcar-stat"><b>🔥 ${formatNumber(data.meta.dayStreak)}</b><small>días seguidos</small></div>
-                            <div class="hcar-stat"><b>${A.countUnlocked()}<span class="muted">/${A.all().length}</span></b><small>logros</small></div>
-                            <a class="hcar-level" href="#/profile" style="--p:${lv.pct}"><span class="hcar-ring"><b>${lv.level}</b></span><span><strong>${esc(lv.rank.icon)} ${esc(lv.rank.name)}</strong><small>${formatNumber(lv.xp)} / ${formatNumber(lv.next)} XP</small></span></a>
-                        </div>
+                <div class="page-body nh">
+                    <h1 class="sr-only">Inicio · ${esc(greeting())}, ${esc(user.name)}</h1>
+                    <div class="nh-top">
+                        <section class="nh-hero" id="hcar" aria-roledescription="carrusel" aria-label="Destacados" tabindex="0">
+                            ${sl.map(slideHtml).join('')}
+                            ${sl.length > 1 ? `<div class="nh-dots" role="tablist" aria-label="Diapositivas">${sl.map((s, i) => `<button type="button" role="tab" aria-selected="${i === 0}" class="${i === 0 ? 'on' : ''}" data-dot="${i}" aria-label="${esc(s.kind === 'brand' ? 'Nexus Arcade' : s.title)}"></button>`).join('')}</div>` : ''}
+                        </section>
+
+                        <a class="nh-prog" href="#/profile" aria-label="Tu progreso: nivel ${lv.level}">
+                            <h2 class="nh-prog-title">${B().icon('bars', 22)} Tu progreso</h2>
+                            <div class="nh-prog-lv">
+                                <span class="nh-star" aria-hidden="true">⭐</span>
+                                <span class="nh-prog-lvtxt"><b>Nivel ${lv.level}</b><span class="nh-bar"><i style="width:${lv.pct}%"></i></span></span>
+                                <small>${formatNumber(lv.xp)} / ${formatNumber(lv.next)} XP</small>
+                            </div>
+                            <div class="nh-stats">
+                                <span class="nh-stat"><i aria-hidden="true">🎮</i><b>${formatNumber(totals.played)}</b><small>Partidas</small></span>
+                                <span class="nh-stat"><i aria-hidden="true">🏆</i><b>${formatNumber(totals.wins)}</b><small>Victorias</small></span>
+                                <span class="nh-stat"><i aria-hidden="true">🏅</i><b>${A.countUnlocked()}</b><small>Logros</small></span>
+                                <span class="nh-stat"><i aria-hidden="true">🔥</i><b>${formatNumber(data.meta.dayStreak)}</b><small>Días seguidos</small></span>
+                            </div>
+                            <span class="nh-prog-rank">${esc(lv.rank.icon)} ${esc(lv.rank.name)} · ${esc(greeting())}, <b>${esc(user.name)}</b></span>
+                        </a>
+                    </div>
+
+                    <section class="nh-sec">
+                        ${head(B().icon('grid', 24), 'Juegos destacados', '#/library', 'Ver todos')}
+                        <div class="nh-tiles">${featured.map((g, i) => tile(g, i)).join('')}</div>
                     </section>
 
-                    <section class="lrow" id="home-dailies">
-                        <div class="lrow-head"><span class="lrow-icon">📅</span><div class="lrow-txt"><h2>Retos de hoy</h2><p>${dailyDone}/${dailies.length} completados · iguales para todos los jugadores</p></div>
-                            <span class="lrow-nav"><button type="button" class="lrow-btn" data-scroll="-1" aria-label="Anterior">‹</button><button type="button" class="lrow-btn" data-scroll="1" aria-label="Siguiente">›</button></span></div>
-                        <div class="lrow-track">${dailies.map(d => `
-                            <a class="quick-card daily-card ${d.done ? 'done' : ''}" href="${esc(d.href)}" style="--game-accent:${esc(d.accent || 'var(--primary)')}">
-                                <span class="quick-emoji">${esc(d.emoji)}</span>
-                                <span class="quick-text"><strong>${esc(d.label)}</strong><small>${esc(d.name)}</small><em>${esc(d.text)}</em></span>
-                                <span class="quick-go">${d.done ? '✅' : 'Jugar'}</span>
+                    <section class="nh-sec lrow" id="home-dailies">
+                        ${head('📅', 'Retos de hoy', null, null, `<span class="nh-count">${dailyDone}/${dailies.length} completados</span>
+                            <button type="button" class="lrow-btn nh-arrow" data-scroll="-1" aria-label="Anterior">‹</button><button type="button" class="lrow-btn nh-arrow" data-scroll="1" aria-label="Siguiente">›</button>`)}
+                        <div class="lrow-track nh-track">${dailies.map(d => `
+                            <a class="quick-card daily-card nh-daily ${d.done ? 'done' : ''}" href="${esc(d.href)}">
+                                <span class="nh-daily-ic" style="--c:${esc(d.accent || '#7b4dff')}">${esc(d.emoji)}</span>
+                                <span class="nh-daily-txt"><b>${esc(d.label)}</b><small>${esc(d.name)}</small></span>
+                                <span class="nh-daily-st">${d.done ? '✓' : 'Jugar'}</span>
                             </a>`).join('')}</div>
                     </section>
 
-                    ${L().row({ id: 'home-recent', icon: '⏯️', title: 'Seguir jugando', sub: 'Tus últimos juegos', link: '#/library', linkText: 'Biblioteca',
-                        items: recentIds.map(id => { const g = Nexus.games.registry.get(id), h = lastOf(id); return L().tile(g, { sub: h ? `${h.won ? '🏆' : '💥'} ${formatNumber(h.score)} pts · ${esc(timeAgo(h.at))}` : '' }); }) })}
+                    ${recentIds.length ? `<section class="nh-sec lrow" id="home-recent">
+                        ${head('⏯️', 'Seguir jugando', '#/stats', 'Estadísticas', `<button type="button" class="lrow-btn nh-arrow" data-scroll="-1" aria-label="Anterior">‹</button><button type="button" class="lrow-btn nh-arrow" data-scroll="1" aria-label="Siguiente">›</button>`)}
+                        <div class="lrow-track nh-track nh-track-tiles">${recentIds.map((id, i) => { const h = lastOf(id); return tile(R().get(id), i + 2, h ? `${h.won ? '🏆' : '🕹️'} ${esc(timeAgo(h.at))}` : ''); }).join('')}</div>
+                    </section>` : ''}
 
-                    <section class="lrow">
-                        <div class="lrow-head"><span class="lrow-icon">🗂️</span><div class="lrow-txt"><h2>Colecciones</h2><p>${games.length} juegos organizados por tipo</p></div><a class="lrow-link" href="#/library">Ver biblioteca →</a></div>
-                        <div class="col-grid">${CO().withGames().map(c => `
-                            <a class="col-tile" href="#/library" data-col="${esc(c.id)}" style="--col:${esc(c.color)}">
-                                <span class="col-tile-emo">${esc(c.emoji)}</span>
-                                <span class="col-tile-txt"><b>${esc(c.name)}</b><small>${c.list.length} juego${c.list.length === 1 ? '' : 's'}</small></span>
-                                <span class="col-tile-peek" aria-hidden="true">${c.list.slice(0, 5).map(g => `<i>${esc(g.emoji)}</i>`).join('')}</span>
-                            </a>`).join('')}</div>
+                    <section class="nh-sec">
+                        ${head('🗂️', 'Categorías', '#/library', 'Biblioteca')}
+                        <div class="nh-cats">${CO().withGames().map(c => { const [col, emo] = CAT[c.id] || [c.color, c.emoji]; return `
+                            <a class="nh-cat" href="#/library" data-col="${esc(c.id)}" style="--c:${esc(col)}">
+                                <span class="nh-cat-ic" aria-hidden="true">${esc(emo)}</span>
+                                <span class="nh-cat-txt"><b>${esc(c.name)}</b><small>${c.list.length} juego${c.list.length === 1 ? '' : 's'}</small></span>
+                                <span class="nh-cat-peek" aria-hidden="true">${c.list.slice(0, 3).map(g => `<i>${esc(g.emoji)}</i>`).join('')}</span>
+                                ${B().icon('chevronRight', 20, 'nh-cat-go')}
+                            </a>`; }).join('')}</div>
                     </section>
 
-                    ${L().row({ id: 'home-favs', icon: '★', title: 'Tus favoritos', sub: 'Marcados con la estrella en la biblioteca', items: favs.map(g => L().tile(g)) })}
-                    ${L().row({ id: 'home-fresh', icon: '✨', title: 'Sin estrenar', sub: 'Juegos que todavía no has probado', link: '#/library', items: fresh.map(g => L().tile(g)) })}
-
-                    <div class="two-col">
-                        <section class="lpanel">
-                            <div class="lpanel-head"><h2>🏅 Logros recientes</h2><a class="link" href="#/achievements">Ver todos</a></div>
+                    <div class="nh-bottom">
+                        <section class="nh-panel">
+                            ${head('🏅', 'Logros recientes', '#/achievements', 'Ver todos')}
                             ${unlockedIds.length
                                 ? `<div class="ach-list">${unlockedIds.map(([id, at]) => A.get(id) ? C.achievementCard(A.get(id), at, true) : '').join('')}</div>`
                                 : C.empty('🏅', 'Aún sin logros', 'Juega una partida para desbloquear el primero.')}
                         </section>
-                        <section class="lpanel">
-                            <div class="lpanel-head"><h2>🕑 Actividad reciente</h2><a class="link" href="#/stats">Estadísticas</a></div>
+                        <section class="nh-panel">
+                            ${head('🕑', 'Actividad reciente', '#/stats', 'Estadísticas')}
                             ${recent.length
                                 ? `<ul class="history-list">${recent.map(C.historyRow).join('')}</ul>`
                                 : C.empty('🕑', 'Sin partidas todavía', 'Tus últimas partidas aparecerán aquí.')}
@@ -127,23 +179,24 @@
                     </div>
                 </div>`;
 
-            L().bindRows(root);
-            // Colecciones: abre la biblioteca y salta a la sección
-            $$('.col-tile', root).forEach(a => a.addEventListener('click', () => { Nexus.ui.gotoCollection = a.dataset.col; }));
+            Nexus.ui.launcher.bindRows(root);
 
-            // Carrusel
+            // Carrusel del banner
             const car = $('#hcar', root);
             let cur = 0, timer = 0, alive = true;
             const show = (i) => {
                 cur = (i + sl.length) % sl.length;
-                $$('.hslide', car).forEach((s, k) => { s.classList.toggle('on', k === cur); s.toggleAttribute('aria-hidden', k !== cur); });
+                $$('.nh-slide', car).forEach((s, k) => { s.classList.toggle('on', k === cur); s.toggleAttribute('aria-hidden', k !== cur); $$('a', s).forEach(a => { a.tabIndex = k === cur ? 0 : -1; }); });
                 $$('[data-dot]', car).forEach((d, k) => { d.classList.toggle('on', k === cur); d.setAttribute('aria-selected', String(k === cur)); });
             };
-            const auto = () => { clearInterval(timer); if (sl.length > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) timer = setInterval(() => { if (alive && !document.hidden) show(cur + 1); }, 7000); };
+            const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.motion === 'reduced';
+            const auto = () => { clearInterval(timer); if (sl.length > 1 && !reduced) timer = setInterval(() => { if (alive && !document.hidden) show(cur + 1); }, 8000); };
             $$('[data-dot]', car).forEach(d => d.addEventListener('click', () => { show(+d.dataset.dot); auto(); }));
             car.addEventListener('mouseenter', () => clearInterval(timer));
             car.addEventListener('mouseleave', auto);
-            auto();
+            car.addEventListener('focusin', () => clearInterval(timer));
+            car.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { show(cur + (e.key === 'ArrowLeft' ? -1 : 1)); auto(); } });
+            show(0); auto();
             return () => { alive = false; clearInterval(timer); };
         }
     };

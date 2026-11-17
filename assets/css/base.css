@@ -1,22 +1,23 @@
 /* ============================================================
    NEXUS ARCADE · base.css
    Tokens de diseño, temas, reset y animaciones.
-   Identidad: azul medianoche + amarillo "botón de recreativa".
+   Identidad corporativa: índigo nocturno + Arcade Yellow #FFD43B,
+   tipografías Outfit (títulos) e Inter (texto).
    Bordes de 2 px, sombras duras desplazadas y teclas que se hunden
    al pulsar. Cuatro temas redefinen toda la paleta.
    ============================================================ */
 
 :root {
-    --bg-darkest: #0b0e1f;
-    --bg-dark: #0f1329;
-    --bg-surface: #151a36;
-    --bg-card: #1d2345;
-    --bg-hover: #272e58;
+    --bg-darkest: #0e1035;
+    --bg-dark: #13153f;
+    --bg-surface: #191c4c;
+    --bg-card: #20245a;
+    --bg-hover: #2a2f6c;
 
-    --primary: #ffd23f;  --primary-rgb: 255, 210, 63;
+    --primary: #ffd43b;  --primary-rgb: 255, 212, 59;
     --primary-light: #ffe27a;
-    --primary-dark: #c79a00;
-    --on-primary: #1c1500;
+    --primary-dark: #d99f00;
+    --on-primary: #17130a;
     --secondary: #3de0f5; --secondary-rgb: 61, 224, 245;
     --secondary-light: #8df0fb;
     --accent: #ff6b8b;    --accent-rgb: 255, 107, 139;
@@ -24,22 +25,22 @@
     --danger: #ff5c6c;    --danger-rgb: 255, 92, 108;
     --success: #38d996;   --success-rgb: 56, 217, 150;
 
-    --text: #f3f4ff;
-    --text-dim: #aab0d6;
-    --text-muted: #7a82ad;
+    --text: #f2f3ff;
+    --text-dim: #b0b5e2;
+    --text-muted: #7f86bd;
     --border: rgba(255, 255, 255, 0.09);
     --border-light: rgba(255, 255, 255, 0.16);
-    --edge: #2a3262;                 /* borde grueso de teclas y tableros de los juegos */
+    --edge: #2c3175;                 /* borde grueso de teclas y tableros de los juegos */
     --glass: rgba(255, 255, 255, 0.04);
     --shadow: rgba(3, 5, 18, 0.6);
     --panel: rgba(255, 255, 255, 0.035);         /* superficies del launcher */
     --panel-hover: rgba(255, 255, 255, 0.07);
-    --panel-border: rgba(255, 255, 255, 0.09);
+    --panel-border: rgba(152, 160, 255, 0.16);
     --shadow-pop: 0 18px 50px rgba(0, 0, 0, .5);
     --radius-xl: 24px;
 
-    --font-title: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
-    --font-body: 'Manrope', 'Segoe UI', system-ui, sans-serif;
+    --font-title: 'Outfit', 'Segoe UI', system-ui, sans-serif;
+    --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
 
     --cell-size: 36px;
     --cols: 9;

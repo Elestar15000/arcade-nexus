@@ -33,17 +33,18 @@
             const remote = Nexus.backend.kind === 'remote';
             const blocked = !!Nexus.backend.unavailable;
 
-            const tiles = games.slice(0, 9).map((g, i) => `
-                <div class="auth-tile" style="--tile:${esc(g.accent || 'var(--primary)')};--i:${i}" title="${esc(g.name)}">
-                    <span aria-hidden="true">${esc(g.emoji)}</span></div>`).join('');
-
+            const B = Nexus.ui.brand;
             el.innerHTML = `
+                ${B.decor('auth')}
                 <div class="auth-layout">
                     <section class="auth-hero" aria-label="Nexus Arcade">
-                        <h1 class="auth-wordmark"><span>Nexus</span><span class="w-2">Arcade</span></h1>
-                        <p class="auth-tagline"><strong>${games.length} juegos, un solo ranking.</strong>
-                            Entra con tu cuenta, sigue donde lo dejaste desde cualquier dispositivo y compite por el primer puesto.</p>
-                        <div class="auth-tiles" aria-hidden="true">${tiles}</div>
+                        <div class="auth-brand">
+                            ${B.logo3d('auth-logo')}
+                            <h1 class="auth-wordmark"><span>Nexus</span><span class="w-2">Arcade</span></h1>
+                        </div>
+                        <p class="auth-tagline">Muchos juegos. Un solo universo.</p>
+                        <span class="auth-line" aria-hidden="true"></span>
+                        <p class="auth-facts"><span>🎮 ${games.length} juegos</span><span>🏆 Rankings y logros</span><span>🌐 Online con amigos</span></p>
                     </section>
 
                     <section class="auth-panel">
@@ -55,16 +56,18 @@
                             <form class="auth-form" id="auth-form" novalidate>
                                 ${registering ? this.registerFields() : this.loginFields()}
                                 <p class="form-error" id="au-error" role="alert" hidden></p>
-                                <button class="btn btn-primary" id="au-submit" type="submit"${blocked ? ' disabled' : ''}>${registering ? 'Crear mi cuenta' : 'Entrar'}</button>
+                                <button class="btn btn-primary auth-submit" id="au-submit" type="submit"${blocked ? ' disabled' : ''}>${registering ? 'Crear mi cuenta' : 'Entrar'}</button>
                                 <p class="auth-switch">${registering
                                     ? '¿Ya tienes cuenta? <button type="button" data-tab="login">Inicia sesión</button>'
                                     : '¿Aún no tienes cuenta? <button type="button" data-tab="register">Créala gratis</button>'}</p>
                             </form>
+                            <div class="auth-foot">
+                                <div class="auth-status" id="au-status" data-state="${blocked ? 'offline' : remote ? 'checking' : 'local'}">${blocked
+                                    ? 'Servidor de cuentas no configurado: sólo se puede entrar con cuentas del repositorio de datos (ver backend/README.md).'
+                                    : remote ? 'Conectando con el servidor…' : 'Modo local de desarrollo: las cuentas se guardan sólo en este navegador'}</div>
+                                <button type="button" class="auth-admin-link" id="au-admin">🛡️ Panel de administración</button>
+                            </div>
                         </div>
-                        <div class="auth-status" id="au-status" data-state="${blocked ? 'offline' : remote ? 'checking' : 'local'}">${blocked
-                            ? 'Servidor de cuentas no configurado: sólo se puede entrar con cuentas del repositorio de datos (ver backend/README.md).'
-                            : remote ? 'Conectando con el servidor…' : 'Modo local de desarrollo: las cuentas se guardan sólo en este navegador'}</div>
-                        <button type="button" class="auth-admin-link" id="au-admin">🛡️ Panel de administración</button>
                         ${Nexus.storage.volatile ? '<p class="auth-warning">Tu navegador bloquea el almacenamiento local: no se podrá mantener la sesión al recargar.</p>' : ''}
                     </section>
                 </div>`;
@@ -79,12 +82,14 @@
             return `
                 <div class="auth-head"><h2>Bienvenido de nuevo</h2>
                     <p class="lead">Tu progreso y tus récords te están esperando.</p></div>
-                <label class="field"><span class="field-label">Usuario</span>
-                    <input class="input" id="au-name" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false"
+                <label class="field auth-field"><span class="sr-only">Usuario</span>
+                    <span class="auth-ic">${Nexus.ui.brand.icon('user', 20)}</span>
+                    <input class="input" id="au-name" name="username" type="text" placeholder="Usuario" autocomplete="username" autocapitalize="none" spellcheck="false"
                         maxlength="${users().limits.NAME_MAX}" value="${esc(users().lastUsername())}" /></label>
-                <label class="field"><span class="field-label">Contraseña</span>
-                    <span class="input-wrap"><input class="input" id="au-pass" name="password" type="password" autocomplete="current-password" />
-                        <button class="input-toggle" type="button" data-toggle="au-pass" aria-label="Mostrar contraseña">Mostrar</button></span></label>`;
+                <label class="field auth-field"><span class="sr-only">Contraseña</span>
+                    <span class="auth-ic">${Nexus.ui.brand.icon('lock', 20)}</span>
+                    <input class="input" id="au-pass" name="password" type="password" placeholder="Contraseña" autocomplete="current-password" />
+                    <button class="auth-eye" type="button" data-toggle="au-pass" aria-label="Mostrar contraseña" title="Mostrar contraseña">${Nexus.ui.brand.icon('eye', 20)}</button></label>`;
         },
 
         registerFields() {
@@ -93,15 +98,19 @@
             return `
                 <div class="auth-head"><h2>Crea tu cuenta</h2>
                     <p class="lead">Tu progreso se guarda y puedes entrar desde cualquier dispositivo.</p></div>
-                <label class="field"><span class="field-label">Usuario <small>(3–${U.limits.NAME_MAX} caracteres: letras, números, - y _)</small></span>
-                    <input class="input" id="au-name" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="${U.limits.NAME_MAX}" /></label>
-                <label class="field"><span class="field-label">Contraseña <small>(mínimo ${U.limits.PASS_MIN} caracteres)</small></span>
-                    <span class="input-wrap"><input class="input" id="au-pass" name="password" type="password" autocomplete="new-password" />
-                        <button class="input-toggle" type="button" data-toggle="au-pass" aria-label="Mostrar contraseña">Mostrar</button></span>
-                    <span class="strength" id="au-strength" data-level="0" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-                    <span class="strength-text" id="au-strength-text"></span></label>
-                <label class="field"><span class="field-label">Repite la contraseña</span>
-                    <input class="input" id="au-pass2" type="password" autocomplete="new-password" /></label>
+                <label class="field auth-field"><span class="sr-only">Usuario</span>
+                    <span class="auth-ic">${Nexus.ui.brand.icon('user', 20)}</span>
+                    <input class="input" id="au-name" name="username" type="text" placeholder="Usuario" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="${U.limits.NAME_MAX}" aria-describedby="au-name-hint" /></label>
+                <small class="auth-hint" id="au-name-hint">3–${U.limits.NAME_MAX} caracteres: letras, números, - y _</small>
+                <label class="field auth-field"><span class="sr-only">Contraseña</span>
+                    <span class="auth-ic">${Nexus.ui.brand.icon('lock', 20)}</span>
+                    <input class="input" id="au-pass" name="password" type="password" placeholder="Contraseña (mínimo ${U.limits.PASS_MIN} caracteres)" autocomplete="new-password" />
+                    <button class="auth-eye" type="button" data-toggle="au-pass" aria-label="Mostrar contraseña" title="Mostrar contraseña">${Nexus.ui.brand.icon('eye', 20)}</button></label>
+                <span class="auth-strength"><span class="strength" id="au-strength" data-level="0" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+                    <span class="strength-text" id="au-strength-text"></span></span>
+                <label class="field auth-field"><span class="sr-only">Repite la contraseña</span>
+                    <span class="auth-ic">${Nexus.ui.brand.icon('lock', 20)}</span>
+                    <input class="input" id="au-pass2" type="password" placeholder="Repite la contraseña" autocomplete="new-password" /></label>
                 <details id="au-look"><summary>Tu avatar <span class="auth-preview" id="au-preview"></span></summary><div data-slot="picker"></div></details>
                 <p class="field-hint" style="margin:0">No podemos recuperar contraseñas olvidadas: guárdala en un lugar seguro.</p>`;
         },
@@ -115,8 +124,8 @@
                 const input = $('#' + b.dataset.toggle, el);
                 const show = input.type === 'password';
                 input.type = show ? 'text' : 'password';
-                b.textContent = show ? 'Ocultar' : 'Mostrar';
-                b.setAttribute('aria-label', show ? 'Ocultar contraseña' : 'Mostrar contraseña');
+                b.innerHTML = Nexus.ui.brand.icon(show ? 'eyeOff' : 'eye', 20);
+                b.setAttribute('aria-label', show ? 'Ocultar contraseña' : 'Mostrar contraseña'); b.title = b.getAttribute('aria-label');
             }));
 
             if (this.mode === 'register') {

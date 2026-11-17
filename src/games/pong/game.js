@@ -1215,7 +1215,7 @@
                 const pop = this.scorePop[side];
                 ctx.save();
                 ctx.translate(x, H / 2); ctx.scale(1 + pop * 0.25, 1 + pop * 0.25);
-                ctx.font = '800 230px "Bricolage Grotesque", system-ui, sans-serif';
+                ctx.font = '800 230px Outfit, system-ui, sans-serif';
                 ctx.fillStyle = Kit.rgba(c, (live ? 0.08 : 0.05) + pop * 0.25);
                 ctx.fillText(String(v), 0, 8);
                 ctx.restore();
@@ -1278,7 +1278,7 @@
             for (const f of this.floaters) {
                 ctx.save();
                 ctx.globalAlpha = Math.min(1, f.life / f.max * 1.6);
-                ctx.font = `800 ${f.size}px "Bricolage Grotesque", system-ui, sans-serif`;
+                ctx.font = `800 ${f.size}px Outfit, system-ui, sans-serif`;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.shadowColor = f.color; ctx.shadowBlur = 18;
                 ctx.fillStyle = '#fff'; ctx.fillText(f.text, f.x, f.y);
@@ -1290,7 +1290,7 @@
                 const c = Math.ceil(s.timer), fr = s.timer - Math.floor(s.timer);
                 ctx.save();
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.font = '800 120px "Bricolage Grotesque", system-ui, sans-serif';
+                ctx.font = '800 120px Outfit, system-ui, sans-serif';
                 ctx.globalAlpha = 0.35 + fr * 0.65;
                 ctx.translate(W / 2, H / 2); ctx.scale(0.8 + fr * 0.5, 0.8 + fr * 0.5);
                 ctx.shadowColor = '#a78bfa'; ctx.shadowBlur = 30;
@@ -1307,7 +1307,7 @@
                 ctx.fillStyle = 'rgba(255,255,255,.08)'; Kit.roundRect(ctx, x, y, w, 5, 3); ctx.fill();
                 ctx.fillStyle = this.ballColor(ratio, s.ball.turbo);
                 Kit.roundRect(ctx, x, y, w * clamp((ratio - 1) / 3, 0.02, 1), 5, 3); ctx.fill();
-                ctx.font = '700 11px Manrope, system-ui, sans-serif'; ctx.textAlign = 'center';
+                ctx.font = '600 11px Inter, system-ui, sans-serif'; ctx.textAlign = 'center';
                 ctx.fillStyle = 'rgba(226,232,240,.7)'; ctx.fillText('VELOCIDAD ×' + ratio.toFixed(1).replace('.', ','), W / 2, y - 8);
                 ctx.restore();
             }

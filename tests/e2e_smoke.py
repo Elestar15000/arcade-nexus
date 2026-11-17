@@ -158,6 +158,7 @@ with sync_playwright() as p:
     m.click('#sidebar-toggle'); m.wait_for_timeout(450)
     check(m.evaluate("document.getElementById('sidebar').getBoundingClientRect().left") >= 0, 'móvil: cajón se abre')
     m.screenshot(path=str(OUT / '50_mobile_drawer.png'))
+    m.evaluate("document.querySelector('.nav-item[data-route=\"game/wordle\"]').closest('details').open = true"); m.wait_for_timeout(200)
     m.click('.nav-item[data-route="game/wordle"]'); m.wait_for_timeout(600)
     check(m.evaluate("document.getElementById('sidebar').getBoundingClientRect().right") <= 0, 'móvil: cajón se cierra al navegar')
     m.screenshot(path=str(OUT / '51_mobile_wordle.png'))

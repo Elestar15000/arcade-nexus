@@ -82,15 +82,15 @@
             const favs = CO.favs().map(id => Nexus.games.registry.get(id)).filter(Boolean);
             const open = Nexus.services.settings.getUI('navOpen', null) || {};
             const groups = CO.withGames().map(c => `
-                <details class="nav-col" data-col="${esc(c.id)}" style="--col:${esc(c.color)}" ${open[c.id] === false ? '' : 'open'}>
-                    <summary class="nav-heading nav-col-head"><span class="nav-col-emo">${esc(c.emoji)}</span><span class="nav-label">${esc(c.name)}</span><small>${c.list.length}</small></summary>
+                <details class="nav-col" data-col="${esc(c.id)}" style="--col:${esc(c.color)}" ${open[c.id] === true ? 'open' : ''}>
+                    <summary class="nav-col-head" data-tooltip="${esc(c.name)}"><span class="nav-col-emo" aria-hidden="true">${esc(c.emoji)}</span><span class="nav-label">${esc(c.name)}</span><small>${c.list.length}</small></summary>
                     ${c.list.map(gameLink).join('')}
                 </details>`).join('');
 
             $('#sidebar-nav').innerHTML = `
                 <div class="nav-group">${NAV_MAIN.map(link).join('')}</div>
                 ${favs.length ? `<div class="nav-group nav-favs"><span class="nav-heading"><span class="nav-col-emo">★</span><span class="nav-label">Favoritos</span></span>${favs.map(gameLink).join('')}</div>` : ''}
-                <div class="nav-group nav-games"><span class="nav-heading nav-heading-main"><span class="nav-label">Mi biblioteca</span></span>${groups}</div>
+                <div class="nav-group nav-games"><span class="nav-heading nav-heading-main"><span class="nav-label">Categorías</span></span>${groups}</div>
                 <div class="nav-group nav-group-bottom">${NAV_BOTTOM.map(link).join('')}${Nexus.services.users.isAdmin() ? link({ route: 'admin', icon: '🛡️', label: 'Administración' }) : ''}</div>`;
 
             $$('#sidebar-nav .nav-item').forEach(a => a.addEventListener('click', () => this.closeMobile()));
@@ -122,7 +122,7 @@
             $('#user-xp-fill').style.width = lv.pct + '%';
             $('#user-xp-text').textContent = `${Nexus.util.formatNumber(lv.xp)} / ${Nexus.util.formatNumber(lv.next)} XP`;
             const chip = $('#topbar-level');
-            if (chip) chip.textContent = `Nv. ${lv.level}`;
+            if (chip) chip.textContent = `Nivel ${lv.level}`;
             card.title = `${user.name} · ver perfil`;
             Nexus.ui.launcher.topbar.renderUser();
             this.renderSync();

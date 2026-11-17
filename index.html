@@ -8,12 +8,14 @@
     <title>Nexus Arcade</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Manrope:wght@400..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500..900&family=Inter:wght@400..700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="assets/css/base.css">
     <link rel="stylesheet" href="assets/css/layout.css">
     <link rel="stylesheet" href="assets/css/components.css">
     <link rel="stylesheet" href="assets/css/pages.css">
+    <link rel="stylesheet" href="assets/css/home.css">
+    <link rel="stylesheet" href="assets/css/auth.css">
     <link rel="stylesheet" href="assets/css/admin.css">
     <link rel="stylesheet" href="assets/css/library.css">
     <link rel="stylesheet" href="assets/css/games/minesweeper.css">
@@ -31,7 +33,7 @@
     <link rel="stylesheet" href="assets/css/games/escape.css">
     <link rel="stylesheet" href="assets/css/games/puzzles.css">
     <link rel="stylesheet" href="assets/css/games/solitaire.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕹️</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg transform='rotate(45 50 50)'%3E%3Crect x='17' y='17' width='66' height='66' rx='15' fill='%23FFD43B'/%3E%3Crect x='37' y='37' width='26' height='26' rx='6' fill='%23141640'/%3E%3C/g%3E%3C/svg%3E">
 </head>
 <body>
     <noscript><p style="padding:2rem;color:#fff">Nexus Arcade necesita JavaScript para funcionar.</p></noscript>
@@ -47,7 +49,9 @@
             <aside id="sidebar" class="sidebar" aria-label="Navegación principal">
                 <div class="sidebar-header">
                     <a class="brand" href="#/home" aria-label="Nexus Arcade, ir al inicio">
-                        <span class="logo-diamond">◆</span>
+                        <svg class="logo-diamond nx-logo" width="40" height="40" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+                            <defs><linearGradient id="nxs-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE680"/><stop offset=".5" stop-color="#FFD43B"/><stop offset="1" stop-color="#F2A900"/></linearGradient></defs>
+                            <g transform="rotate(45 50 50)"><rect x="17" y="17" width="66" height="66" rx="15" fill="url(#nxs-g)"/><rect x="37" y="37" width="26" height="26" rx="6" fill="#141640"/></g></svg>
                         <span class="brand-text"><span class="logo-title">Nexus</span><span class="logo-sub">Arcade</span></span>
                     </a>
                     <button id="sidebar-collapse" class="icon-btn sidebar-collapse-btn" type="button"
@@ -91,18 +95,27 @@
                         <h1 id="page-title" class="page-heading">Inicio</h1>
                     </div>
                     <label class="topbar-search" id="topbar-search">
-                        <span aria-hidden="true">🔎</span>
-                        <input type="search" id="topbar-search-input" placeholder="Buscar juego…" aria-label="Buscar juego" autocomplete="off" />
+                        <svg class="nx-ic" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                        <input type="search" id="topbar-search-input" placeholder="Buscar juegos…" aria-label="Buscar juegos" autocomplete="off" />
                         <kbd aria-hidden="true">/</kbd>
                     </label>
                     <div class="topbar-right">
                         <button id="topbar-daily" class="topbar-btn" type="button" aria-haspopup="dialog" aria-expanded="false" title="Retos de hoy">
                             <span aria-hidden="true">📅</span><span class="topbar-btn-label">Retos</span><span class="topbar-badge" id="topbar-daily-badge" hidden></span>
                         </button>
-                        <a class="topbar-level" href="#/profile" title="Ver perfil">
-                            <span class="topbar-ring" id="topbar-ring"><span id="topbar-level" class="chip">Nv. 1</span></span>
-                            <span class="avatar avatar-sm" aria-hidden="true"><span id="topbar-avatar">🎮</span></span>
+                        <a class="topbar-level" href="#/profile" title="Ver perfil" id="topbar-ring">
+                            <span class="tl-star" aria-hidden="true">⭐</span>
+                            <span class="tl-txt"><b id="topbar-level" class="chip">Nivel 1</b><span class="tl-bar"><i id="topbar-xp"></i></span></span>
                         </a>
+                        <span class="topbar-sep" aria-hidden="true"></span>
+                        <div class="tb-user">
+                            <button type="button" class="tb-user-btn" id="topbar-user-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="topbar-menu" title="Tu cuenta">
+                                <span class="avatar avatar-sm" aria-hidden="true"><span id="topbar-avatar">🎮</span></span>
+                                <svg class="nx-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                                <span class="sr-only">Menú de la cuenta</span>
+                            </button>
+                            <div class="tb-menu" id="topbar-menu" role="menu" hidden></div>
+                        </div>
                     </div>
                     <div class="topbar-pop" id="topbar-pop" hidden></div>
                 </header>
@@ -144,6 +157,7 @@
     <script src="src/ui/sidebar.js"></script>
     <script src="src/ui/router.js"></script>
     <script src="src/ui/auth.js"></script>
+    <script src="src/ui/brand.js"></script>
     <script src="src/ui/qr.js"></script>
     <script src="src/ui/admin.js"></script>
     <script src="src/ui/pages/home.js"></script>

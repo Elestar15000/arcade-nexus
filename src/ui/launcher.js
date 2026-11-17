@@ -95,6 +95,18 @@
             document.addEventListener('click', (e) => { if (!this.pop.hidden && !this.pop.contains(e.target)) this.closeDaily(); });
             document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !this.pop.hidden) this.closeDaily(); });
             window.addEventListener('hashchange', () => this.closeDaily());
+            // Menú de la cuenta (avatar)
+            this.ubtn = $('#topbar-user-btn'); this.menu = $('#topbar-menu');
+            if (this.ubtn) {
+                this.ubtn.addEventListener('click', (e) => { e.stopPropagation(); this.menu.hidden ? this.openMenu() : this.closeMenu(); });
+                document.addEventListener('click', (e) => { if (!this.menu.hidden && !this.menu.contains(e.target)) this.closeMenu(); });
+                document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !this.menu.hidden) { this.closeMenu(); this.ubtn.focus(); } });
+                window.addEventListener('hashchange', () => this.closeMenu());
+                this.menu.addEventListener('keydown', (e) => {
+                    const items = $$('[role=menuitem]', this.menu), i = items.indexOf(document.activeElement);
+                    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus(); }
+                });
+            }
             Nexus.bus.on('progress:update', () => this.renderDaily());
             Nexus.bus.on('user:login', () => this.renderDaily());
             this.renderDaily();
@@ -120,12 +132,29 @@
                 <div class="tpop-foot"><span class="muted small">🔥 Racha de días: <b>${formatNumber((Nexus.services.users.data() || { meta: {} }).meta.dayStreak || 0)}</b></span></div>`;
             this.pop.hidden = false; this.btn.setAttribute('aria-expanded', 'true');
         },
+        openMenu() {
+            const u = Nexus.services.users.current(); if (!u) return;
+            const lv = Nexus.services.progress.level(), B = Nexus.ui.brand;
+            const item = (href, emo, label) => `<a role="menuitem" class="tb-mi" href="${href}"><span aria-hidden="true">${emo}</span>${esc(label)}</a>`;
+            this.menu.innerHTML = `
+                <div class="tb-menu-head" style="--user-color:${esc(u.color)}"><span class="avatar avatar-md">${esc(u.avatar)}</span>
+                    <span><b>${esc(u.name)}</b><small>${esc(lv.rank.icon)} ${esc(lv.rank.name)} · Nivel ${lv.level}</small></span></div>
+                ${item('#/profile', '👤', 'Mi perfil')}${item('#/achievements', '🏅', 'Logros')}${item('#/stats', '📊', 'Estadísticas')}${item('#/settings', '⚙️', 'Ajustes')}
+                ${Nexus.services.users.isAdmin() ? item('#/admin', '🛡️', 'Administración') : ''}
+                <hr><button role="menuitem" type="button" class="tb-mi tb-mi-out" data-logout>${B.icon('logout', 18)}Cerrar sesión</button>`;
+            $('[data-logout]', this.menu).addEventListener('click', () => { this.closeMenu(); Nexus.app.logout(); });
+            this.menu.hidden = false; this.ubtn.setAttribute('aria-expanded', 'true');
+            const first = $('[role=menuitem]', this.menu); if (first) first.focus({ preventScroll: true });
+        },
+        closeMenu() { if (this.menu && !this.menu.hidden) { this.menu.hidden = true; this.ubtn.setAttribute('aria-expanded', 'false'); } },
         closeDaily() { if (this.pop && !this.pop.hidden) { this.pop.hidden = true; this.btn.setAttribute('aria-expanded', 'false'); } },
         /** Anillo de XP y avatar junto al nivel. */
         renderUser() {
             const user = Nexus.services.users.current(); if (!user) return;
             const lv = Nexus.services.progress.level();
-            const ring = $('#topbar-ring'); if (ring) { ring.style.setProperty('--p', lv.pct); ring.title = `${formatNumber(lv.xp)} / ${formatNumber(lv.next)} XP`; }
+            const ring = $('#topbar-ring'); if (ring) ring.title = `Nivel ${lv.level} · ${formatNumber(lv.xp)} / ${formatNumber(lv.next)} XP`;
+            const xp = $('#topbar-xp'); if (xp) xp.style.width = lv.pct + '%';
+            const lvEl = $('#topbar-level'); if (lvEl) lvEl.textContent = `Nivel ${lv.level}`;
             const av = $('#topbar-avatar'); if (av) { av.textContent = user.avatar; av.parentElement.style.setProperty('--user-color', user.color); }
         },
         /** Miga de pan de la barra superior. */
