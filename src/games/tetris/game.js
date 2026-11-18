@@ -31,6 +31,7 @@
         L: [[0, 0, 1], [1, 1, 1], [0, 0, 0]]
     };
     const COLORS = { I: '#22d3ee', O: '#fbbf24', T: '#a855f7', S: '#4ade80', Z: '#f87171', J: '#60a5fa', L: '#fb923c' };
+    const BASE_COLORS = Object.assign({}, COLORS);
     const GARBAGE = '#5b5b7a';
     const TYPES = Object.keys(BASE);
 
@@ -88,6 +89,9 @@
 
     class TetrisGame {
         constructor(root) {
+            // Aspecto de las piezas equipado en Logros · Colección
+            const skin = Nexus.services.rewards && Nexus.services.rewards.skin('tetris');
+            Object.assign(COLORS, BASE_COLORS, skin && !Array.isArray(skin) ? skin : {});
             this.root = root;
             this.destroyed = false;
             this.timers = new Set();

@@ -12,7 +12,8 @@
     const { dayKey, daysBetween } = Nexus.util;
 
     const XP_BASE = 100;
-    const XP_SCALING = 1.3;   // cada nivel exige un 30 % más que el anterior
+    const XP_SCALING = 1.12;  // cada nivel exige un 12 % más que el anterior…
+    const XP_CAP = 1500;      // …hasta un máximo de 1.500 XP por nivel
     const HISTORY_MAX = 100;
 
     const RANKS = [
@@ -28,7 +29,15 @@
         RANKS,
 
         xpForLevel(level) {
-            return Math.floor(XP_BASE * Math.pow(XP_SCALING, Math.max(0, level - 1)));
+            return Math.min(XP_CAP, Math.floor(XP_BASE * Math.pow(XP_SCALING, Math.max(0, level - 1))));
+        },
+
+        /** Nivel y XP del nivel calculados desde la XP total (migra cuentas de la curva antigua sin perder nada). */
+        rebuildLevel(data) {
+            if (!data || !data.xp) return;
+            let level = 1, rest = Math.max(0, data.xp.total | 0);
+            while (rest >= this.xpForLevel(level) && level < 999) { rest -= this.xpForLevel(level); level++; }
+            data.xp.level = level; data.xp.xp = rest;
         },
 
         rankFor(level) {
@@ -113,7 +122,7 @@
             const users = Nexus.services.users;
             const data = users.data();
             const result = {
-                xp: 0, levelUp: false, newLevel: 1, records: { score: false, time: false },
+                game: p.game, xp: 0, levelUp: false, newLevel: 1, records: { score: false, time: false },
                 unlocked: [], saved: !!data
             };
             if (!data) return result;
@@ -175,10 +184,13 @@
             result.xp = Math.max(0, Math.round(xpBase));
             this.addXP(result.xp);
 
+            // Misiones, temporada y contadores de los logros secretos (antes de evaluar los logros)
+            const event = { game: p.game, mode: p.mode, won: !!p.won, endless: !!p.endless, score, time, extra: p.extra || {}, at: Date.now(),
+                record: !!(result.records.score || result.records.time) };
+            if (Nexus.services.rewards) result.missions = Nexus.services.rewards.onGame(event);
+
             // Logros (pueden dar XP extra y desbloquear otros por nivel)
-            const unlocked = Nexus.services.achievements.check({
-                game: p.game, mode: p.mode, won: !!p.won, score, time, extra: p.extra || {}, at: Date.now()
-            });
+            const unlocked = Nexus.services.achievements.check(event);
             result.unlocked = unlocked;
             result.xp += unlocked.reduce((sum, a) => sum + a.xp, 0);
             result.newLevel = data.xp.level;

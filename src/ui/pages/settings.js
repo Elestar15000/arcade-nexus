@@ -87,7 +87,12 @@
             });
             root.addEventListener('click', (e) => {
                 const b = e.target.closest('[data-choice] [data-value]');
-                if (b) { S().set(b.closest('[data-choice]').dataset.choice, b.dataset.value); syncControls(); Nexus.audio.play('click'); }
+                if (b) {
+                    const key = b.closest('[data-choice]').dataset.choice;
+                    // Elegir un tema normal quita el tema exclusivo equipado
+                    if (key === 'theme' && Nexus.services.rewards && Nexus.services.rewards.equipped('theme')) Nexus.services.rewards.equip('theme', '');
+                    S().set(key, b.dataset.value); syncControls(); Nexus.audio.play('click');
+                }
             });
 
             $('#st-test-sound', root).addEventListener('click', () => Nexus.audio.play('win'));

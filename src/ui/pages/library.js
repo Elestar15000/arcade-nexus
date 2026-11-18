@@ -56,6 +56,7 @@
                 <div class="lb-cover">
                     <span class="lb-cover-ic" aria-hidden="true">${esc(g.emoji)}</span>
                     ${gs.played ? '' : '<span class="lb-new">Nuevo</span>'}
+                    ${Nexus.services.achievements.mastery(g.id).done ? `<span class="lb-crown" title="Maestría: todos los logros conseguidos">${I('crown', 18)}Maestría</span>` : ''}
                     <button type="button" class="lb-info" data-info="${esc(g.id)}" aria-label="Ficha de ${esc(g.name)}" title="Ver ficha">${I('info', 18)}</button>
                 </div>
                 <div class="lb-body">

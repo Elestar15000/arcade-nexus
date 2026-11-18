@@ -6,7 +6,7 @@ equivalencias con los antiguos emojis) está en [`manifest.js`](manifest.js).
 ```
 assets/avatars/
   manifest.js
-  nexus/  arcade/  cartas/  mentes/  estrategia/  misterio/  fauna/
+  nexus/  arcade/  cartas/  mentes/  estrategia/  misterio/  fauna/  recompensas/
     <id>-512.png    selector, perfil, menú de la cuenta (y pantallas retina)
     <id>-256.png    barra lateral, rankings, mesas online, historial
 ```
@@ -21,13 +21,14 @@ así que se puede publicar con las carpetas vacías o a medio llenar.
 2. `node tools/avatars/export.mjs` crea los dos tamaños en la carpeta de su colección (recorte cuadrado centrado,
    fondo opaco). Necesita `sharp` (`npm i -D sharp`) o ImageMagick. Con un id (`… export.mjs nx-nexo`) sólo ese.
 3. `node tools/avatars/export.mjs --check` dice qué falta y avisa si algún PNG pasa de 120 KB (512) o 40 KB (256).
-4. `node tests/avatars_test.mjs` comprueba el catálogo; con `--strict` exige además las 84 imágenes.
+4. `node tests/avatars_test.mjs` comprueba el catálogo; con `--strict` exige además las 100 imágenes.
 
 ## Añadir un avatar nuevo
 
 1. Añade su entrada en `avatars` de `manifest.js`: `id` con el prefijo de su colección (`es-rook`), `collection`,
-   `name` y, si quieres, `tags`, `accent` propio o `unlock` (`{ level: 10 }` o `{ achievement: '<id de logro>' }`)
-   para que sea un avatar de recompensa.
+   `name` y, si quieres, `tags`, `accent` propio o `unlock` (`{ level: 10 }`, `{ achievement: '<id de logro>' }` o
+   `{ reward: 'av:<id>' }`) para que sea un avatar de recompensa. Los `reward` se entregan desde `src/services/rewards.js`
+   (pase de temporada, rangos, tienda o eventos); sus prompts están en `tools/avatars/prompts-recompensas.md`.
 2. `node tools/avatars/export.mjs --sync` copia la lista de ids al Worker (`backend/worker.js`), que rechaza
    cualquier avatar que no esté en ella. Vuelve a desplegar el Worker.
 3. Genera y exporta su imagen como arriba.

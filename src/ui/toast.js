@@ -60,8 +60,9 @@
     }
 
     Nexus.ui.toast = toast;
+    Nexus.ui.toastHtml = show;                 // toast con HTML propio (ui/celebrate.js)
     Nexus.ui.achievementToast = achievementToast;
-    Nexus.bus.on('achievement:unlock', achievementToast);
+    // La celebración de los logros desbloqueados la hace ui/celebrate.js según la rareza
     Nexus.bus.on('storage:error', () => toast(
         'No se pudo guardar en el navegador (¿modo privado o almacenamiento lleno?). Tu progreso puede perderse.',
         { type: 'error', duration: 7000 }));

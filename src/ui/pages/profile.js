@@ -6,7 +6,7 @@
 (function () {
     'use strict';
 
-    const { esc, $, formatNumber, formatDuration, formatDate } = Nexus.util;
+    const { esc, $, $$, formatNumber, formatDuration, formatDate } = Nexus.util;
     const C = Nexus.ui.components;
     const users = () => Nexus.services.users;
 
@@ -92,23 +92,36 @@
             const A = Nexus.services.achievements;
             const local = Nexus.backend.kind === 'local';
             const recent = Object.entries(data.achievements).filter(([id]) => A.get(id)).sort((a, b) => b[1] - a[1]).slice(0, 6);
+            const RW = Nexus.services.rewards, showcase = RW ? RW.showcase() : [];
 
             root.innerHTML = `
                 <div class="page-body">
-                    <section class="profile-hero card-surface" style="--user-color:${esc(Nexus.ui.avatar.accent(user.avatar))}">
+                    <section class="profile-hero card-surface${RW && RW.equipped('banner') ? ' banner b-' + esc(RW.equipped('banner')) : ''}" style="--user-color:${esc(Nexus.ui.avatar.accent(user.avatar))}">
                         ${C.avatar(user, 'xl')}
                         <div class="profile-hero-info">
                             <h2>${esc(user.name)}</h2>
+                            ${RW && RW.title() ? `<span class="rw-title-chip">${esc(RW.title())}</span>` : ''}
                             <p class="muted">${esc(lv.rank.icon)} ${esc(lv.rank.name)} · Nivel ${lv.level} · Miembro desde ${esc(formatDate(user.createdAt))}</p>
                             ${C.progressBar(lv.pct)}
                             <small class="muted">${formatNumber(lv.xp)} / ${formatNumber(lv.next)} XP · ${formatNumber(lv.total)} XP totales · ${esc(formatDuration(data.meta.playTime))} jugados</small>
                         </div>
-                        <button class="btn btn-ghost" id="pf-edit" type="button">✏️ Cambiar avatar</button>
+                        <div class="pf-hero-side">
+                            <a class="rw-wallet" href="#/achievements" data-ach-tab="tienda" title="Rombos">${Nexus.ui.celebrate.diamond(18)}<b>${formatNumber(RW ? RW.balance() : 0)}</b><small>Rombos</small></a>
+                            <button class="btn btn-ghost" id="pf-edit" type="button">✏️ Cambiar avatar</button>
+                            <a class="btn btn-ghost" href="#/achievements" data-ach-tab="coleccion">🎨 Personalizar</a>
+                        </div>
+                    </section>
+
+                    <section class="section card-surface pf-showcase">
+                        <div class="section-head"><h2 class="section-title"><span>⭐</span> Escaparate</h2>
+                            <span class="muted small">${formatNumber(A.points())} puntos de logro</span></div>
+                        ${showcase.length ? `<div class="pf-show">${showcase.map(id => { const d = A.get(id); return `<div class="pf-show-item rarity-${esc(d.rarity)}">${Nexus.ui.celebrate.badge(d, 'lg')}<b>${esc(d.name)}</b><small>${esc(A.RARITY[d.rarity].label)}</small></div>`; }).join('')}</div>`
+                            : C.empty('⭐', 'Tu escaparate está vacío', 'En Logros, pulsa ☆ en hasta 3 logros conseguidos para enseñarlos aquí, en el ranking y en las salas online.')}
                     </section>
 
                     <section class="section card-surface">
                         <div class="section-head"><h2 class="section-title"><span>🏅</span> Logros destacados</h2>
-                            <a class="link" href="#/achievements">${A.countUnlocked()}/${A.all().length} · Ver todos</a></div>
+                            <a class="link" href="#/achievements">${A.countUnlocked()}/${A.visible().length} · Ver todos</a></div>
                         ${recent.length ? `<div class="ach-list">${recent.map(([id, at]) => C.achievementCard(A.get(id), at, true)).join('')}</div>`
                             : C.empty('🏅', 'Sin logros aún', 'Juega para empezar tu colección.')}
                     </section>
@@ -133,6 +146,7 @@
 
             const on = (id, fn) => { const el = $('#' + id, root); if (el) el.addEventListener('click', fn); };
             on('pf-edit', () => openEdit(user, rerender));
+            $$('[data-ach-tab]', root).forEach(a => a.addEventListener('click', () => { Nexus.ui.achievementsTab = a.dataset.achTab; }));
             on('pf-pass', () => openPassword(rerender));
             on('pf-logout', () => Nexus.app.logout());
             on('pf-reset', async () => {

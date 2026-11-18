@@ -34,7 +34,11 @@
     function user(u, size = 'md', { label = false } = {}) {
         u = u || {};
         const a = A().info(u.avatar);
-        return `<span class="avatar avatar-${size}" style="--user-color:${esc(a.accent)}"${label ? ` role="img" aria-label="${esc(a.name)}"` : ' aria-hidden="true"'}>${html(a.id, { size: pick(SIZE_PX[size] || 42) })}</span>`;
+        // Marco de avatar (Logros · Colección): el propio se lee de las recompensas; el de otros, de su resumen público
+        const me = Nexus.services.users && Nexus.services.users.current();
+        const frame = u.frame !== undefined ? u.frame : (me && u.id === me.id && Nexus.services.rewards ? Nexus.services.rewards.frame() : '');
+        const fcls = frame && /^[a-z0-9-]+$/.test(frame) ? ` has-frame frame-${frame}` : '';
+        return `<span class="avatar avatar-${size}${fcls}" style="--user-color:${esc(a.accent)}"${label ? ` role="img" aria-label="${esc(a.name)}"` : ' aria-hidden="true"'}>${html(a.id, { size: pick(SIZE_PX[size] || 42) })}</span>`;
     }
 
     /** Pinta un avatar dentro de `el` sólo si ha cambiado (para cabeceras que se refrescan a menudo). */
@@ -48,6 +52,14 @@
 
     const accent = (value) => A().info(value).accent;
 
+    /** Pone en un círculo .avatar ya existente el marco equipado del jugador actual. */
+    function applyFrame(el) {
+        if (!el) return;
+        [...el.classList].filter(c => c === 'has-frame' || c.startsWith('frame-')).forEach(c => el.classList.remove(c));
+        const f = Nexus.services.rewards && Nexus.services.rewards.data() ? Nexus.services.rewards.frame() : '';
+        if (f) el.classList.add('has-frame', 'frame-' + f);
+    }
+
     // Un PNG que no carga (todavía no generado, o sin red): se marca y se muestra el rombo de reserva
     document.addEventListener('error', (e) => {
         const img = e.target;
@@ -58,5 +70,5 @@
         img.remove();
     }, true);
 
-    Nexus.ui.avatar = { html, user, set, accent, pick };
+    Nexus.ui.avatar = { html, user, set, accent, pick, applyFrame };
 })();

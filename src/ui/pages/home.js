@@ -84,6 +84,33 @@
         <header class="nh-head"><h2><span class="nh-head-ic" aria-hidden="true">${icon}</span>${esc(title)}</h2>
             <span class="nh-head-tools">${extra}${link ? `<a class="nh-more" href="${esc(link)}">${esc(linkText || 'Ver todos')} ${B().icon('arrow', 16)}</a>` : ''}</span></header>`;
 
+    /** «Casi lo tienes» + misiones de hoy + temporada (sistema de logros y recompensas). */
+    function goals() {
+        const A = Nexus.services.achievements, RW = Nexus.services.rewards;
+        if (!RW || !RW.data()) return '';
+        const near = A.near(3), M = RW.missions(), s = RW.seasonState(), dia = Nexus.ui.celebrate.diamond;
+        const bar = (p) => `<span class="nh-gbar"><i style="width:${Math.max(0, Math.min(100, p))}%"></i></span>`;
+        return `<div class="nh-goals">
+            <section class="nh-panel nh-goal">
+                ${head('🎯', 'Casi lo tienes', '#/achievements', 'Logros')}
+                ${near.length ? `<ul class="nh-near">${near.map(x => {
+                    const p = x.prog, tracked = RW.tracked() === x.def.id;
+                    return `<li${tracked ? ' class="tracked"' : ''}><span class="nh-near-ic">${esc(x.def.icon)}</span>
+                        <span class="nh-near-txt"><b>${tracked ? '📌 ' : ''}${esc(x.def.name)}</b><small>${esc(x.def.desc)}</small>${bar(x.ratio * 100)}</span>
+                        <span class="nh-near-n">${p ? `${formatNumber(p.value)}/${formatNumber(p.target)}` : ''}</span></li>`; }).join('')}</ul>`
+                    : C.empty('🏅', '¡Juega para empezar!', 'Aquí verás los logros que tienes más cerca.')}
+            </section>
+            <section class="nh-panel nh-goal">
+                ${head('📅', 'Misiones de hoy', '#/achievements', 'Ver todas')}
+                <ul class="nh-missions">${M.daily.map(m => `<li class="${m.done ? 'done' : ''}"><span class="nh-m-tier t-${esc(m.tier)}">${esc(RW.TIER_LABEL[m.tier])}</span>
+                    <span class="nh-near-txt"><b>${esc(m.text)}</b>${bar(m.prog / m.n * 100)}</span><span class="nh-near-n">${m.done ? '✓' : `${dia(13)} ${RW.MISSION_ROMBOS[m.tier]}`}</span></li>`).join('')}</ul>
+                <a class="nh-season" href="#/achievements" data-ach-tab="temporada">
+                    <span><b>Temporada ${s.id}</b> · nivel ${s.level}/${s.max}</span>${bar(s.into / s.cost * 100)}
+                    <small>🔥 Racha de misiones: ${M.streak.count} · ${dia(13)} ${formatNumber(RW.balance())} Rombos</small></a>
+            </section>
+        </div>`;
+    }
+
     Nexus.ui.pages.home = {
         title: 'Inicio',
 
@@ -129,6 +156,8 @@
                             <span class="nh-prog-rank">${esc(lv.rank.icon)} ${esc(lv.rank.name)} · ${esc(greeting())}, <b>${esc(user.name)}</b></span>
                         </a>
                     </div>
+
+                    ${goals()}
 
                     <section class="nh-sec">
                         ${head(B().icon('grid', 24), 'Juegos destacados', '#/library', 'Ver todos')}
@@ -181,6 +210,8 @@
             Nexus.ui.launcher.bindRows(root);
             // Una categoría abre la biblioteca con esa colección seleccionada
             $$('.nh-cat[data-col]', root).forEach(a => a.addEventListener('click', () => { Nexus.ui.gotoCollection = a.dataset.col; }));
+            $$('[data-ach-tab]', root).forEach(a => a.addEventListener('click', () => { Nexus.ui.achievementsTab = a.dataset.achTab; }));
+            $$('.nh-goal .nh-more', root).forEach((a, i) => a.addEventListener('click', () => { Nexus.ui.achievementsTab = i === 1 ? 'misiones' : 'logros'; }));
 
             // Carrusel del banner
             const car = $('#hcar', root);

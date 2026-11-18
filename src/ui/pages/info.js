@@ -77,6 +77,10 @@
 
                         <section class="lpanel">
                             <div class="lpanel-head"><h2>🏅 Logros</h2><span class="muted small">${got}/${achs.length}</span></div>
+                            ${(() => { const ms = A.mastery(g.id); return ms.total ? `<div class="ginfo-mastery${ms.done ? ' done' : ''}" title="Consigue todos los logros del juego">
+                                <span>👑 <b>Maestría</b> ${ms.got}/${ms.total}${ms.done ? ' · ¡conseguida!' : ''}</span><span class="nh-gbar"><i style="width:${pct(ms.got, ms.total)}%"></i></span>
+                                <small>${ms.done ? `Título «Maestro de ${esc(g.name)}» y marco Maestría` : 'Recompensa: título «Maestro de …», marco Maestría y 500 Rombos'}</small></div>` : ''; })()}
+                            ${A.near(2, g.id).length ? `<div class="ginfo-near"><b class="small">🎯 Casi lo tienes</b>${A.near(2, g.id).map(x => C.achievementCard(x.def, null, true)).join('')}</div>` : ''}
                             ${achs.length ? `<div class="ach-list">${achs.sort((a, b) => (!!unlocked[b.id] - !!unlocked[a.id]) || (A.RARITY[a.rarity].order - A.RARITY[b.rarity].order)).map(a => C.achievementCard(a, unlocked[a.id], true)).join('')}</div>` : C.empty('🏅', 'Sin logros propios', '')}
                         </section>
 

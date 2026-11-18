@@ -72,6 +72,8 @@
             name: String(i.name || 'Jugador').slice(0, 16),
             avatar: String(i.avatar || 'nx-nexo').slice(0, 32),   // id de avatar (o emoji de un cliente antiguo)
             color: /^#[0-9a-f]{6}$/i.test(i.color || '') ? i.color : '#8b5cf6',
+            title: String(i.title || '').slice(0, 40),                                   // título equipado (Logros · Colección)
+            frame: /^fr-[a-z0-9-]{1,30}$/.test(i.frame || '') ? i.frame : '',
             level: Math.max(1, Math.min(999, i.level | 0 || 1))
         };
     }

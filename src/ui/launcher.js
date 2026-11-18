@@ -108,6 +108,7 @@
                 });
             }
             Nexus.bus.on('progress:update', () => this.renderDaily());
+            Nexus.bus.on('rewards:change', () => this.renderUser());
             Nexus.bus.on('user:login', () => this.renderDaily());
             this.renderDaily();
         },
@@ -156,7 +157,8 @@
             const ring = $('#topbar-ring'); if (ring) ring.title = `Nivel ${lv.level} · ${formatNumber(lv.xp)} / ${formatNumber(lv.next)} XP`;
             const xp = $('#topbar-xp'); if (xp) xp.style.width = lv.pct + '%';
             const lvEl = $('#topbar-level'); if (lvEl) lvEl.textContent = `Nivel ${lv.level}`;
-            const av = $('#topbar-avatar'); if (av) { Nexus.ui.avatar.set(av, user.avatar, Nexus.ui.avatar.pick(38)); av.parentElement.style.setProperty('--user-color', Nexus.ui.avatar.accent(user.avatar)); }
+            const rb = $('#topbar-rombos-n'); if (rb && Nexus.services.rewards) rb.textContent = Nexus.util.formatNumber(Nexus.services.rewards.balance());
+            const av = $('#topbar-avatar'); if (av) { Nexus.ui.avatar.set(av, user.avatar, Nexus.ui.avatar.pick(38)); av.parentElement.style.setProperty('--user-color', Nexus.ui.avatar.accent(user.avatar)); Nexus.ui.avatar.applyFrame(av.parentElement); }
         },
         /** Miga de pan de la barra superior. */
         setCrumb(text) { const c = $('#page-crumb'); if (c) c.textContent = text; }

@@ -53,7 +53,25 @@
         achievements: {},   // { [idLogro]: timestamp }
         settings: {},       // sólo se guardan los valores cambiados
         meta: { playTime: 0, daysPlayed: 0, dayStreak: 0, bestDayStreak: 0, lastDay: null, updatedAt: 0 },
-        saves: {}           // partidas en curso por juego (p. ej. Wordle)
+        saves: {},          // partidas en curso por juego (p. ej. Wordle)
+        rewards: rewardsData()   // Rombos, misiones, temporada, cosméticos, escaparate (services/rewards.js)
+    });
+
+    /** Datos del sistema de recompensas. */
+    const rewardsData = () => ({
+        rombos: 0, earned: 0,                       // saldo y total ganado
+        day: { key: '', earned: 0 },                // tope diario de Rombos
+        log: [],                                    // últimos movimientos [{ at, n, why }]
+        missions: { day: '', list: [], rerolled: false, week: '', weekly: null, completed: 0,
+            streak: { count: 0, best: 0, last: '', freezeWeek: '' } },
+        season: { id: 0, earned: 0, level: 0, played: 0 },
+        cosmetics: { owned: [], equipped: {} },
+        shop: { week: '', bought: [] },
+        showcase: [], tracked: '',
+        mastery: {}, ranks: [], community: [],
+        today: { key: '', played: 0, games: [], records: [] },
+        nights: [], zeroes: 0, losing: 0, lostBefore: 0, weekendBoth: false, lastSat: '',
+        events: {}
     });
 
     /** Rellena campos que falten y corrige tipos. Seguro de llamar siempre. */
@@ -67,12 +85,19 @@
         d.xp.level = Math.max(1, d.xp.level | 0);
         d.xp.xp = Math.max(0, d.xp.xp | 0);
         d.xp.total = Math.max(0, d.xp.total | 0);
+        // Curva de nivel: el nivel siempre se deduce de la XP total (así las cuentas antiguas se migran solas)
+        if (Nexus.services && Nexus.services.progress && Nexus.services.progress.rebuildLevel) Nexus.services.progress.rebuildLevel(d);
+        const r = d.rewards;
+        for (const k of ['log', 'showcase', 'ranks', 'community', 'nights']) if (!Array.isArray(r[k])) r[k] = [];
+        if (!Array.isArray(r.cosmetics.owned)) r.cosmetics.owned = [];
+        if (!Array.isArray(r.missions.list)) r.missions.list = [];
+        r.rombos = Math.max(0, r.rombos | 0);
         return d;
     }
 
     Nexus.schema = {
         VERSION: SCHEMA_VERSION,
         DEFAULT_SETTINGS,
-        gameStats, modeStats, userData, normalize
+        gameStats, modeStats, userData, rewardsData, normalize
     };
 })();

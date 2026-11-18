@@ -32,10 +32,14 @@
             stats[g] = Object.assign(m(gs), { bestStreak: gs.bestStreak | 0, byMode });
             played += stats[g].played; wins += stats[g].wins;
         }
+        const rw = data.rewards || {}, eq = (rw.cosmetics || {}).equipped || {};
         return {
             id: user.id, name: user.name, avatar: user.avatar, color: user.color,
             level: data.xp.level, totalXP: data.xp.total, played, wins,
-            achievements: Object.keys(data.achievements || {}).length, stats
+            achievements: Object.keys(data.achievements || {}).length, stats,
+            ach: Object.keys(data.achievements || {}), points: rw.points | 0,
+            showcase: (rw.showcase || []).slice(0, 3), title: eq.title || '', frame: eq.frame || '',
+            season: { id: (rw.season || {}).id | 0, played: (rw.season || {}).played | 0 }
         };
     }
 

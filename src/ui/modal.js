@@ -186,20 +186,40 @@
             if (r.levelUp) line += ` · ¡Nivel ${r.newLevel}!`;
             parts.push(`<div class="modal-xp">${esc(line)}</div>`);
         }
+        const CEL = Nexus.ui.celebrate, RW = Nexus.services.rewards, ACH = Nexus.services.achievements;
         if (r.unlocked && r.unlocked.length) {
+            // Insignias que aparecen una a una, con el color de su rareza y lo que dan
             parts.push('<div class="modal-unlocks"><span class="modal-unlocks-title">Logros desbloqueados</span>' +
-                r.unlocked.map(a => `
-                <div class="unlock-row rarity-${esc(a.rarity)}"><span class="unlock-icon">${esc(a.icon)}</span>
-                    <span><strong>${esc(a.name)}</strong><small>${esc(a.desc)}</small></span></div>`).join('') + '</div>');
+                r.unlocked.map((a, i) => `
+                <div class="unlock-row rarity-${esc(a.rarity)}" style="animation-delay:${0.25 + i * 0.35}s">${CEL ? CEL.badge(a, 'sm') : `<span class="unlock-icon">${esc(a.icon)}</span>`}
+                    <span><strong>${esc(a.name)}</strong><small>${esc(a.desc)}</small>${CEL ? `<em class="unlock-reward">${CEL.rewardLine(a)}</em>` : ''}</span></div>`).join('') + '</div>');
+        }
+        // Misiones completadas en esta partida
+        const md = r.missions && r.missions.done;
+        if (md && md.length && RW) {
+            parts.push('<div class="modal-missions">' + md.map(m => `<span class="rw-mchip">${CEL ? CEL.diamond(14) : ''} Misión: ${esc(m.text)} <b>+${RW.MISSION_ROMBOS[m.tier]}</b></span>`).join('') +
+                (r.missions.streak ? `<span class="rw-mchip streak">Racha de misiones: ${r.missions.streak} días</span>` : '') + '</div>');
+        }
+        // «Casi lo tienes»: los logros más cercanos de este juego (o generales)
+        if (ACH && o.game !== false) {
+            const g = o.game || (r.game) || null;
+            const near = ACH.near(2, g).concat(g ? ACH.near(1) : []).filter((x, i, arr) => arr.findIndex(y => y.def.id === x.def.id) === i).slice(0, 2);
+            if (near.length) parts.push(`<div class="modal-near"><span class="modal-unlocks-title">Casi lo tienes</span>${near.map(x => {
+                const p = x.prog; const pc = Math.round(x.ratio * 100);
+                return `<div class="near-row"><span class="near-ic">${esc(x.def.icon)}</span><span class="near-txt"><b>${esc(x.def.name)}</b>
+                    <small>${p ? `${p.best ? esc(p.label || 'Mejor') + ': ' : ''}${Nexus.util.formatNumber(p.value)} / ${Nexus.util.formatNumber(p.target)}` : esc(x.def.desc)}</small></span>
+                    <span class="near-bar"><i style="width:${pc}%"></i></span></div>`; }).join('')}</div>`);
         }
 
         if (r.levelUp) Nexus.audio.play('levelup');
         else if (r.unlocked && r.unlocked.length) Nexus.audio.play('achievement');
 
-        return open({
+        const m = open({
             icon: o.emoji, title: o.title, titleClass: o.kind || '',
             className: 'modal-result' + (o.wide ? ' modal-wide' : ''), body: parts.join(''), actions: o.actions || []
         });
+        if (CEL && r.unlocked && r.unlocked.some(a => a.rarity === 'legendary')) setTimeout(() => CEL.burst(), 300);
+        return m;
     }
 
     Nexus.ui.modal = { open, confirm, prompt, closeAll, resultModal };

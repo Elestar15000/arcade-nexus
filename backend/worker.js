@@ -35,7 +35,7 @@ const NAME_RE = /^[A-Za-z0-9_-]{3,16}$/;
 
 // ── Avatares (copia de assets/avatars/manifest.js; la regenera  node tools/avatars/export.mjs --sync) ──
 // @avatars-begin
-const AVATAR_IDS = new Set(['nx-nexo', 'nx-gamepad', 'nx-crown', 'nx-gem', 'nx-star', 'nx-bolt', 'ar-joystick', 'ar-invader', 'ar-robot', 'ar-rocket', 'ar-snake', 'ar-blocks', 'ca-joker', 'ca-sota', 'ca-copas', 'ca-ace', 'ca-shark', 'ca-bluff', 'me-brain', 'me-owl', 'me-sphinx', 'me-wordsmith', 'me-archer', 'me-puzzle', 'es-knight', 'es-queen', 'es-captain', 'es-dragon', 'es-lion', 'es-paddle', 'mi-detective', 'mi-explorer', 'mi-alchemist', 'mi-astronaut', 'mi-pharaoh', 'mi-octopus', 'fa-fox', 'fa-panda', 'fa-frog', 'fa-unicorn', 'fa-phoenix', 'fa-axolotl']);
+const AVATAR_IDS = new Set(['nx-nexo', 'nx-gamepad', 'nx-crown', 'nx-gem', 'nx-star', 'nx-bolt', 'ar-joystick', 'ar-invader', 'ar-robot', 'ar-rocket', 'ar-snake', 'ar-blocks', 'ca-joker', 'ca-sota', 'ca-copas', 'ca-ace', 'ca-shark', 'ca-bluff', 'me-brain', 'me-owl', 'me-sphinx', 'me-wordsmith', 'me-archer', 'me-puzzle', 'es-knight', 'es-queen', 'es-captain', 'es-dragon', 'es-lion', 'es-paddle', 'mi-detective', 'mi-explorer', 'mi-alchemist', 'mi-astronaut', 'mi-pharaoh', 'mi-octopus', 'fa-fox', 'fa-panda', 'fa-frog', 'fa-unicorn', 'fa-phoenix', 'fa-axolotl', 'rw-nexo-gold', 'rw-pad-gold', 'rw-detective-gold', 'rw-crown-neon', 'rw-phoenix-gold', 'rw-legend', 'rw-ghost', 'rw-xmas']);
 const AVATAR_DEFAULT = 'nx-nexo';
 const AVATAR_LEGACY = {"🎮": "nx-gamepad", "🕹": "ar-joystick", "👾": "ar-invader", "🤖": "ar-robot", "🦊": "fa-fox", "🐱": "mi-detective", "🐼": "fa-panda", "🦁": "es-lion", "🐸": "fa-frog", "🐙": "mi-octopus", "🦄": "fa-unicorn", "🐲": "es-dragon", "🚀": "ar-rocket", "⚡": "nx-bolt", "🔥": "fa-phoenix", "💎": "nx-gem", "🎯": "me-archer", "🧠": "me-brain", "👑": "nx-crown", "🌟": "nx-star"};
 // @avatars-end
@@ -257,8 +257,32 @@ function sanitizeData(d) {
         achievements: isObj(d.achievements) ? plain(d.achievements) : {},
         settings: isObj(d.settings) ? plain(d.settings) : {},
         meta: isObj(d.meta) ? plain(d.meta) : {},
-        saves: isObj(d.saves) ? plain(d.saves) : {}
+        saves: isObj(d.saves) ? plain(d.saves) : {},
+        rewards: isObj(d.rewards) ? sanitizeRewards(d.rewards) : {}
     };
+}
+
+// ── Recompensas (Rombos, misiones, temporada, cosméticos) ─
+// El cliente es de confianza, pero se acotan tipos y tamaños y se ponen topes razonables
+const COSMETIC_RE = /^(?:fr|t|th|pt|bn|sk|av:rw)-[a-z0-9-]{1,40}$/;
+const ACH_RE = /^[a-z0-9_]{1,32}$/;
+const MAX_ROMBOS = 10000000;
+function sanitizeRewards(r) {
+    const out = plain(r);
+    out.rombos = clampInt(r.rombos, MAX_ROMBOS);
+    out.earned = Math.max(out.rombos, clampInt(r.earned, MAX_ROMBOS * 10));
+    out.points = clampInt(r.points, 1e7);
+    const cos = isObj(r.cosmetics) ? r.cosmetics : {};
+    const owned = (Array.isArray(cos.owned) ? cos.owned : []).filter((x) => typeof x === 'string' && COSMETIC_RE.test(x)).slice(0, 400);
+    const eq = {};
+    for (const [k, v] of Object.entries(isObj(cos.equipped) ? cos.equipped : {}).slice(0, 20)) if (KEY_RE.test(k) && (v === '' || (typeof v === 'string' && owned.includes(v)))) eq[k] = v;
+    out.cosmetics = { owned: [...new Set(owned)], equipped: eq };
+    out.showcase = (Array.isArray(r.showcase) ? r.showcase : []).filter((x) => typeof x === 'string' && ACH_RE.test(x)).slice(0, 3);
+    out.tracked = typeof r.tracked === 'string' && ACH_RE.test(r.tracked) ? r.tracked : '';
+    const s = isObj(r.season) ? r.season : {};
+    out.season = { id: clampInt(s.id, 9999), earned: clampInt(s.earned, MAX_ROMBOS), level: Math.min(30, clampInt(s.level, 30)), played: clampInt(s.played, 1e6) };
+    if (Array.isArray(out.log)) out.log = out.log.slice(0, 30);
+    return out;
 }
 const bestTime = (t) => (t === null || t === undefined || !Number.isFinite(Number(t)) || Number(t) < 0 ? null : Math.floor(Number(t)));
 const modeStats = (m) => ({ played: clampInt(m && m.played, 1e9), wins: clampInt(m && m.wins, 1e9), bestScore: clampInt(m && m.bestScore, 1e9), bestTime: bestTime(m && m.bestTime) });
@@ -272,10 +296,19 @@ function summarize(rec) {
         stats[g] = { ...modeStats(gs), bestStreak: clampInt(gs.bestStreak, 1e9), byMode };
         played += stats[g].played; wins += stats[g].wins;
     }
+    const rw = isObj(d.rewards) ? d.rewards : {}, eq = isObj(rw.cosmetics) && isObj(rw.cosmetics.equipped) ? rw.cosmetics.equipped : {};
+    const season = isObj(rw.season) ? rw.season : {};
     return {
         id: rec.id, name: rec.name, avatar: avatarId(rec.avatar), color: rec.color,
         level: d.xp.level, totalXP: d.xp.total, played, wins,
-        achievements: Object.keys(d.achievements).length, stats
+        achievements: Object.keys(d.achievements).length, stats,
+        // Para la rareza real, los puntos de logro, el escaparate y la meta de comunidad
+        ach: Object.keys(d.achievements).filter((k) => ACH_RE.test(k)).slice(0, 400),
+        points: clampInt(rw.points, 1e7),
+        showcase: (Array.isArray(rw.showcase) ? rw.showcase : []).filter((x) => typeof x === 'string' && ACH_RE.test(x)).slice(0, 3),
+        title: typeof eq.title === 'string' && COSMETIC_RE.test(eq.title) ? eq.title : '',
+        frame: typeof eq.frame === 'string' && COSMETIC_RE.test(eq.frame) ? eq.frame : '',
+        season: { id: clampInt(season.id, 9999), played: clampInt(season.played, 1e6) }
     };
 }
 

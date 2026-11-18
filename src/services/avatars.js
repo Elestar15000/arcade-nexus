@@ -55,6 +55,7 @@
             if (!a || !a.unlock) return true;
             const u = a.unlock;
             try {
+                if (u.reward) return !!(Nexus.services.rewards && Nexus.services.rewards.owns(u.reward));
                 if (u.level) return Nexus.services.progress.level().level >= u.level;
                 if (u.achievement) return !!(Nexus.services.users.data() || { achievements: {} }).achievements[u.achievement];
             } catch (e) { /* sin sesión todavía */ }
@@ -62,6 +63,10 @@
         },
         unlockText(a) {
             if (!a || !a.unlock) return '';
+            if (a.unlock.reward) {
+                const it = Nexus.services.rewards && Nexus.services.rewards.item(a.unlock.reward);
+                return it ? `${it.desc} ${it.price ? `También en la tienda (${it.price} Rombos).` : ''}`.trim() : 'Avatar de recompensa';
+            }
             if (a.unlock.level) return `Desbloquéalo al llegar al nivel ${a.unlock.level}`;
             if (a.unlock.achievement) {
                 const A = Nexus.services.achievements && Nexus.services.achievements.get(a.unlock.achievement);

@@ -117,7 +117,10 @@
             const card = $('#user-card');
             card.style.setProperty('--user-color', Nexus.ui.avatar.accent(user.avatar));
             Nexus.ui.avatar.set($('#user-avatar'), user.avatar, Nexus.ui.avatar.pick(42));
+            Nexus.ui.avatar.applyFrame($('#user-avatar').parentElement);
             $('#user-name').textContent = user.name;
+            const tt = $('#user-title'), title = Nexus.services.rewards ? Nexus.services.rewards.title() : '';
+            if (tt) { tt.textContent = title; tt.hidden = !title; }
             $('#user-rank').textContent = `${lv.rank.icon} ${lv.rank.name} · Nivel ${lv.level}`;
             $('#user-xp-fill').style.width = lv.pct + '%';
             $('#user-xp-text').textContent = `${Nexus.util.formatNumber(lv.xp)} / ${Nexus.util.formatNumber(lv.next)} XP`;

@@ -15,8 +15,10 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   (y las de Wordle y Pasapalabra) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
 - **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días. No hay exportación de datos.
-- **189 logros** (generales y de cada juego) con rareza, progreso y XP.
-- **Rankings globales** (general y por juego/modo/métrica).
+- **Logros 2.0**: 219 logros con escaleras Bronce → Nexus, secretos, de evento y Maestría por juego; rareza real (% de jugadores),
+  «Casi lo tienes», misiones diarias y semanales con racha, **Rombos**, pase de temporada gratuito, tienda semanal y cosméticos
+  (marcos, títulos, temas, partículas, fondos de perfil, aspectos de juego y avatares exclusivos). Ver [Logros y recompensas](#logros-y-recompensas).
+- **Rankings globales** (general, puntos de logro y por juego/modo/métrica) y comparación de logros con cualquier jugador.
 - **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
   de la barra lateral y opciones propias de cada juego.
 - **Barra lateral desplegable**: se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`,
@@ -37,12 +39,43 @@ Para un icono nuevo: dibújalo en `GLYPHS` y apúntalo en `EMOJI`.
 
 ## Avatares
 
-Cada cuenta lleva un avatar PNG de un catálogo de 42 en 7 colecciones (`assets/avatars/`, ver su
+Cada cuenta lleva un avatar PNG de un catálogo de 50 en 8 colecciones (la octava, «Recompensas», sólo se gana jugando) (`assets/avatars/`, ver su
 [README](assets/avatars/README.md)). Se eligen en un selector a pantalla completa con una fila por colección, al estilo
 Netflix (`src/ui/avatar-picker.js`): desde «Cambiar avatar» en el perfil o en el menú de la cuenta, y una vez al
 crear la cuenta. Al elegir uno se confirma con el actual y el nuevo lado a lado. La cuenta guarda el id (`fa-fox`) y el
 color de la cuenta es el del avatar. Las cuentas antiguas con emoji se traducen solas a su avatar equivalente, en la
 web y en el Worker. Si una imagen todavía no existe se ve el rombo de Nexus sobre el color de su colección.
+
+## Logros y recompensas
+
+`src/services/achievements.js` (logros) y `src/services/rewards.js` (todo lo demás); la interfaz está en Logros, con las
+pestañas **Logros · Misiones · Temporada · Tienda · Colección**, y las celebraciones en `src/ui/celebrate.js`.
+
+- **Rareza y recompensa**: común / raro / épico / legendario dan 25 / 60 / 120 / 300 XP, 10 / 25 / 60 / 150 Rombos y
+  10 / 25 / 50 / 100 puntos de logro. Con 20 jugadores o más la rareza se calcula con el % real que lo tiene (≥ 50 % común,
+  ≥ 20 % raro, ≥ 5 % épico, menos legendario) y se muestra en cada tarjeta.
+- **Escaleras**: los logros encadenados (partidas, victorias, nivel, días, rachas y marcas de cada juego) se ven como una sola
+  tarjeta con grados Bronce, Plata, Oro, Platino y Nexus.
+- **Casi lo tienes**: los logros más cercanos (en Inicio, en la ficha del juego y al terminar cada partida). Con 📌 se fija uno
+  para seguirlo. Los logros de marca enseñan tu mejor intento.
+- **Secretos** (12): se ven como «???» con una pista hasta conseguirlos. **De evento**: sólo en sus fechas (Halloween
+  25 oct – 2 nov, Navidad 20 dic – 6 ene) con premios exclusivos.
+- **Maestría**: todos los logros de un juego dan una corona en la biblioteca, 500 Rombos, el título «Maestro de …» y el
+  marco de maestría.
+- **Misiones**: 3 diarias (fácil, media, difícil; 20 / 40 / 70 Rombos) y 1 semanal (250), iguales para todos el mismo día. Se
+  puede cambiar una al día. Completar las tres mantiene la **racha** (premios a 3, 7 y 30 días; perdona un día por semana).
+- **Rombos**: la moneda, sólo cosmética. Se ganan con logros, misiones, rachas y temporada (×2 el fin de semana en logros y
+  misiones; tope de 3.000 al día). El saldo está en la barra superior.
+- **Temporada**: 6 semanas (la 1.ª empezó el 2 nov 2026), 30 niveles de 150 Rombos ganados con premio en cada uno. Meta de
+  comunidad: si entre todos se juegan 2.000 partidas, quien haya jugado esa temporada recibe un fondo y 300 Rombos.
+- **Tienda**: 6 artículos que cambian cada lunes. **Colección**: equipa marco, título, tema, partículas, fondo de perfil y
+  aspectos de Snake, Tetris, Ajedrez y cartas. Los rangos (niveles 5, 10, 15, 20, 25 y 30) también dan cosméticos.
+- **Perfil**: escaparate de hasta 3 logros (★ en cada tarjeta), título y fondo. Las legendarias se celebran a pantalla
+  completa con confeti y se pueden **compartir** como imagen PNG.
+- **Curva de XP**: crece un 12 % por nivel hasta un tope de 1.500 XP por nivel (nivel 20 ≈ 6.300 XP, 30 ≈ 19.300 XP).
+- **Servidor**: el Worker guarda `rewards` con topes (saldo, ids de cosméticos y logros, escaparate ≤ 3, nivel de pase ≤ 30) y
+  publica en el ranking sólo lo necesario: ids de logros (rareza real), puntos, escaparate, título, marco y partidas de la
+  temporada.
 
 ## Activar cuentas y rankings globales
 
@@ -351,13 +384,13 @@ partidas completas entre bots.
 index.html
 assets/
   css/        base · layout · components · pages · games/{minesweeper,wordle,pasapalabra,arcade,tetris,pacman,snake,pong,
-              online,chess,battleship,cards,puzzles,solitaire} · icons · avatars
+              online,chess,battleship,cards,puzzles,solitaire} · icons · avatars · library · rewards
   data/       words-es.js (diccionario)
   avatars/    manifest.js (catálogo) · una carpeta de PNG por colección
 src/
   core/       namespace, utils, events, storage, hash, schema, audio, backend (servidor / local), net (multijugador P2P)
-  services/   settings, users, avatars, progress, achievements, leaderboard, notices
-  ui/         icons, avatar, avatar-picker, toast, modal, fx, particles, components, sidebar, router, auth, pages/*
+  services/   settings, users, avatars, progress, achievements, rewards (Rombos, misiones, temporada, tienda), leaderboard, notices
+  ui/         icons, avatar, avatar-picker, toast, celebrate, modal, fx, particles, components, sidebar, router, auth, pages/*
   games/      registry.js · minesweeper/ · wordle/{dictionary,phrases,game}.js
               pasapalabra/{bank,game}.js
               shared/kit.js (canvas, bucle, táctil) · shared/online.js (vestíbulo online)
@@ -367,7 +400,7 @@ src/
 backend/      Cloudflare Worker (API sobre repo privado de GitHub) + README de despliegue
 config.js     URL del backend (API_URL)
 tests/        pruebas E2E (Playwright) y prueba del Worker (Node)
-tools/        avatars/export.mjs (prepara los PNG de avatar y sincroniza la lista con el Worker)
+tools/        avatars/export.mjs (prepara los PNG de avatar y sincroniza la lista con el Worker) · avatars/prompts-recompensas.md
 ```
 
 ## Añadir un juego
@@ -392,6 +425,7 @@ tools/        avatars/export.mjs (prepara los PNG de avatar y sincroniza la list
 pip install playwright && playwright install chromium
 python3 tests/e2e_smoke.py        # flujo completo + capturas
 python3 tests/e2e_accounts.py     # registro/login, sesión, partidas persistentes, ranking, borrar cuenta
+python3 tests/e2e_rewards.py      # Rombos, misiones, racha, temporada, tienda, cosméticos, escaleras, secretos, rareza real, celebraciones
 python3 tests/e2e_minesweeper.py
 python3 tests/e2e_pasapalabra.py  # rosco diario, dificultades, marca de tiempo, persistencia y migración
 python3 tests/e2e_wordle_phrase.py  # Frase del día: frase oculta, letras reveladas, 6 intentos, logros

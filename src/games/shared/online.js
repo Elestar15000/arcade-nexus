@@ -32,7 +32,9 @@
 
     function myInfo() {
         const u = Nexus.services.users.current() || {};
-        return { name: u.name || 'Jugador', avatar: u.avatar || '🎮', color: u.color || '#8b5cf6', level: Nexus.services.progress.level().level };
+        const RW = Nexus.services.rewards;
+        return { name: u.name || 'Jugador', avatar: u.avatar || '🎮', color: u.color || '#8b5cf6', level: Nexus.services.progress.level().level,
+            title: RW ? RW.title() : '', frame: RW ? RW.frame() : '' };
     }
 
     function copy(text, ok) {
@@ -291,6 +293,7 @@
                 <div class="ol-seat ${isMe ? 'me' : 'foe'}${rdy ? ' ready' : ''}">
                     <span class="ol-seat-av">${Nexus.ui.avatar.html(info.avatar)}</span>
                     <b>${esc(info.name)}${isMe ? ' <small>(tú)</small>' : ''}</b>
+                    ${info.title ? `<small class="rw-title-chip sm">${esc(info.title)}</small>` : ''}
                     <small>Nivel ${info.level || 1}${isHost ? ' · anfitrión' : ''}</small>
                     <span class="ol-seat-state">${rdy ? '✅ Listo' : '⏳ No listo'}</span>
                 </div>`;

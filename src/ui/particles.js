@@ -71,6 +71,9 @@
             const { ctx, canvas, particles } = this;
             const w = canvas.width, h = canvas.height;
             ctx.clearRect(0, 0, w, h);
+            // Efecto de fondo equipado en Colección (services/rewards.js): rombos dorados o estrellas fugaces
+            const mode = document.documentElement.dataset.particles || '';
+            if (mode === 'pt-estrellas') this.shooting(ctx, w, h);
 
             for (const p of particles) {
                 p.x += p.vx; p.y += p.vy;
@@ -85,11 +88,19 @@
                 }
                 p.vx *= 0.99; p.vy *= 0.99;
 
+                if (mode === 'pt-rombos') {
+                    const s = p.r * 2.6 + 2;
+                    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.PI / 4 + p.x * 0.002);
+                    ctx.fillStyle = `rgba(255, 212, 59, ${Math.min(0.55, p.alpha * 1.8)})`; ctx.fillRect(-s / 2, -s / 2, s, s);
+                    ctx.restore();
+                    continue;
+                }
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
                 ctx.fillStyle = `rgba(${this.colors[p.c]}, ${p.alpha})`;
                 ctx.fill();
             }
+            if (mode === 'pt-rombos') { requestAnimationFrame(() => this.loop(token)); return; }
 
             ctx.lineWidth = 0.5;
             for (let i = 0; i < particles.length; i++) {
@@ -106,6 +117,19 @@
                 }
             }
             requestAnimationFrame(() => this.loop(token));
+        }
+
+        /** Estrellas fugaces: estelas que cruzan el fondo de vez en cuando. */
+        shooting(ctx, w, h) {
+            this.stars = this.stars || [];
+            if (this.stars.length < 3 && Math.random() < 0.012) this.stars.push({ x: Math.random() * w * 0.8, y: Math.random() * h * 0.4, vx: 7 + Math.random() * 5, vy: 3 + Math.random() * 2, life: 1 });
+            for (const s of this.stars) {
+                s.x += s.vx; s.y += s.vy; s.life -= 0.012;
+                const g = ctx.createLinearGradient(s.x, s.y, s.x - s.vx * 12, s.y - s.vy * 12);
+                g.addColorStop(0, `rgba(255, 244, 200, ${Math.max(0, s.life)})`); g.addColorStop(1, 'rgba(255, 244, 200, 0)');
+                ctx.strokeStyle = g; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s.x, s.y); ctx.lineTo(s.x - s.vx * 12, s.y - s.vy * 12); ctx.stroke();
+            }
+            this.stars = this.stars.filter(s => s.life > 0 && s.x < w + 200 && s.y < h + 200);
         }
     }
 

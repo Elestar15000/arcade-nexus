@@ -68,21 +68,36 @@
             <div class="card-lock" aria-hidden="true">🔒</div>
         </div>`;
 
-    C.achievementCard = (def, unlockedAt, compact) => {
-        const R = Nexus.services.achievements.RARITY[def.rarity];
-        const prog = unlockedAt ? null : Nexus.services.achievements.progressOf(def);
-        const p = prog ? pct(prog.value, prog.target) : 0;
+    /**
+     * Tarjeta de logro. opts.actions: botones de seguir (bloqueados) y escaparate (desbloqueados).
+     * Los secretos bloqueados se ven como «???» con su pista.
+     */
+    C.achievementCard = (def, unlockedAt, compact, opts = {}) => {
+        const A = Nexus.services.achievements, RW = Nexus.services.rewards, CEL = Nexus.ui.celebrate;
+        const shown = A.rarityOf(def), R = A.RARITY[shown];
+        const secret = def.hidden && !unlockedAt;
+        const prog = unlockedAt || secret ? null : A.progressOf(def);
+        const p = prog ? (prog.best ? Math.round(A.ratioOf(def) * 100) : pct(prog.value, prog.target)) : 0;
+        const real = A.realPct(def.id);
+        const tracked = RW && RW.tracked() === def.id;
+        const pinned = RW && RW.showcase().includes(def.id);
+        const icon = secret ? '❔' : def.icon;
+        const reward = CEL ? CEL.rewardLine(def) : `+${def.xp} XP`;
+        const actions = opts.actions ? (unlockedAt
+            ? `<button type="button" class="ach-act${pinned ? ' on' : ''}" data-showcase="${esc(def.id)}" title="${pinned ? 'Quitar del escaparate' : 'Poner en el escaparate (máx. 3)'}" aria-pressed="${pinned}">${pinned ? '★' : '☆'}</button>`
+            : secret ? '' : `<button type="button" class="ach-act${tracked ? ' on' : ''}" data-track="${esc(def.id)}" title="${tracked ? 'Dejar de seguir' : 'Seguir este logro'}" aria-pressed="${tracked}">📌</button>`) : '';
         return `
-            <div class="ach-card rarity-${esc(def.rarity)} ${unlockedAt ? 'unlocked' : 'locked'}${compact ? ' compact' : ''}">
-                <div class="ach-icon">${unlockedAt ? esc(def.icon) : '🔒'}</div>
+            <div class="ach-card rarity-${esc(shown)} ${unlockedAt ? 'unlocked' : 'locked'}${secret ? ' secret' : ''}${compact ? ' compact' : ''}${tracked ? ' tracked' : ''}" data-ach="${esc(def.id)}">
+                <div class="ach-icon">${esc(icon)}${!unlockedAt && !secret ? '<i class="ach-lock" aria-hidden="true">🔒</i>' : ''}</div>
                 <div class="ach-body">
-                    <div class="ach-head"><strong>${esc(def.name)}</strong><span class="rarity-tag">${esc(R.label)}</span></div>
-                    <p>${esc(def.desc)}</p>
+                    <div class="ach-head"><strong>${secret ? '???' : esc(def.name)}</strong>
+                        <span class="rarity-tag">${secret ? 'Secreto' : esc(R.label)}${real !== null && !secret ? ` · ${real < 1 ? '<1' : Math.round(real)} %` : ''}</span>${def.window ? '<span class="rarity-tag ev">Evento</span>' : ''}${actions}</div>
+                    <p>${secret ? `<em>«${esc(def.hint || 'Logro secreto')}»</em>` : esc(def.desc)}</p>
                     ${unlockedAt
-                        ? `<small class="ach-meta">✔ ${esc(Nexus.util.formatDate(unlockedAt))} · +${def.xp} XP</small>`
+                        ? `<small class="ach-meta">✔ ${esc(Nexus.util.formatDate(unlockedAt))} · ${reward}</small>`
                         : prog
-                            ? `<div class="ach-progress">${C.progressBar(p)}<small>${formatNumber(prog.value)} / ${formatNumber(prog.target)}</small></div>`
-                            : `<small class="ach-meta">+${def.xp} XP</small>`}
+                            ? `<div class="ach-progress">${C.progressBar(p)}<small>${prog.best ? `${esc(prog.label || 'Mejor intento')}: ` : ''}${formatNumber(prog.value)} / ${formatNumber(prog.target)}</small></div>`
+                            : `<small class="ach-meta">${secret ? 'Descúbrelo jugando' : reward}</small>`}
                 </div>
             </div>`;
     };

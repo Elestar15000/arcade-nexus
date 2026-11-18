@@ -1,7 +1,7 @@
 /* ============================================================
    Ajedrez
    ============================================================ */
-.chess { --sq-light: #e6e1f5; --sq-dark: #8a7bc0; --ch-hl: rgba(253, 224, 71, .5); }
+.chess { --sq-light: var(--skin-sq-light, #e6e1f5); --sq-dark: var(--skin-sq-dark, #8a7bc0); --ch-hl: rgba(253, 224, 71, .5); }
 .ch-body { position: relative; flex: 1; min-height: 0; display: flex; gap: 14px; padding: 10px 14px 14px; overflow: hidden; }
 .ch-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
 .ch-board-wrap { position: relative; width: min(100%, calc(100vh - 250px), 680px); min-width: 260px; aspect-ratio: 1; }

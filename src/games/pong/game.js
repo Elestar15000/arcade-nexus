@@ -608,7 +608,9 @@
         // ── Online: vestíbulo ───────────────────────────────
         myInfo() {
             const u = Nexus.services.users.current() || {};
-            return { name: u.name || 'Jugador', avatar: u.avatar || '🎮', color: u.color || '#22d3ee', level: Nexus.services.progress.level().level };
+            const RW = Nexus.services.rewards;
+            return { name: u.name || 'Jugador', avatar: u.avatar || '🎮', color: u.color || '#22d3ee', level: Nexus.services.progress.level().level,
+                title: RW ? RW.title() : '', frame: RW ? RW.frame() : '' };
         }
 
         ensureLobby() {
@@ -812,6 +814,7 @@
                 <div class="pg-seat ${isMe ? 'me' : 'foe'}${rdy ? ' ready' : ''}">
                     <span class="pg-seat-av">${Nexus.ui.avatar.html(info.avatar)}</span>
                     <b>${esc(info.name)}${isMe ? ' <small>(tú)</small>' : ''}</b>
+                    ${info.title ? `<small class="rw-title-chip sm">${esc(info.title)}</small>` : ''}
                     <small>Nivel ${info.level || 1}${(isMe ? n.role : (n.role === 'host' ? 'guest' : 'host')) === 'host' ? ' · anfitrión' : ''}</small>
                     <span class="pg-seat-state">${rdy ? '✅ Listo' : '⏳ No listo'}</span>
                 </div>`;

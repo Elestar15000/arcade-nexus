@@ -16,7 +16,7 @@
             const L = Nexus.services.leaderboard;
             const me = Nexus.services.users.current();
             const games = Nexus.games.registry.available();
-            const tabs = [{ id: 'overall', label: '🌐 General' }]
+            const tabs = [{ id: 'overall', label: '🌐 General' }, { id: 'points', label: '🏅 Puntos de logro' }]
                 .concat(games.map(g => ({ id: g.id, label: `${g.emoji} ${g.name}` })));
             const state = { tab: Nexus.ui.rankingsTab && games.some(g => g.id === Nexus.ui.rankingsTab) ? Nexus.ui.rankingsTab : 'overall', mode: 'all', metric: null };
             Nexus.ui.rankingsTab = null;
@@ -34,7 +34,10 @@
                     <p class="muted small center" id="rk-note"></p>
                 </div>`;
 
-            const who = (u) => `<span class="player">${C.avatar(u, 'sm')}<span class="player-name">${esc(u.name)}${me && u.id === me.id ? ' <em>(tú)</em>' : ''}</span></span>`;
+            const RW = Nexus.services.rewards, A = Nexus.services.achievements;
+            const titleOf = (id) => { const it = id && RW && RW.item(id); return it ? it.name : ''; };
+            const showIcons = (ids) => (ids || []).map(id => A.get(id)).filter(Boolean).map(d => `<span class="rk-show rarity-${esc(d.rarity)}" title="${esc(d.name)}">${esc(d.icon)}</span>`).join('');
+            const who = (u, r) => `<button type="button" class="player rk-player" data-player="${esc(u.id)}" title="Comparar logros">${C.avatar(u, 'sm')}<span class="player-name">${esc(u.name)}${me && u.id === me.id ? ' <em>(tú)</em>' : ''}${r && r.title ? `<small class="rk-title">${esc(titleOf(r.title))}</small>` : ''}</span>${r ? `<span class="rk-shows">${showIcons(r.showcase)}</span>` : ''}</button>`;
             const posCell = (pos) => `<td class="col-pos">${MEDALS[pos - 1] || pos}</td>`;
             const rowCls = (u) => (me && u.id === me.id ? ' class="me"' : '');
 
@@ -44,7 +47,7 @@
                 if (!rows.length) return C.empty('🏆', 'Sin jugadores', 'Crea un perfil para aparecer en el ranking.');
                 return `<div class="table-wrap"><table class="table table-rank">
                     <thead><tr><th>#</th><th>Jugador</th><th>Rango</th><th class="num">XP total</th><th class="num">Victorias</th><th class="num">% vict.</th><th class="num">Logros</th></tr></thead>
-                    <tbody>${rows.map(r => `<tr${rowCls(r.user)}>${posCell(r.pos)}<td>${who(r.user)}</td>
+                    <tbody>${rows.map(r => `<tr${rowCls(r.user)}>${posCell(r.pos)}<td>${who(r.user, r)}</td>
                         <td>${esc(r.rank.icon)} ${esc(r.rank.name)} · Nv. ${r.level}</td>
                         <td class="num strong">${formatNumber(r.totalXP)}</td><td class="num">${r.wins}</td>
                         <td class="num">${r.winRate} %</td><td class="num">${r.achievements}</td></tr>`).join('')}</tbody></table></div>`;
@@ -78,12 +81,44 @@
                         <td class="num${hi('wins')}">${r.wins}</td><td class="num">${r.winRate} %</td><td class="num">${r.played}</td></tr>`).join('')}</tbody></table></div>`;
             };
 
+            const drawPoints = () => {
+                $('#rk-filters', root).innerHTML = '';
+                const rows = L.byPoints();
+                if (!rows.length) return C.empty('🏅', 'Sin jugadores', 'Desbloquea logros para sumar puntos.');
+                return `<div class="table-wrap"><table class="table table-rank">
+                    <thead><tr><th>#</th><th>Jugador</th><th class="num">Puntos</th><th class="num">Logros</th><th>Escaparate</th></tr></thead>
+                    <tbody>${rows.map(r => `<tr${rowCls(r.user)}>${posCell(r.pos)}<td>${who(r.user, Object.assign({}, r, { showcase: [] }))}</td>
+                        <td class="num strong">${formatNumber(r.points)}</td><td class="num">${r.achievements}</td><td><span class="rk-shows">${showIcons(r.showcase)}</span></td></tr>`).join('')}</tbody></table></div>
+                    <p class="muted small center">10 / 25 / 50 / 100 puntos por logro común / raro / épico / legendario. Pulsa un jugador para comparar.</p>`;
+            };
+
+            /** Comparar mis logros con los de otro jugador, juego a juego. */
+            const compare = (id) => {
+                const p = L.player(id); if (!p) return;
+                const mine = new Set(Object.keys(A.unlockedMap())), theirs = new Set(p.ach || []);
+                const groups = [{ id: 'general', name: 'General', emoji: '🌐' }].concat(games.map(g => ({ id: g.id, name: g.name, emoji: g.emoji })));
+                const rowsHtml = groups.map(g => {
+                    const list = A.all().filter(d => d.game === g.id && !d.window);
+                    if (!list.length) return '';
+                    const a = list.filter(d => mine.has(d.id)).length, b = list.filter(d => theirs.has(d.id)).length;
+                    return `<tr><td>${esc(g.emoji)} ${esc(g.name)}</td><td class="num${a > b ? ' strong hi' : ''}">${a}</td><td class="num${b > a ? ' strong hi' : ''}">${b}</td><td class="num muted">${list.length}</td></tr>`;
+                }).join('');
+                const onlyThem = A.all().filter(d => theirs.has(d.id) && !mine.has(d.id) && !d.hidden).slice(0, 6);
+                const body = document.createElement('div');
+                body.innerHTML = `<div class="rk-cmp-head">${C.avatar(p, 'lg')}<div><b>${esc(p.name)}</b>${p.title ? `<span class="rw-title-chip">${esc(titleOf(p.title))}</span>` : ''}
+                        <small class="muted">${formatNumber(p.points || 0)} puntos · ${p.achievements} logros</small><span class="rk-shows">${showIcons(p.showcase)}</span></div></div>
+                    <div class="table-wrap"><table class="table"><thead><tr><th>Juego</th><th class="num">Tú</th><th class="num">${esc(p.name)}</th><th class="num">Total</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
+                    ${onlyThem.length ? `<p class="small"><b>Tiene y tú no:</b> ${onlyThem.map(d => `${esc(d.icon)} ${esc(d.name)}`).join(' · ')}</p>` : ''}`;
+                Nexus.ui.modal.open({ title: 'Comparar logros', icon: '🏅', className: 'modal-wide', body, actions: [{ label: 'Cerrar', kind: 'primary' }] });
+            };
+            root.addEventListener('click', (e) => { const b = e.target.closest('[data-player]'); if (b) compare(b.dataset.player); });
+
             const draw = () => {
                 $$('.tab', root).forEach(t => {
                     const on = t.dataset.tab === state.tab;
                     t.classList.toggle('active', on); t.setAttribute('aria-selected', String(on));
                 });
-                $('#rk-table', root).innerHTML = (state.tab === 'overall' ? drawOverall() : drawGame());
+                $('#rk-table', root).innerHTML = (state.tab === 'overall' ? drawOverall() : state.tab === 'points' ? drawPoints() : drawGame());
             };
 
             $$('.tab', root).forEach(t => t.addEventListener('click', () => {

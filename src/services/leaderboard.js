@@ -23,6 +23,8 @@
             this.players = Array.isArray(r.players) ? r.players : [];
             this.updatedAt = r.updatedAt || Date.now();
             this.loadedAt = Date.now();
+            this.computeRarity();
+            const RW = Nexus.services.rewards; if (RW && RW.data()) RW.community(this.community().total);
         },
 
         /** Jugadores con mi fila actualizada con los datos locales. */
@@ -37,7 +39,8 @@
         overall() {
             const progress = Nexus.services.progress;
             const rows = this._all().map(p => ({
-                user: { id: p.id, name: p.name, avatar: p.avatar, color: p.color },
+                user: { id: p.id, name: p.name, avatar: p.avatar, color: p.color, frame: p.frame || '' },
+                title: p.title || '', showcase: p.showcase || [], points: p.points || 0,
                 level: p.level, totalXP: p.totalXP,
                 rank: progress.rankFor(p.level),
                 played: p.played, wins: p.wins,
@@ -47,6 +50,34 @@
             rows.sort((a, b) => b.totalXP - a.totalXP || b.wins - a.wins);
             return rows.map((r, i) => Object.assign(r, { pos: i + 1 }));
         },
+
+        /** Clasificación por puntos de logro. */
+        byPoints() {
+            const rows = this.overall().slice().sort((a, b) => b.points - a.points || b.achievements - a.achievements);
+            return rows.map((r, i) => Object.assign({}, r, { pos: i + 1 }));
+        },
+
+        /** % de jugadores que tienen cada logro (rareza real). */
+        computeRarity() {
+            const list = this._all().filter(p => Array.isArray(p.ach));
+            const count = {};
+            for (const p of list) for (const id of p.ach) count[id] = (count[id] || 0) + 1;
+            const pctMap = {};
+            for (const [id, n] of Object.entries(count)) pctMap[id] = n / Math.max(1, list.length) * 100;
+            if (Nexus.services.achievements) Nexus.services.achievements.setRealRarity(pctMap, list.length);
+            return pctMap;
+        },
+
+        /** Partidas de esta temporada entre todos (meta de comunidad). */
+        community() {
+            const RW = Nexus.services.rewards;
+            const sid = RW ? RW.seasonOf().id : 0;
+            const total = this._all().reduce((s, p) => s + (p.season && p.season.id === sid ? p.season.played | 0 : 0), 0);
+            return RW ? { total, goal: RW.COMMUNITY_GOAL, reached: total >= RW.COMMUNITY_GOAL } : { total, goal: 0, reached: false };
+        },
+
+        /** Resumen público de un jugador (para comparar). */
+        player(id) { return this._all().find(p => p.id === id) || null; },
 
         /**
          * Clasificación de un juego en un modo.
