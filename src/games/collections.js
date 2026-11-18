@@ -13,7 +13,7 @@
         { id: 'cartas', name: 'Cartas', emoji: '🃏', color: '#ef4444', desc: 'Baraja española y francesa: contra la máquina, con amigos online o en solitario.',
             games: ['guinote', 'brisca', 'chinchon', 'poker', 'mentiroso', 'solitaire'] },
         { id: 'mentales', name: 'Retos mentales', emoji: '🧠', color: '#a855f7', desc: 'Palabras, lógica y acertijos. Muchos con reto diario.',
-            games: ['wordle', 'pasapalabra', 'crossword', 'wordsearch', 'connections', 'sudoku', 'escape'] },
+            games: ['wordle', 'pasapalabra', 'crossword', 'wordsearch', 'connections', 'sudoku'] },
         { id: 'estrategia', name: 'Tablero y estrategia', emoji: '♟️', color: '#38bdf8', desc: 'Piensa cada movimiento: contra la IA o contra otra persona.',
             games: ['chess', 'battleship'] }
     ];
@@ -69,7 +69,6 @@
         }
         const pp = d.saves.pasapalabra && d.saves.pasapalabra.runs && d.saves.pasapalabra.runs.daily;
         if (R.get('pasapalabra')) { const done = !!(pp && pp.date === today && pp.status === 'over'); push('pasapalabra', { label: 'Rosco diario', done, text: done ? 'Jugado' : '25 definiciones; al final, tu marca de tiempo.' }); }
-        if (R.get('escape')) { const e = d.saves.escape && d.saves.escape.daily && d.saves.escape.daily[today]; const done = !!(e && e.won); push('escape', { label: 'Sala diaria', done, text: done ? `Escapaste en ${Nexus.util.formatTime(e.time)}` : 'Una sala nueva cada día. ¿Escaparás?' }); }
         for (const [gid, label, text] of [['sudoku', 'Sudoku diario', 'El mismo sudoku para todos.'], ['crossword', 'Crucigrama diario', 'Definiciones del Pasapalabra.'],
             ['wordsearch', 'Sopa diaria', 'Tema y sopa iguales para todos.'], ['connections', 'Conexiones del día', '16 palabras, 4 grupos.'], ['g2048', '2048 diario', 'Mismas fichas, 150 movimientos.'], ['solitaire', 'Solitario diario', 'El mismo reparto para todos.']]) {
             if (!R.get(gid)) continue;

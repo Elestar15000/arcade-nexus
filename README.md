@@ -15,13 +15,13 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   (y las de Wordle y Pasapalabra) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
 - **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días. No hay exportación de datos.
-- **199 logros** (generales y de cada juego) con rareza, progreso y XP.
+- **189 logros** (generales y de cada juego) con rareza, progreso y XP.
 - **Rankings globales** (general y por juego/modo/métrica).
 - **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
   de la barra lateral y opciones propias de cada juego.
 - **Barra lateral desplegable**: se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`,
   se pliega sola al jugar (configurable) y recuerda su estado.
-- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón**, **Escape Room**, los puzles **Sudoku**, **Crucigrama**,
+- **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón**, los puzles **Sudoku**, **Crucigrama**,
   **Sopa de letras**, **Conexiones** y **2048**, el **Solitario**, y los multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez**, **Hundir la flota** y los de cartas **Brisca**,
   **Guiñote**, **Chinchón**, **Póker** y **Mentiroso**.
 
@@ -288,28 +288,6 @@ Los cinco comparten una base (`src/games/shared/puzzle.js`): menú de modos, rel
 - **2048** — clásico 4×4, grande 5×5 (meta 4096), contrarreloj de 3 minutos y reto diario (misma secuencia de fichas para todos,
   150 movimientos). Deslizar o flechas/WASD, animaciones y 3 «deshacer» en los modos sin tiempo.
 
-## Escape Room
-
-Salas de escape por niveles: examina objetos, recoge cosas, combínalas en el inventario, descifra mensajes y abre candados de
-**cifras**, **letras**, **colores** o **flechas** antes de que se acabe el tiempo. Lo importante se apunta solo en el **cuaderno**.
-
-| Nivel | Salas | Tiempo | Pistas | Fallar un candado |
-|---|---|---|---|---|
-| Medio | 10 | 20 min | ilimitadas (−30 s) | sin penalización |
-| Difícil | 10 | 15 min | 3 (−1 min) | sin penalización |
-| Imposible | 10 | 12 min | 2 (−90 s) | −10 s |
-| Diaria | 1 al día | 15 min | 2 (−1 min) | −5 s |
-
-- Dentro de cada nivel, las salas se desbloquean en orden. Estrellas: ★★★ sin pistas y con al menos la mitad del tiempo.
-- Las pistas son contextuales: dicen lo siguiente que hay que hacer según lo que ya has resuelto.
-- **Sala diaria**: 10 diseños que rotan; cada día sus códigos, palabras y colores se generan con una semilla de la fecha
-  (la misma sala para todos ese día). Racha diaria y logros propios.
-- Puzles: horas de reloj, sumas y series, cifrado César, Morse, binario y ASCII, números romanos y mayas, teclado de teléfono,
-  texto en espejo, deducción lógica (quién miente, compartimentos del tren, Mastermind), rutas por cuadrículas, acertijos…
-- La partida a medias se guarda y se puede **continuar** al volver.
-- Contenido en `src/games/escape/` (`engine.js` motor puro, `rooms-*.js` salas, `daily.js` plantillas diarias).
-  `node tests/escape_rooms_test.mjs` comprueba que todas las salas (y las diarias de un año entero) se pueden resolver.
-
 ## Juegos de cartas: Brisca, Guiñote y Chinchón
 
 Baraja española de 40 cartas (sin ochos, nueves ni comodines), dibujada en SVG propio. Los tres se juegan **contra la máquina**
@@ -373,22 +351,23 @@ partidas completas entre bots.
 index.html
 assets/
   css/        base · layout · components · pages · games/{minesweeper,wordle,pasapalabra,arcade,tetris,pacman,snake,pong,
-              online,chess,battleship,cards,escape}
+              online,chess,battleship,cards,puzzles,solitaire} · icons · avatars
   data/       words-es.js (diccionario)
+  avatars/    manifest.js (catálogo) · una carpeta de PNG por colección
 src/
   core/       namespace, utils, events, storage, hash, schema, audio, backend (servidor / local), net (multijugador P2P)
-  services/   settings, users, progress, achievements, leaderboard
-  ui/         toast, modal, fx, particles, components, sidebar, router, auth, pages/*
+  services/   settings, users, avatars, progress, achievements, leaderboard, notices
+  ui/         icons, avatar, avatar-picker, toast, modal, fx, particles, components, sidebar, router, auth, pages/*
   games/      registry.js · minesweeper/ · wordle/{dictionary,phrases,game}.js
               pasapalabra/{bank,game}.js
               shared/kit.js (canvas, bucle, táctil) · shared/online.js (vestíbulo online)
               tetris/ · pacman/ · snake/ · pong/ · chess/{engine,game}.js · battleship/
               cardgames/{core,rules-tricks,rules-chinchon,table,games}.js
-              escape/{engine,rooms-medio,rooms-dificil,rooms-imposible,daily,game}.js
               shared/puzzle.js · sudoku/ · crossword/ · wordsearch/ · connections/{bank,game}.js · g2048/   app.js  arranque
 backend/      Cloudflare Worker (API sobre repo privado de GitHub) + README de despliegue
 config.js     URL del backend (API_URL)
 tests/        pruebas E2E (Playwright) y prueba del Worker (Node)
+tools/        avatars/export.mjs (prepara los PNG de avatar y sincroniza la lista con el Worker)
 ```
 
 ## Añadir un juego
@@ -429,11 +408,10 @@ node tests/chess_engine_test.mjs  # perft, reglas especiales, SAN, FEN y búsque
 node tests/battleship_ai_test.mjs # flotas válidas y fuerza de los 4 niveles de IA
 python3 tests/e2e_puzzles.py      # Sudoku, Crucigrama, Sopa, Conexiones y 2048: partidas con la interfaz, diarios, continuar, móvil
 node tests/puzzles_logic_test.mjs # generadores: sudoku único, crucigramas válidos, sopas, conexiones sin ambigüedad, lógica de 2048
-python3 tests/e2e_escape.py       # Escape Room: sala completa, candados, inventario, pistas, continuar, diaria, móvil
-node tests/escape_rooms_test.mjs  # todas las salas tienen salida (y las diarias de 365 días)
 node tests/cardgames_rules_test.mjs # reglas de Brisca, Guiñote y Chinchón con cientos de partidas entre bots
 node tests/cards_more_test.mjs     # Póker (manos, botes secundarios, partidas de bots), Mentiroso y lógica del Solitario
 node tests/worker_test.mjs        # API del Worker contra un GitHub falso en memoria
+node tests/avatars_test.mjs       # catálogo de avatares, equivalencias, lista del Worker e imágenes (--strict: exige todas)
 ```
 
 Las pruebas arrancan siempre en modo local (`tests/helpers.py` lo aplica a cada página), aunque `config.js` tenga `API_URL`.

@@ -478,7 +478,7 @@
     /* ─────────── Logotipos de juego (cada juego, su icono propio) ─────────── */
     const LOGOS = {
         minesweeper: 'bomb', wordle: 'wordle', pasapalabra: 'rosco', tetris: 'blocks', pacman: 'pacman', snake: 'snake',
-        escape: 'oldKey', sudoku: 'sudoku', crossword: 'crossword', wordsearch: 'wordsearch', connections: 'connections',
+        sudoku: 'sudoku', crossword: 'crossword', wordsearch: 'wordsearch', connections: 'connections',
         g2048: 'grid2048', solitaire: 'cardAce', pong: 'pingPong', chess: 'chessKnight', battleship: 'ship',
         brisca: 'copa', guinote: 'cards', chinchon: 'cardsFan', poker: 'spade', mentiroso: 'faceLiar'
     };
