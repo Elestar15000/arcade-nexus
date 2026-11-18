@@ -105,7 +105,7 @@
         build() {
             this.root.innerHTML = `
             <div class="game ax-game pong" style="--ax-accent:#22d3ee">
-                ${Kit.header({ emoji: '🏓', title: 'Pong Turbo', pills: [
+                ${Kit.header({ emoji: Nexus.ui.icons.logo('pong'), title: 'Pong Turbo', pills: [
                     { id: 'score', icon: '🏓', init: '0 – 0', title: 'Marcador' },
                     { id: 'rally', icon: '🔥', init: '0', title: 'Peloteo' },
                     { id: 'ping', icon: '📶', init: '–', title: 'Latencia' }] })}
@@ -1281,7 +1281,7 @@
                 ctx.font = `800 ${f.size}px Outfit, system-ui, sans-serif`;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.shadowColor = f.color; ctx.shadowBlur = 18;
-                ctx.fillStyle = '#fff'; ctx.fillText(f.text, f.x, f.y);
+                Nexus.ui.icons.fillRich(ctx, f.text, f.x, f.y, { color: '#fff' });
                 ctx.restore();
             }
 

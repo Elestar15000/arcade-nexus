@@ -406,7 +406,7 @@
             const s = this.spec;
             this.root.innerHTML = `
             <div class="game ax-game cg cg-${s.id}" style="--ax-accent:${s.accent};--ol-a:${s.accent};--ol-b:#fbbf24">
-                ${Kit.header({ emoji: s.emoji, title: s.name, pills: [
+                ${Kit.header({ emoji: Nexus.ui.icons.logo(s.id, s.emoji), title: s.name, pills: [
                     { id: 'turn', icon: '🎯', init: '–', title: 'Turno' },
                     { id: 'score', icon: '🏆', init: '–', title: 'Marcador' },
                     { id: 'ping', icon: '📶', init: '–', title: 'Latencia' }] })}
@@ -744,7 +744,7 @@
             const resumable = this.state === 'playing' && this.kind === 'cpu';
             this.overlay.hidden = false;
             this.overlay.innerHTML = `<div class="ax-panel">
-                <div class="cg-logo">${esc(s.emoji)} ${esc(s.title)}</div>
+                <div class="cg-logo">${esc(Nexus.ui.icons.logo(s.id, s.emoji))} ${esc(s.title)}</div>
                 <p class="ax-sub">${esc(s.tagline)}</p>
                 <div class="ch-choices">
                     <button type="button" class="ch-choice cg-choice" data-do="go-cpu"><span>🤖</span><strong>Contra la máquina</strong><small>${esc(s.cpuText)}</small></button>

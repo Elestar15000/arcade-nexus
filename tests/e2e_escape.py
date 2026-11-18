@@ -63,7 +63,7 @@ with sync_playwright() as p:
     item(page, 'llave'); obj(page, 'puerta')
     page.wait_for_selector('.modal-result', timeout=4000)
     check('ESCAPADO' in page.inner_text('.modal-result'), 'escapar: modal de victoria')
-    check('★' in page.inner_text('.modal-result'), 'la victoria muestra estrellas')
+    check(page.locator('.modal-result nx-ic[data-i=starFill]').count() > 0, 'la victoria muestra estrellas')
     page.screenshot(path=str(SHOTS / 'escape_win.png'))
     page.click('.modal-result button:has-text("Siguiente sala")'); page.wait_for_timeout(250)
     check(page.locator('[data-do=start][data-room=m2]').count() == 1, '«Siguiente sala» abre la sala 2')

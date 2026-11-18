@@ -23,6 +23,8 @@
     Nexus.games.registry = {
         register(def) {
             if (games.has(def.id)) throw new Error('Juego duplicado: ' + def.id);
+            // Cada juego se muestra con su logotipo de línea (ui/icons.js) en lugar de su emoji
+            if (Nexus.ui && Nexus.ui.icons) def = Object.assign({}, def, { emoji: Nexus.ui.icons.logo(def.id, def.emoji) });
             games.set(def.id, Object.assign({ tags: [], modes: [], metrics: [{ id: 'score', label: 'Puntuación' }] }, def));
         },
         get: (id) => games.get(id),

@@ -137,7 +137,7 @@
                 <div class="game pasapalabra">
                     <header class="game-header">
                         <a class="btn-back" href="#/library"><span class="back-arrow">←</span><span>Biblioteca</span></a>
-                        <div class="game-title"><span>🎡</span> Pasapalabra</div>
+                        <div class="game-title"><span>${Nexus.ui.icons.logo('pasapalabra')}</span> Pasapalabra</div>
                         <div class="game-header-stats">
                             <div class="pill" title="Aciertos"><span aria-hidden="true">✅</span><span class="pill-value" data-el="hOk">0</span></div>
                             <div class="pill" title="Fallos"><span aria-hidden="true">❌</span><span class="pill-value" data-el="hBad">0</span></div>

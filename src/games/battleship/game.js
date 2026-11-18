@@ -314,7 +314,7 @@
                 </div>`;
             this.root.innerHTML = `
             <div class="game ax-game battleship" style="--ax-accent:#38bdf8;--ol-a:#38bdf8;--ol-b:#f97316">
-                ${Kit.header({ emoji: '🚢', title: 'Hundir la flota', pills: [
+                ${Kit.header({ emoji: Nexus.ui.icons.logo('battleship'), title: 'Hundir la flota', pills: [
                     { id: 'shots', icon: '🎯', init: '0', title: 'Disparos' },
                     { id: 'acc', icon: '💥', init: '–', title: 'Precisión' },
                     { id: 'ping', icon: '📶', init: '–', title: 'Latencia' }] })}

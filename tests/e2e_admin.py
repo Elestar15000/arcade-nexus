@@ -90,7 +90,7 @@ with sync_playwright() as p:
     A.wait_for_selector('.adm-kpis')
     r = P.evaluate("async (c) => { try { await Nexus.backend.admin.login({ name: 'Jefe', password: 'clave-jefe', code: c }); return 'ok'; } catch (e) { return e.message; } }", used)
     check('ya se ha usado' in r, 'admin: un código no se puede usar dos veces')
-    check(A.locator('.adm-kpi').first.inner_text().startswith('👥') and '3' in A.locator('.adm-kpi').first.inner_text(), 'admin: el resumen cuenta las 3 cuentas')
+    check(A.locator('.adm-kpi').first.locator('nx-ic[data-i=users]').count() == 1 and '3' in A.locator('.adm-kpi').first.inner_text(), 'admin: el resumen cuenta las 3 cuentas')
     check('Serpiente' in A.inner_text('.adm-bars') or 'Snake' in A.inner_text('.adm-bars'), 'admin: juegos más jugados')
     check(A.evaluate("JSON.parse(sessionStorage.getItem('nexus-admin')).expiresAt - Date.now()") <= 30 * 60000, 'admin: sesión de 30 min en sessionStorage')
     A.screenshot(path=str(SHOTS / 'admin_overview.png'))

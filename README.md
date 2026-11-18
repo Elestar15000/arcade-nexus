@@ -25,6 +25,16 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   **Sopa de letras**, **Conexiones** y **2048**, el **Solitario**, y los multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez**, **Hundir la flota** y los de cartas **Brisca**,
   **Guiñote**, **Chinchón**, **Póker** y **Mentiroso**.
 
+## Iconos
+
+La interfaz no usa emojis: `src/ui/icons.js` tiene una librería de ~370 iconos de línea SVG (24×24, trazo 2, color del texto)
+y un mapa emoji → icono. El código puede seguir escribiendo emojis como identificadores (avatares guardados, pistas de las
+salas, logros…): un observador del DOM los cambia al vuelo por `<nx-ic>`, que guarda el emoji original oculto para que
+`textContent` no cambie. Los títulos, `aria-label`, `<option>` y `document.title` se limpian de emojis, los juegos de
+`<canvas>` dibujan los iconos con `Nexus.ui.icons.draw()` / `fillRich()`, y cada juego tiene su logotipo propio
+(`LOGOS`). Los textos para compartir (p. ej. la cuadrícula de Wordle) conservan sus emojis porque se pegan fuera de la web.
+Para un icono nuevo: dibújalo en `GLYPHS` y apúntalo en `EMOJI`.
+
 ## Activar cuentas y rankings globales
 
 1. Despliega el Worker siguiendo [`backend/README.md`](backend/README.md) (repo privado de datos + token + Worker).

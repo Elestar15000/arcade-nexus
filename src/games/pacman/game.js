@@ -81,6 +81,7 @@
         shock:  { icon: '💥', name: 'Onda',   weight: 12, dur: 4,  desc: 'Aturde 4 s a los enemigos en un radio de 5 casillas.' },
         warp:   { icon: '🌀', name: 'Salto',  weight: 10, dur: 0,  desc: 'Te teletransporta al punto más seguro del laberinto.' }
     };
+    Nexus.ui.icons.preload(Object.values(POWERS).map(p => p.icon), '#fde047');
 
     const MODES = [
         { id: 'classic', emoji: '🟡', label: 'Clásico', desc: '4 fantasmas, sin poderes. La receta de siempre.', lives: 3, items: 0 },
@@ -134,7 +135,7 @@
         build() {
             this.root.innerHTML = `
             <div class="game ax-game pacman" style="--ax-accent:#facc15">
-                ${Kit.header({ emoji: '🟡', title: 'Pac-Man Nexus', pills: [
+                ${Kit.header({ emoji: Nexus.ui.icons.logo('pacman'), title: 'Pac-Man Nexus', pills: [
                     { id: 'score', icon: '💎', init: '0', title: 'Puntos' },
                     { id: 'lives', icon: '❤️', init: '3', title: 'Vidas' },
                     { id: 'level', icon: '🏁', init: '1', title: 'Nivel' }] })}
@@ -917,8 +918,7 @@
                 const x = (it.tx + 0.5) * T, y = (it.ty + 0.5) * T + Math.sin(this.t * 4 + it.tx) * 1.5;
                 ctx.fillStyle = 'rgba(250,204,21,.18)'; ctx.beginPath(); ctx.arc(x, y, 11 + Math.sin(this.t * 5) * 1.5, 0, Math.PI * 2); ctx.fill();
                 ctx.strokeStyle = '#facc15'; ctx.lineWidth = 1.5; ctx.stroke();
-                ctx.font = '15px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
-                ctx.fillStyle = '#fff'; ctx.fillText(POWERS[it.kind].icon, x, y + 1);
+                Nexus.ui.icons.draw(ctx, POWERS[it.kind].icon, x, y, 14, '#fde047');
             }
 
             // Telegrafía del Saltarín
@@ -948,8 +948,7 @@
             ctx.font = '800 13px Orbitron, system-ui, sans-serif';
             for (const f of this.floaters) {
                 ctx.globalAlpha = Math.min(1, f.life * 1.5);
-                ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.8)'; ctx.strokeText(f.text, f.x, f.y);
-                ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
+                Nexus.ui.icons.fillRich(ctx, f.text, f.x, f.y, { stroke: 'rgba(0,0,0,.8)', lineWidth: 3, color: f.color });
             }
             ctx.globalAlpha = 1;
 
@@ -1034,7 +1033,7 @@
             // Marcas de tipo
             if (g.state !== 'eyes' && !fr) {
                 ctx.font = `${Math.floor(r * 0.7)}px system-ui, "Segoe UI Emoji", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                if (g.stun > 0) ctx.fillText('❄️', x, y - r * 1.15);
+                if (g.stun > 0) Nexus.ui.icons.draw(ctx, 'snowflake', x, y - r * 1.15, r * 0.9, '#7dd3fc');
                 else if (g.id === 'jumper') ctx.fillText('✦', x, y + r * 0.3);
                 else if (g.id === 'shadow') { ctx.fillStyle = 'rgba(15,23,42,.55)'; ctx.fillRect(x - r * 0.55, y + r * 0.2, r * 1.1, r * 0.22); }
             }

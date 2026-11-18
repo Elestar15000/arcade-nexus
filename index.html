@@ -11,6 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500..900&family=Inter:wght@400..700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="assets/css/base.css">
+    <link rel="stylesheet" href="assets/css/icons.css">
     <link rel="stylesheet" href="assets/css/layout.css">
     <link rel="stylesheet" href="assets/css/components.css">
     <link rel="stylesheet" href="assets/css/pages.css">
@@ -101,10 +102,10 @@
                     </label>
                     <div class="topbar-right">
                         <button id="topbar-daily" class="topbar-btn" type="button" aria-haspopup="dialog" aria-expanded="false" title="Retos de hoy">
-                            <span aria-hidden="true">📅</span><span class="topbar-btn-label">Retos</span><span class="topbar-badge" id="topbar-daily-badge" hidden></span>
+                            <span aria-hidden="true"><svg class="nx-ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><rect x="7" y="13" width="3.5" height="3.5" rx=".8" fill="currentColor" stroke="none"/></svg></span><span class="topbar-btn-label">Retos</span><span class="topbar-badge" id="topbar-daily-badge" hidden></span>
                         </button>
                         <a class="topbar-level" href="#/profile" title="Ver perfil" id="topbar-ring">
-                            <span class="tl-star" aria-hidden="true">⭐</span>
+                            <span class="tl-star" aria-hidden="true"><svg class="nx-ic" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z"/></svg></span>
                             <span class="tl-txt"><b id="topbar-level" class="chip">Nivel 1</b><span class="tl-bar"><i id="topbar-xp"></i></span></span>
                         </a>
                         <span class="topbar-sep" aria-hidden="true"></span>
@@ -130,6 +131,7 @@
     <!-- Núcleo -->
     <script src="src/core/namespace.js"></script>
     <script src="src/core/utils.js"></script>
+    <script src="src/ui/icons.js"></script>
     <script src="src/core/events.js"></script>
     <script src="src/core/storage.js"></script>
     <script src="src/core/hash.js"></script>

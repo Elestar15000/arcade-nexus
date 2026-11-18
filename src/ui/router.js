@@ -69,7 +69,7 @@
             }
 
             this.current = route;
-            document.title = `${title} · Nexus Arcade`;
+            document.title = `${Nexus.ui.icons.strip(title)} · Nexus Arcade`;
             const titleEl = document.getElementById('page-title');
             if (titleEl) titleEl.textContent = title;
             if (Nexus.ui.launcher) {

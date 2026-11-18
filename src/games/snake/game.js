@@ -103,7 +103,7 @@
         build() {
             this.root.innerHTML = `
             <div class="game ax-game snake" style="--ax-accent:#22c55e">
-                ${Kit.header({ emoji: '🐍', title: 'Snake Neón', pills: [
+                ${Kit.header({ emoji: Nexus.ui.icons.logo('snake'), title: 'Snake Neón', pills: [
                     { id: 'score', icon: '💎', init: '0', title: 'Puntos' },
                     { id: 'length', icon: '📏', init: '3', title: 'Longitud' },
                     { id: 'time', icon: '⏱️', init: '00:00', title: 'Tiempo' }] })}
@@ -979,8 +979,7 @@
             ctx.font = '800 17px Orbitron, system-ui, sans-serif';
             for (const f of this.floaters) {
                 ctx.globalAlpha = Math.min(1, f.life * 1.6);
-                ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.75)'; ctx.strokeText(f.text, f.x, f.y);
-                ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
+                Nexus.ui.icons.fillRich(ctx, f.text, f.x, f.y, { stroke: 'rgba(0,0,0,.75)', lineWidth: 4, color: f.color });
             }
             ctx.globalAlpha = 1;
             if (this.state === 'playing' && this.waiting) {
@@ -1035,9 +1034,7 @@
                 ctx.beginPath(); ctx.arc(ex + d.x * CELL * 0.04, ey + d.y * CELL * 0.04, CELL * 0.065, 0, Math.PI * 2); ctx.fill();
             }
             if (!isRival && this.fx.confuse > 0) {
-                ctx.font = `${CELL * 0.7}px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText('💫', hx, hy - CELL * 0.8);
+                Nexus.ui.icons.draw(ctx, 'dizzy', hx, hy - CELL * 0.8, CELL * 0.75, '#f9a8d4');
             }
             ctx.restore();
         }
@@ -1052,10 +1049,7 @@
             const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, CELL * 0.8);
             glow.addColorStop(0, Kit.rgba(def.color, 0.45)); glow.addColorStop(1, Kit.rgba(def.color, 0));
             ctx.fillStyle = glow; ctx.fillRect(cx - CELL, cy - CELL, CELL * 2, CELL * 2);
-            ctx.font = `${Math.floor(CELL * 0.72 * pulse * Math.min(1, age * 5 + 0.3))}px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillStyle = '#fff';
-            ctx.fillText(def.emoji, cx, cy + 1);
+            Nexus.ui.icons.draw(ctx, def.emoji, cx, cy, Math.floor(CELL * 0.74 * pulse * Math.min(1, age * 5 + 0.3)), Kit.mix(def.color, '#ffffff', 0.25));
             if (f.max) {
                 ctx.strokeStyle = Kit.rgba(def.color, 0.9); ctx.lineWidth = 2;
                 ctx.beginPath(); ctx.arc(cx, cy, CELL * 0.46, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, f.ttl / f.max)); ctx.stroke();

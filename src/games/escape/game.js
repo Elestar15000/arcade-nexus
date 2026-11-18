@@ -68,7 +68,7 @@
         build() {
             this.root.innerHTML = `
             <div class="game ax-game er" style="--ax-accent:#f59e0b">
-                ${Kit.header({ emoji: '🗝️', title: 'Escape Room', pills: [
+                ${Kit.header({ emoji: Nexus.ui.icons.logo('escape'), title: 'Escape Room', pills: [
                     { id: 'time', icon: '⏳', init: '–', title: 'Tiempo restante' },
                     { id: 'hints', icon: '💡', init: '–', title: 'Pistas usadas' },
                     { id: 'room', icon: '🚪', init: '–', title: 'Sala' }] })}

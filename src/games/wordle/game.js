@@ -119,7 +119,7 @@
                 <div class="game wordle">
                     <header class="game-header">
                         <a class="btn-back" href="#/library"><span class="back-arrow">←</span><span>Biblioteca</span></a>
-                        <div class="game-title"><span>🔤</span> Wordle ES</div>
+                        <div class="game-title"><span>${Nexus.ui.icons.logo('wordle')}</span> Wordle ES</div>
                         <div class="game-header-stats">
                             <div class="pill"><span aria-hidden="true">⏱️</span><span class="pill-value" data-el="timer">00:00</span></div>
                             <div class="pill"><span class="pill-label">Intento</span><span class="pill-value" data-el="attempt">1/${MAX_TRIES}</span></div>

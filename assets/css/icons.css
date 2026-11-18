@@ -1,0 +1,30 @@
+/* ============================================================
+   NEXUS ARCADE · icons.css — Iconos de línea (ui/icons.js)
+   Cada emoji de la interfaz se pinta como <nx-ic>: un SVG del
+   tamaño de la letra que hereda el color del texto.
+   ============================================================ */
+nx-ic {
+    display: inline-block;
+    width: 1.12em;
+    height: 1.12em;
+    vertical-align: -0.2em;
+    line-height: 1;
+    flex: none;
+    color: var(--nx-tone, currentColor);
+    pointer-events: none;
+}
+nx-ic > svg { display: block; width: 100%; height: 100%; overflow: visible; }
+nx-src { display: none !important; }
+.nx-ic { vertical-align: -0.16em; flex: none; }
+
+/* Iconos que hacen de «ilustración» (portadas, cabeceras, estados vacíos):
+   trazo algo más fino para que no se vean pesados a tamaño grande */
+.cover-emoji nx-ic, .card-emoji nx-ic, .lc-emoji nx-ic, .ginfo-ghost nx-ic, .nh-gamegem nx-ic,
+.empty-emoji nx-ic, .er-intro-emo nx-ic, .pp-intro-emoji nx-ic, .modal-icon nx-ic, .ax-over-emoji nx-ic,
+.lc-pattern nx-ic, .ach-icon nx-ic, .diff-emoji nx-ic {
+    --nx-sw: 1.6;
+}
+nx-ic svg { stroke-width: var(--nx-sw, 2); }
+
+/* Monedas de color (🟩 🟨 …) y puntos de estado: un poco más pequeños que el texto */
+nx-ic[data-i="sq"], nx-ic[data-i="dot"], nx-ic[data-i="dotOutline"] { width: 1em; height: 1em; vertical-align: -0.14em; }

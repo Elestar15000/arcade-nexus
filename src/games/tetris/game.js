@@ -62,6 +62,7 @@
         ice:   { icon: '❄️', name: 'Hielo',  weight: 20, desc: 'Congela la caída durante 6 s.' },
         star:  { icon: '⭐', name: 'Estrella', weight: 25, desc: 'Duplica los puntos de las 3 próximas limpiezas.' }
     };
+    Nexus.ui.icons.preload(Object.values(POWERS).map(p => p.icon), '#ffffff');
 
     const MODES = [
         { id: 'normal',  emoji: '🧱', label: 'Normal',  desc: 'El Tetris de siempre: sin poderes ni energía. Sin fin.', powerChance: 0, plain: true },
@@ -125,7 +126,7 @@
         build() {
             this.root.innerHTML = `
             <div class="game ax-game tetris" style="--ax-accent:#a855f7">
-                ${Kit.header({ emoji: '🧩', title: 'Tetris Fusion', pills: [
+                ${Kit.header({ emoji: Nexus.ui.icons.logo('tetris'), title: 'Tetris Fusion', pills: [
                     { id: 'score', icon: '💎', init: '0', title: 'Puntos' },
                     { id: 'lines', icon: '📏', init: '0', title: 'Líneas' },
                     { id: 'time', icon: '⏱️', init: '00:00', title: 'Tiempo' }] })}
@@ -816,10 +817,7 @@
                 const pulse = 0.55 + 0.45 * Math.sin(this.t * 6);
                 ctx.strokeStyle = `rgba(255,255,255,${0.55 + pulse * 0.4})`; ctx.lineWidth = Math.max(1.5, s * 0.07);
                 Kit.roundRect(ctx, x + pad * 2, y + pad * 2, s - pad * 4, s - pad * 4, s * 0.12); ctx.stroke();
-                ctx.font = `${Math.floor(s * 0.6)}px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#fff';
-                ctx.fillText(POWERS[power].icon, x + s / 2, y + s / 2 + s * 0.04);
+                Nexus.ui.icons.draw(ctx, POWERS[power].icon, x + s / 2, y + s / 2, s * 0.58, '#ffffff');
             }
             ctx.globalAlpha = 1;
         }
@@ -902,8 +900,7 @@
             ctx.font = '800 20px Orbitron, system-ui, sans-serif';
             for (const f of this.floaters) {
                 ctx.globalAlpha = Math.min(1, f.life * 1.4);
-                ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.75)'; ctx.strokeText(f.text, f.x, f.y);
-                ctx.fillStyle = f.color; ctx.fillText(f.text, f.x, f.y);
+                Nexus.ui.icons.fillRich(ctx, f.text, f.x, f.y, { stroke: 'rgba(0,0,0,.75)', lineWidth: 4, color: f.color });
             }
             ctx.globalAlpha = 1;
             ctx.restore();

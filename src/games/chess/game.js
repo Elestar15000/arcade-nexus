@@ -125,7 +125,7 @@
         build() {
             this.root.innerHTML = `
             <div class="game ax-game chess" style="--ax-accent:#a78bfa;--ol-a:#e2e8f0;--ol-b:#a78bfa">
-                ${Kit.header({ emoji: '♟️', title: 'Ajedrez', pills: [
+                ${Kit.header({ emoji: Nexus.ui.icons.logo('chess'), title: 'Ajedrez', pills: [
                     { id: 'turn', icon: '⚪', init: 'Blancas', title: 'Turno' },
                     { id: 'move', icon: '#', init: '1', title: 'Jugada' },
                     { id: 'ping', icon: '📶', init: '–', title: 'Latencia' }] })}

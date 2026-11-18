@@ -68,7 +68,7 @@
             const c = this.cfg, L = this.layout();
             this.root.innerHTML = `
             <div class="game ax-game pz pz-${c.id}" style="--ax-accent:${c.accent}">
-                ${Kit.header({ emoji: c.emoji, title: c.name, pills: [{ id: 'time', icon: '⏱️', init: '0:00', title: 'Tiempo' }, ...(c.pills || [])] })}
+                ${Kit.header({ emoji: Nexus.ui.icons.logo(c.id, c.emoji), title: c.name, pills: [{ id: 'time', icon: '⏱️', init: '0:00', title: 'Tiempo' }, ...(c.pills || [])] })}
                 <div class="pz-body">
                     <div class="pz-main">${L.main}</div>
                     <aside class="pz-side">
@@ -112,7 +112,7 @@
             const drec = s.daily[today];
             this.overlay.hidden = false;
             this.overlay.innerHTML = `<div class="ax-panel pz-menu">
-                <div class="pz-logo">${esc(c.emoji)} ${esc(c.name.toUpperCase())}</div>
+                <div class="pz-logo">${esc(Nexus.ui.icons.logo(c.id, c.emoji))} ${esc(c.name.toUpperCase())}</div>
                 <p class="ax-sub">${esc(c.tagline)}</p>
                 ${run ? `<div class="pz-resume"><span>⏯ Partida a medias: <b>${esc((c.modes.find(m => m.id === run.mode) || {}).label || '')}</b> · ${formatTime(run.elapsed || 0)}</span>
                     <button class="btn btn-primary btn-glow" data-do="resume" type="button">Continuar</button></div>` : ''}

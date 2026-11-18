@@ -1162,7 +1162,7 @@
                 <div class="game minesweeper">
                     <header class="game-header">
                         <a class="btn-back" href="#/library"><span class="back-arrow">←</span><span>Biblioteca</span></a>
-                        <div class="game-title"><span>💣</span> Buscaminas Quantum</div>
+                        <div class="game-title"><span>${Nexus.ui.icons.logo('minesweeper')}</span> Buscaminas Quantum</div>
                         <div class="game-header-stats">
                             <div class="pill stat-score"><span aria-hidden="true">💎</span><span class="pill-value" id="display-score">0</span></div>
                             <div class="pill stat-timer"><span aria-hidden="true">⏱️</span><span class="pill-value" id="display-timer">00:00</span></div>
