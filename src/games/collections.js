@@ -8,16 +8,37 @@
     'use strict';
 
     const COLLECTIONS = [
-        { id: 'clasicos', name: 'Clásicos', emoji: '🕹️', color: '#f97316', desc: 'Los arcades de toda la vida, con un toque moderno.',
+        { id: 'clasicos', name: 'Clásicos', emoji: '🕹️', color: '#FF914D', desc: 'Los arcades de toda la vida, con un toque moderno.',
             games: ['tetris', 'pacman', 'snake', 'minesweeper', 'pong', 'g2048'] },
-        { id: 'cartas', name: 'Cartas', emoji: '🃏', color: '#ef4444', desc: 'Baraja española y francesa: contra la máquina, con amigos online o en solitario.',
+        { id: 'cartas', name: 'Cartas', emoji: '🃏', color: '#FF6584', desc: 'Baraja española y francesa: contra la máquina, con amigos online o en solitario.',
             games: ['guinote', 'brisca', 'chinchon', 'poker', 'mentiroso', 'solitaire'] },
-        { id: 'mentales', name: 'Retos mentales', emoji: '🧠', color: '#a855f7', desc: 'Palabras, lógica y acertijos. Muchos con reto diario.',
-            games: ['wordle', 'pasapalabra', 'crossword', 'wordsearch', 'connections', 'sudoku'] },
-        { id: 'estrategia', name: 'Tablero y estrategia', emoji: '♟️', color: '#38bdf8', desc: 'Piensa cada movimiento: contra la IA o contra otra persona.',
+        { id: 'mentales', name: 'Retos mentales', emoji: '🧠', color: '#A879FF', desc: 'Palabras, lógica y acertijos. Muchos con reto diario.',
+            games: ['wordle', 'pasapalabra', 'crossword', 'wordsearch', 'connections', 'sudoku', 'escape'] },
+        { id: 'estrategia', name: 'Tablero y estrategia', emoji: '♟️', color: '#4B8DFF', desc: 'Piensa cada movimiento: contra la IA o contra otra persona.',
             games: ['chess', 'battleship'] }
     ];
     const OTHER = { id: 'otros', name: 'Otros', emoji: '✨', color: '#94a3b8', desc: 'Más juegos de la colección.', games: [] };
+
+    /** Degradados de ficha de la marca (claro → oscuro). Cada juego tiene el suyo en Inicio y en la Biblioteca. */
+    const PALETTE = {
+        violet: ['#7b4dff', '#3a1d9a'], blue: ['#2196f3', '#0b4aa8'], green: ['#2fbf5b', '#0d6b33'], orange: ['#ff8a2a', '#b74708'],
+        royal: ['#3d74ff', '#1c3bb8'], purple: ['#a046ff', '#5a1fa6'], pink: ['#ff4f86', '#a3164a'], teal: ['#16b9a5', '#0a6a60'],
+        yellow: ['#ffbe1a', '#b36b00'], red: ['#ff5a4f', '#a51f1f'], cyan: ['#1fc3ec', '#0a648a']
+    };
+    const GAME_TILE = {
+        chess: 'violet', solitaire: 'blue', snake: 'green', minesweeper: 'orange', g2048: 'royal', tetris: 'purple',
+        poker: 'teal', wordle: 'green', pacman: 'yellow', battleship: 'blue', sudoku: 'royal', pong: 'cyan',
+        crossword: 'violet', wordsearch: 'teal', connections: 'purple', pasapalabra: 'orange', escape: 'yellow',
+        brisca: 'yellow', guinote: 'red', chinchon: 'green', mentiroso: 'pink'
+    };
+    const ORDER = Object.keys(PALETTE);
+    /** [claro, oscuro] de la ficha de un juego (los que no están en la tabla reciben uno fijo según su id). */
+    function tileColors(g) {
+        const id = typeof g === 'string' ? g : g.id;
+        if (GAME_TILE[id]) return PALETTE[GAME_TILE[id]];
+        let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+        return PALETTE[ORDER[h % ORDER.length]];
+    }
 
     const isOnline = (g) => g.modes.some(m => m.id === 'online');
     const isDaily = (g) => g.modes.some(m => /diari|daily|phrase/.test(m.id));
@@ -35,8 +56,8 @@
     // Favoritos (se guardan con los datos del usuario)
     const prefs = () => {
         const d = Nexus.services.users.data();
-        if (!d) return { favs: [], sort: 'col' };
-        if (!d.saves.library) d.saves.library = { favs: [], sort: 'col' };
+        if (!d) return { favs: [], sort: 'played', view: 'grid' };
+        if (!d.saves.library) d.saves.library = { favs: [], sort: 'played', view: 'grid' };
         if (!Array.isArray(d.saves.library.favs)) d.saves.library.favs = [];
         return d.saves.library;
     };
@@ -69,6 +90,7 @@
         }
         const pp = d.saves.pasapalabra && d.saves.pasapalabra.runs && d.saves.pasapalabra.runs.daily;
         if (R.get('pasapalabra')) { const done = !!(pp && pp.date === today && pp.status === 'over'); push('pasapalabra', { label: 'Rosco diario', done, text: done ? 'Jugado' : '25 definiciones; al final, tu marca de tiempo.' }); }
+        if (R.get('escape')) { const e = d.saves.escape && d.saves.escape.daily && d.saves.escape.daily[today]; const done = !!(e && e.won); push('escape', { label: 'Sala diaria', done, text: done ? `Escapaste en ${Nexus.util.formatTime(e.time)}` : 'Una sala nueva cada día. ¿Escaparás?' }); }
         for (const [gid, label, text] of [['sudoku', 'Sudoku diario', 'El mismo sudoku para todos.'], ['crossword', 'Crucigrama diario', 'Definiciones del Pasapalabra.'],
             ['wordsearch', 'Sopa diaria', 'Tema y sopa iguales para todos.'], ['connections', 'Conexiones del día', '16 palabras, 4 grupos.'], ['g2048', '2048 diario', 'Mismas fichas, 150 movimientos.'], ['solitaire', 'Solitario diario', 'El mismo reparto para todos.']]) {
             if (!R.get(gid)) continue;
@@ -79,5 +101,5 @@
         return out;
     }
 
-    Nexus.games.collections = { list: COLLECTIONS, other: OTHER, of, withGames, isOnline, isDaily, prefs, favs, isFav, toggleFav, dailies };
+    Nexus.games.collections = { list: COLLECTIONS, other: OTHER, of, withGames, isOnline, isDaily, prefs, favs, isFav, toggleFav, dailies, tileColors, PALETTE };
 })();

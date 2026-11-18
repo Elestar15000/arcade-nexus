@@ -16,9 +16,8 @@
     const R = () => Nexus.games.registry;
     const B = () => Nexus.ui.brand;
 
-    /** Juegos destacados y su color de ficha (violeta, azul, verde, naranja, azul y morado). */
+    /** Juegos destacados (el color de cada ficha sale de games/collections.js: tileColors). */
     const FEATURED = ['chess', 'solitaire', 'snake', 'minesweeper', 'g2048', 'tetris', 'poker', 'wordle', 'pacman', 'battleship', 'sudoku', 'pong'];
-    const TILE = [['#7b4dff', '#3a1d9a'], ['#2196f3', '#0b4aa8'], ['#2fbf5b', '#0d6b33'], ['#ff8a2a', '#b74708'], ['#3d74ff', '#1c3bb8'], ['#a046ff', '#5a1fa6']];
     /** Color de cada categoría (secundarios de la marca). */
     const CAT = { clasicos: ['#FF914D', '🕹️'], cartas: ['#FF6584', '🃏'], mentales: ['#A879FF', '🧩'], estrategia: ['#4B8DFF', '♟️'] };
 
@@ -29,7 +28,7 @@
 
     /** Ficha de juego de colores (como en el diseño): icono grande sobre degradado y nombre. */
     function tile(g, i, sub) {
-        const [a, b] = TILE[i % TILE.length];
+        const [a, b] = CO().tileColors(g);
         return `<a class="nh-tile" href="#/game/${esc(g.id)}" style="--ta:${a};--tb:${b}" title="${esc(g.name)} · ${esc(g.tagline || '')}">
             <span class="nh-tile-spot" aria-hidden="true"></span>
             <span class="nh-tile-ic" aria-hidden="true">${esc(g.emoji)}</span>
@@ -180,6 +179,8 @@
                 </div>`;
 
             Nexus.ui.launcher.bindRows(root);
+            // Una categoría abre la biblioteca con esa colección seleccionada
+            $$('.nh-cat[data-col]', root).forEach(a => a.addEventListener('click', () => { Nexus.ui.gotoCollection = a.dataset.col; }));
 
             // Carrusel del banner
             const car = $('#hcar', root);
