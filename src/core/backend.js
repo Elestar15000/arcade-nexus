@@ -93,7 +93,9 @@
     const hash = Nexus.core.hash;
     const db = () => store.get('ldb', { users: [] });
     const saveDb = (d) => store.set('ldb', d);
-    const pub = (r) => Object.assign({ id: r.id, name: r.name, avatar: r.avatar, color: r.color, createdAt: r.createdAt }, isLocalAdmin(r.name) ? { admin: true } : {});
+    // Avatar: id del catálogo PNG; las cuentas locales antiguas guardan un emoji y se traducen al leerlas o guardarlas
+    const avId = (v) => Nexus.services.avatars ? Nexus.services.avatars.resolve(v) : v;
+    const pub = (r) => Object.assign({ id: r.id, name: r.name, avatar: avId(r.avatar), color: r.color, createdAt: r.createdAt }, isLocalAdmin(r.name) ? { admin: true } : {});
     // Administración en modo local: config.js → LOCAL_ADMIN: { users: ['Ana'], key: 'clave' } (sólo para desarrollo)
     const localAdminCfg = () => window.NEXUS_LOCAL_ADMIN || (window.NEXUS_CONFIG || {}).LOCAL_ADMIN || null;
     const isLocalAdmin = (name) => { const c = localAdminCfg(); return !!(c && Array.isArray(c.users) && c.users.some(u => String(u).toLowerCase() === String(name).toLowerCase())); };
@@ -168,7 +170,7 @@
             { const m = adminState(d).maintenance; if (m.on) throw maintFail(m); }
             if (d.users.some(u => u.name.toLowerCase() === String(name).toLowerCase())) throw fail(409, 'Ese nombre de usuario ya está en uso.');
             const salt = hash.randomSalt(), now = Date.now();
-            const rec = { id: Nexus.util.uid(), name, avatar, color, salt, hash: hash.hashPassword(password, salt),
+            const rec = { id: Nexus.util.uid(), name, avatar: avId(avatar), color, salt, hash: hash.hashPassword(password, salt),
                 tokenVersion: 1, createdAt: now, updatedAt: now, data: Nexus.schema.userData() };
             d.users.push(rec); saveDb(d);
             return { token: tokenFor(rec), user: pub(rec), data: rec.data, updatedAt: rec.updatedAt };
@@ -191,7 +193,7 @@
         }),
         profile: (token, patch) => run(() => {
             const { d, rec } = authed(token);
-            if (patch.avatar) rec.avatar = patch.avatar;
+            if (patch.avatar) rec.avatar = avId(patch.avatar);
             if (patch.color) rec.color = patch.color;
             saveDb(d); return { user: pub(rec) };
         }),

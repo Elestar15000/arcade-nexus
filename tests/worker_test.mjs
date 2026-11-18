@@ -73,6 +73,7 @@ const data = (score, level = 3) => ({ v: 2, xp: { level, xp: 5, total: 900 }, hi
 let r = await call('GET', '/api/health'); ok(r.status === 200 && r.json.ok, 'health');
 r = await call('POST', '/api/register', { name: 'Ana_01', password: 'secreta1', avatar: '🦊', color: '#00b894' });
 ok(r.status === 201 && r.json.token && r.json.user.name === 'Ana_01' && r.json.data.xp.level === 1, 'registro correcto');
+ok(r.json.user.avatar === 'fa-fox', 'registro: el emoji 🦊 de un cliente antiguo se guarda como fa-fox');
 const ana = r.json.token;
 ok(files.has('users/ana_01/account.json') && files.has('users/ana_01/progress.json') && files.has('leaderboard.json'), 'se crea la carpeta users/ana_01/ y leaderboard.json en el repo');
 ok(!files.has('users/ana_01.json'), 'ya no hay un único archivo por usuario');
@@ -136,7 +137,9 @@ forceConflicts = 2; r = await call('PUT', '/api/data', { data: data(77, 4) }, b)
 ok(r.status === 200, 'conflicto de escritura en ranking reintentado');
 r = await call('GET', '/api/leaderboard'); ok(r.json.players.find(p => p.name === 'Beto').level === 4, 'tras el reintento el ranking está actualizado');
 
-r = await call('PATCH', '/api/profile', { avatar: '🐼', color: '#d63031' }, b); ok(r.status === 200 && r.json.user.avatar === '🐼', 'PATCH profile');
+r = await call('PATCH', '/api/profile', { avatar: 'es-knight', color: '#4b8dff' }, b); ok(r.status === 200 && r.json.user.avatar === 'es-knight', 'PATCH profile con id de avatar');
+r = await call('PATCH', '/api/profile', { avatar: '🐼' }, b); ok(r.status === 200 && r.json.user.avatar === 'fa-panda', 'avatar emoji antiguo → id equivalente');
+r = await call('PATCH', '/api/profile', { avatar: '../../etc/passwd' }, b); ok(r.status === 200 && r.json.user.avatar === 'nx-nexo', 'avatar desconocido → avatar por defecto');
 
 r = await call('POST', '/api/password', { current: 'mal', next: 'nueva-clave' }, b); ok(r.status === 401, 'cambio de contraseña con actual errónea → 401');
 r = await call('POST', '/api/password', { current: 'secreta2', next: 'nueva-clave' }, b); ok(r.status === 200 && r.json.token, 'cambio de contraseña');

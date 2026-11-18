@@ -162,7 +162,7 @@
             const rooms = this.lobby.rooms;
             el.innerHTML = rooms.length ? rooms.map(r => `
                 <div class="ol-room">
-                    <span class="ol-room-av" style="--c:${esc(r.host.color)}">${esc(r.host.avatar)}</span>
+                    <span class="ol-room-av" style="--c:${esc(r.host.color)}">${Nexus.ui.avatar.html(r.host.avatar)}</span>
                     <span class="ol-room-info"><b>${esc(r.host.name)}</b><small>${r.n}/${r.max} jugadores · sala ${esc(r.code)}</small></span>
                     <button class="btn btn-primary" data-ol-do="join" data-code="${esc(r.code)}" type="button">Unirse</button>
                 </div>`).join('') : `<p class="ol-empty">${this.lobby.status === 'online' ? 'No hay mesas públicas abiertas ahora mismo. ¡Crea una!' : 'Buscando mesas…'}</p>`;
@@ -268,7 +268,7 @@
             if (this.pick !== null && this.pick >= seats.length) this.pick = null;
             const seatItem = (s, i) => `
                     <div class="cg-seat-item ${s.kind}${this.pick === i ? ' picked' : ''}${host && this.o.teams && this.pick !== null && this.pick !== i ? ' pickable' : ''}" data-seat="${i}">
-                        <span class="cg-seat-n">${i + 1}</span><span class="ol-seat-av">${esc(s.avatar)}</span>
+                        <span class="cg-seat-n">${i + 1}</span><span class="ol-seat-av">${Nexus.ui.avatar.html(s.avatar)}</span>
                         <span class="cg-seat-name"><b>${esc(s.name)}</b><small>${s.kind === 'host' ? 'Anfitrión' : s.kind === 'bot' ? 'Hueco libre: lo jugará un bot' : s.kind === 'joining' ? 'Conectando…' : 'Jugador'}</small></span>
                         ${host && this.o.teams ? `<button class="btn btn-ghost btn-sm cg-swap" data-ol-do="swap" data-i="${i}" type="button" aria-label="${this.pick === null ? 'Cambiar de sitio a ' + esc(s.name) : this.pick === i ? 'Cancelar' : 'Cambiar por ' + esc(s.name)}" title="${this.pick === i ? 'Cancelar' : 'Cambiar de sitio'}">${this.pick === i ? '✕' : '⇄'}</button>` : ''}
                         ${host && (s.kind === 'guest' || s.kind === 'joining') ? `<button class="btn btn-ghost btn-sm" data-ol-do="kick" data-id="${esc(s.id)}" type="button">Echar</button>` : ''}
@@ -643,7 +643,7 @@
                 el.classList.toggle('out', pl.active === false);
                 el.classList.toggle('mate', !!v.teams && i !== v.me && i % 2 === v.me % 2);
                 const backs = pos === 'bottom' ? '' : `<span class="cg-backs">${Array.from({ length: Math.min(pl.count, 8) }, () => '<i></i>').join('')}</span>`;
-                el.innerHTML = `<span class="cg-av">${esc(p.avatar)}</span>
+                el.innerHTML = `<span class="cg-av">${Nexus.ui.avatar.html(p.avatar)}</span>
                     <span class="cg-name"><b>${esc(p.name)}${i === v.me ? ' <small>(tú)</small>' : ''}</b><small>${this.spec.seatBadge(v, i)}</small></span>${backs}`;
             }
             // Centro

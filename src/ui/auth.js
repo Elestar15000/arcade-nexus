@@ -94,7 +94,6 @@
 
         registerFields() {
             const U = users();
-            this.picker = Nexus.ui.components.avatarColorPicker(U.AVATARS[Math.floor(Math.random() * U.AVATARS.length)], U.COLORS[Math.floor(Math.random() * U.COLORS.length)]);
             return `
                 <div class="auth-head"><h2>Crea tu cuenta</h2>
                     <p class="lead">Tu progreso se guarda y puedes entrar desde cualquier dispositivo.</p></div>
@@ -111,7 +110,6 @@
                 <label class="field auth-field"><span class="sr-only">Repite la contraseña</span>
                     <span class="auth-ic">${Nexus.ui.brand.icon('lock', 20)}</span>
                     <input class="input" id="au-pass2" type="password" placeholder="Repite la contraseña" autocomplete="new-password" /></label>
-                <details id="au-look"><summary>Tu avatar <span class="auth-preview" id="au-preview"></span></summary><div data-slot="picker"></div></details>
                 <p class="field-hint" style="margin:0">No podemos recuperar contraseñas olvidadas: guárdala en un lugar seguro.</p>`;
         },
 
@@ -129,12 +127,6 @@
             }));
 
             if (this.mode === 'register') {
-                const slot = el.querySelector('[data-slot="picker"]');
-                slot.replaceWith(this.picker.el);
-                const preview = $('#au-preview', el);
-                const paint = () => { const p = this.picker.get(); preview.innerHTML = `<span class="avatar avatar-sm" style="--user-color:${esc(p.color)}">${esc(p.avatar)}</span>`; };
-                paint();
-                this.picker.el.addEventListener('click', () => setTimeout(paint, 0));
                 const pass = $('#au-pass', el), bar = $('#au-strength', el), txt = $('#au-strength-text', el);
                 pass.addEventListener('input', () => {
                     const lv = U.passwordStrength(pass.value);
@@ -179,8 +171,11 @@
                 }
                 if (Nexus.backend.unavailable) return this.setError('El servidor de cuentas no está configurado.');
                 btn.classList.add('is-loading'); btn.disabled = true;
-                if (this.mode === 'register') await U.register({ name, password: pass, ...this.picker.get() });
-                else await U.login(name, pass);
+                if (this.mode === 'register') {
+                    await U.register({ name, password: pass, avatar: Nexus.services.avatars.DEFAULT });
+                    // Paso de bienvenida: elegir avatar (se puede dejar para más tarde)
+                    setTimeout(() => Nexus.ui.avatarPicker.open({ onboarding: true }), 450);
+                } else await U.login(name, pass);
                 // user:login se encarga de mostrar la aplicación
             } catch (e) {
                 btn.classList.remove('is-loading'); btn.disabled = false;

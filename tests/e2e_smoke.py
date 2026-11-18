@@ -1,7 +1,7 @@
 """Prueba E2E de humo: python3 tests/e2e_smoke.py  (requiere playwright + chromium)"""
 import sys, pathlib, json
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from helpers import register, login
+from helpers import register, login, skip_avatar_onboarding
 from playwright.sync_api import sync_playwright
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -28,6 +28,7 @@ with sync_playwright() as p:
     page.fill('#au-name', 'Ana'); page.fill('#au-pass', 'abcd12'); page.fill('#au-pass2', 'abcd12')
     page.click('#au-submit')
     page.wait_for_selector('#shell:not([hidden])')
+    skip_avatar_onboarding(page)
     check(page.inner_text('#user-name') == 'Ana', 'sesión iniciada tras registrarse')
     check('hash' not in json.dumps(page.evaluate("Nexus.services.users.current()")), 'el usuario activo no expone hash')
     page.wait_for_timeout(500)
@@ -146,6 +147,7 @@ with sync_playwright() as p:
     page.click('.auth-tab[data-tab=register]'); page.fill('#au-name', '<b>Bob</b>'); page.fill('#au-pass', 'abcd12'); page.fill('#au-pass2', 'abcd12'); page.click('#au-submit'); page.wait_for_timeout(300)
     check(page.locator('#au-error').inner_text().strip() != '' and page.locator('#shell:not([hidden])').count() == 0, 'nombres con HTML no se admiten')
     page.fill('#au-name', 'Bob'); page.click('#au-submit'); page.wait_for_selector('#shell:not([hidden])')
+    skip_avatar_onboarding(page)
     check(page.evaluate("Nexus.services.progress.stats('wordle').played") == 0, 'datos aislados entre usuarios')
 
     # Móvil

@@ -331,7 +331,7 @@
             $$('[data-user]', body).forEach(b => b.addEventListener('click', () => this.openUser(b.dataset.user)));
         }
 
-        avatar(u) { return `<span class="avatar avatar-sm" style="--user-color:${esc(u.color || '#6c5ce7')}" aria-hidden="true">${esc(u.avatar || '🎮')}</span>`; }
+        avatar(u) { return Nexus.ui.avatar.user(u, 'sm'); }
 
         // ── Cuentas ─────────────────────────────────────────
         filtered() {
@@ -424,8 +424,8 @@
             const kpi = (v, l) => `<div class="adm-mini"><b>${v}</b><small>${l}</small></div>`;
             m.body.innerHTML = `
                 <div class="adm-user">
-                    <header class="adm-user-head" style="--user-color:${esc(a.color)}">
-                        <span class="avatar avatar-lg" aria-hidden="true">${esc(a.avatar)}</span>
+                    <header class="adm-user-head" style="--user-color:${esc(Nexus.ui.avatar.accent(a.avatar))}">
+                        ${Nexus.ui.avatar.user(a, 'lg')}
                         <div><h2>${esc(a.name)}</h2>
                             <div class="chips">${a.admin ? `<span class="adm-badge admin">🛡️ Administrador</span><span class="adm-badge ${a.totp ? 'ok' : 'susp'}">${a.totp ? '📱 Authenticator activo' : '📱 Sin Authenticator'}</span>` : ''}
                                 ${a.suspended ? `<span class="adm-badge susp">⛔ Suspendida ${a.suspended.until ? 'hasta ' + esc(dateTime(a.suspended.until)) : 'indefinidamente'}</span>` : '<span class="adm-badge ok">Activa</span>'}</div>

@@ -162,7 +162,7 @@
             }
             el.innerHTML = rooms.map(r => `
                 <div class="ol-room">
-                    <span class="ol-room-av" style="--c:${esc(r.host.color)}">${esc(r.host.avatar)}</span>
+                    <span class="ol-room-av" style="--c:${esc(r.host.color)}">${Nexus.ui.avatar.html(r.host.avatar)}</span>
                     <span class="ol-room-info"><b>${esc(r.host.name)}</b><small>Nivel ${r.host.level} · sala ${esc(r.code)}</small></span>
                     <button class="btn btn-primary" data-ol-do="join" data-code="${esc(r.code)}" type="button">Unirse</button>
                 </div>`).join('');
@@ -289,7 +289,7 @@
             const mine = myInfo(), peer = n.peer || { name: 'Rival', avatar: '❔', level: 1 };
             const seat = (info, isMe, rdy, isHost) => `
                 <div class="ol-seat ${isMe ? 'me' : 'foe'}${rdy ? ' ready' : ''}">
-                    <span class="ol-seat-av">${esc(info.avatar)}</span>
+                    <span class="ol-seat-av">${Nexus.ui.avatar.html(info.avatar)}</span>
                     <b>${esc(info.name)}${isMe ? ' <small>(tú)</small>' : ''}</b>
                     <small>Nivel ${info.level || 1}${isHost ? ' · anfitrión' : ''}</small>
                     <span class="ol-seat-state">${rdy ? '✅ Listo' : '⏳ No listo'}</span>

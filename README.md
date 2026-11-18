@@ -5,7 +5,7 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
 
 ## Qué incluye
 
-- **Cuentas con contraseña obligatoria**: registro e inicio de sesión (sin modo invitado), avatar y color. Usuario
+- **Cuentas con contraseña obligatoria**: registro e inicio de sesión (sin modo invitado) y avatar de imagen. Usuario
   `A-Z a-z 0-9 _ -` (3–16, único sin distinguir mayúsculas) y contraseña de 6–64 caracteres.
 - **Datos en el servidor de GitHub**: con el backend de `backend/` (Cloudflare Worker + repo privado de GitHub) las cuentas
   y el progreso viven en GitHub, **una carpeta por usuario** (`users/<nombre>/` con `account`, `progress`, `stats`, `achievements`,
@@ -34,6 +34,15 @@ salas, logros…): un observador del DOM los cambia al vuelo por `<nx-ic>`, que 
 `<canvas>` dibujan los iconos con `Nexus.ui.icons.draw()` / `fillRich()`, y cada juego tiene su logotipo propio
 (`LOGOS`). Los textos para compartir (p. ej. la cuadrícula de Wordle) conservan sus emojis porque se pegan fuera de la web.
 Para un icono nuevo: dibújalo en `GLYPHS` y apúntalo en `EMOJI`.
+
+## Avatares
+
+Cada cuenta lleva un avatar PNG de un catálogo de 42 en 7 colecciones (`assets/avatars/`, ver su
+[README](assets/avatars/README.md)). Se eligen en un selector a pantalla completa con una fila por colección, al estilo
+Netflix (`src/ui/avatar-picker.js`): desde «Cambiar avatar» en el perfil o en el menú de la cuenta, y una vez al
+crear la cuenta. Al elegir uno se confirma con el actual y el nuevo lado a lado. La cuenta guarda el id (`fa-fox`) y el
+color de la cuenta es el del avatar. Las cuentas antiguas con emoji se traducen solas a su avatar equivalente, en la
+web y en el Worker. Si una imagen todavía no existe se ve el rombo de Nexus sobre el color de su colección.
 
 ## Activar cuentas y rankings globales
 

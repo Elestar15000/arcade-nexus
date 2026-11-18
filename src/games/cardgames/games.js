@@ -42,7 +42,7 @@
         center: trickCenter,
         seatBadge: (v, i) => `${v.tricks[v.players[i].side]} bazas`,
         scoreHtml: (v, g) => `<div class="cg-score2">${[v.me, 1 - v.me].map(i => `
-            <div class="cg-sc ${i === v.me ? 'mine' : ''}"><span>${esc(g.pub[i].avatar)} ${esc(g.pub[i].name)}</span><b>${v.pts[i]}</b><small>${v.tricks[i]} bazas</small></div>`).join('')}</div>
+            <div class="cg-sc ${i === v.me ? 'mine' : ''}"><span>${Nexus.ui.avatar.html(g.pub[i].avatar)} ${esc(g.pub[i].name)}</span><b>${v.pts[i]}</b><small>${v.tricks[i]} bazas</small></div>`).join('')}</div>
             <div class="cg-trump-line">${suitSvg(v.trump)} Triunfo: <b>${SUITW[v.trump]}</b> · mazo ${v.deck}</div>
             <div class="cg-bar"><i style="width:${Math.min(100, v.pts[v.me] / 1.2)}%"></i><em style="left:50%"></em></div><small class="cg-note">Gana quien pase de 60 de 120.</small>`,
         pill: (v) => `${v.pts[v.me]} – ${v.pts[1 - v.me]}`,
@@ -127,7 +127,7 @@
                 res = `<div class="cg-summary cg-round"><h4>${rr.nulled ? 'Ronda nula' : rr.chinchon ? `¡CHINCHÓN de ${esc(g.pub[rr.closer].name)}!` : `Cierra ${esc(g.pub[rr.closer].name)}`}</h4>
                     ${rr.results.map(r => {
                         const inM = new Set(r.melds.flat());
-                        return `<div class="cg-rr ${r.seat === v.me ? 'mine' : ''}"><span class="cg-rr-name">${esc(g.pub[r.seat].avatar)} ${esc(g.pub[r.seat].name)}</span>
+                        return `<div class="cg-rr ${r.seat === v.me ? 'mine' : ''}"><span class="cg-rr-name">${Nexus.ui.avatar.html(g.pub[r.seat].avatar)} ${esc(g.pub[r.seat].name)}</span>
                         <span class="cg-rr-cards">${r.melds.map(m => `<span class="cg-meld">${m.map(c => cardHtml(c, { cls: 'sm' })).join('')}</span>`).join('')}${r.hand.filter(c => !inM.has(c)).map(c => cardHtml(c, { cls: 'sm loose' })).join('')}</span>
                         <b class="cg-rr-pts">${r.pts > 0 ? '+' : ''}${r.pts}</b></div>`;
                     }).join('')}</div>`;
@@ -165,7 +165,7 @@
         },
         seatBadge: (v, i) => (v.players[i].active ? `${v.players[i].score} puntos` : 'Eliminado'),
         scoreHtml: (v, g) => `<div class="cg-ch-scores">${v.players.map((p, i) => `
-            <div class="cg-ch-row ${i === v.me ? 'mine' : ''} ${p.active ? '' : 'out'}"><span>${esc(g.pub[i].avatar)} ${esc(g.pub[i].name)}</span><b>${p.score}</b>
+            <div class="cg-ch-row ${i === v.me ? 'mine' : ''} ${p.active ? '' : 'out'}"><span>${Nexus.ui.avatar.html(g.pub[i].avatar)} ${esc(g.pub[i].name)}</span><b>${p.score}</b>
             <span class="cg-bar"><i style="width:${Math.min(100, Math.max(0, p.score))}%"></i></span></div>`).join('')}</div>
             <small class="cg-note">Ronda ${v.round}. Quien pasa de ${v.limit} queda eliminado.</small>`,
         pill: (v) => `${v.scores[v.me]} / ${v.limit}`,

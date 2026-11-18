@@ -19,9 +19,16 @@
     const NAME_MIN = 3, NAME_MAX = 16, PASS_MIN = 6, PASS_MAX = 64;
     const PUSH_DELAY = 2500, RETRY_EVERY = 20000;
 
-    const AVATARS = ['🎮', '🕹️', '👾', '🤖', '🦊', '🐱', '🐼', '🦁', '🐸', '🐙',
-        '🦄', '🐲', '🚀', '⚡', '🔥', '💎', '🎯', '🧠', '👑', '🌟'];
+    // Avatares: ids del catálogo PNG (assets/avatars/manifest.js). El color de la cuenta es el acento del avatar.
+    const AV = () => Nexus.services.avatars;
+    const AVATARS = AV().list().map(a => a.id);
     const COLORS = ['#6c5ce7', '#0984e3', '#00cec9', '#00b894', '#fdcb6e', '#e17055', '#fd79a8', '#d63031'];
+    /** Usuario con el avatar ya traducido a id (las cuentas antiguas guardan un emoji) y su color de acento. */
+    const normUser = (u) => {
+        if (!u) return u;
+        const a = AV().info(u.avatar);
+        return Object.assign({}, u, { avatar: a.id, color: a.accent });
+    };
 
     class UserService {
         constructor() {
@@ -85,8 +92,8 @@
             if (err) throw new Error(err);
             const res = await B().register({
                 name, password,
-                avatar: AVATARS.includes(avatar) ? avatar : AVATARS[0],
-                color: COLORS.includes(color) ? color : COLORS[0]
+                avatar: AV().resolve(avatar),
+                color: AV().info(avatar).accent
             });
             this._begin(res);
             return this._user;
@@ -110,7 +117,7 @@
                 const local = Nexus.schema.normalize(cache.data);
                 if (local.xp.total >= data.xp.total) { data = local; this._dirty = true; }
             }
-            this._user = res.user; this._token = res.token; this._data = data; this._serverAt = res.updatedAt || 0;
+            this._user = normUser(res.user); this._token = res.token; this._data = data; this._serverAt = res.updatedAt || 0;
             store.set('session', { token: res.token, id, name: res.user.name });
             store.set('lastUser', res.user.name);
             this._writeCache();
@@ -126,7 +133,7 @@
             if (!s || !s.token || !s.id) return false;
             const cache = store.get('cache:' + s.id);
             if (!cache || !cache.user || !cache.data) { store.remove('session'); return false; }
-            this._user = cache.user; this._token = s.token; this._serverAt = cache.serverAt || 0;
+            this._user = normUser(cache.user); this._token = s.token; this._serverAt = cache.serverAt || 0;
             this._data = Nexus.schema.normalize(cache.data);
             this._dirty = !!cache.dirty;
             this._setSync(this._dirty ? 'pending' : 'synced');
@@ -144,7 +151,7 @@
                 this._setSync('syncing');
                 const r = await B().session(token);
                 if (this._token !== token) return;
-                this._user = r.user;
+                this._user = normUser(r.user);
                 const server = Nexus.schema.normalize(r.data);
                 if (this._dirty) {
                     if (server.xp.total > this._data.xp.total) this._adopt(server, r.updatedAt);
@@ -257,10 +264,14 @@
         // ── Cuenta ──────────────────────────────────────────
         async updateProfile(patch) {
             const clean = {};
-            if (AVATARS.includes(patch.avatar)) clean.avatar = patch.avatar;
-            if (COLORS.includes(patch.color)) clean.color = patch.color;
+            if (AV().isValid(patch.avatar)) {
+                if (!AV().isUnlocked(AV().get(patch.avatar))) throw new Error('Ese avatar todavía está bloqueado.');
+                clean.avatar = patch.avatar;
+                clean.color = AV().get(patch.avatar).accent;
+            }
+            if (!clean.avatar) throw new Error('Elige un avatar de la lista.');
             const r = await B().profile(this._token, clean);
-            this._user = Object.assign({}, this._user, r.user);
+            this._user = normUser(Object.assign({}, this._user, r.user));
             this._writeCache();
             Nexus.bus.emit('user:update', this._user);
             return this._user;

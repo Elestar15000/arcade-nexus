@@ -721,7 +721,7 @@
                 const caps = mat.lost[1 - c];       // piezas del rival que ha capturado este jugador
                 const adv = c === 0 ? mat.diff : -mat.diff;
                 const turn = this.state === 'playing' && this.pos.turn === color;
-                return `<span class="ch-pl-av">${esc(info.avatar)}</span>
+                return `<span class="ch-pl-av">${Nexus.ui.avatar.html(info.avatar)}</span>
                     <span class="ch-pl-info"><b>${esc(info.name)}${isMe ? ' <small>(tú)</small>' : ''}</b>
                         <span class="ch-caps ${c ? 'w' : 'b'}">${caps.map(t => glyph(t | (c ? WHITE : BLACK))).join('')}${adv > 0 ? ` <em>+${adv}</em>` : ''}</span></span>
                     <span class="ch-pl-color ${c ? 'b' : 'w'}${turn ? ' turn' : ''}" title="${c ? 'Negras' : 'Blancas'}"></span>

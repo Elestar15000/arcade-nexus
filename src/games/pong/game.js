@@ -121,8 +121,8 @@
                         <div class="ax-card">
                             <h3>Marcador</h3>
                             <div class="pg-vs">
-                                <div class="pg-player me"><span class="pg-av" id="pg-me-av">🎮</span><span class="pg-name" id="pg-me-name">Tú</span><b class="pg-pts" id="pg-me-pts">0</b></div>
-                                <div class="pg-player foe"><span class="pg-av" id="pg-foe-av">🤖</span><span class="pg-name" id="pg-foe-name">CPU</span><b class="pg-pts" id="pg-foe-pts">0</b></div>
+                                <div class="pg-player me"><span class="pg-av" id="pg-me-av"></span><span class="pg-name" id="pg-me-name">Tú</span><b class="pg-pts" id="pg-me-pts">0</b></div>
+                                <div class="pg-player foe"><span class="pg-av" id="pg-foe-av"></span><span class="pg-name" id="pg-foe-name">CPU</span><b class="pg-pts" id="pg-foe-pts">0</b></div>
                             </div>
                             <div class="ax-rows">
                                 <div class="ax-row"><span>Rival</span><b id="pg-mode">–</b></div>
@@ -686,7 +686,7 @@
             }
             el.innerHTML = rooms.map(r => `
                 <div class="pg-room">
-                    <span class="pg-room-av" style="--c:${esc(r.host.color)}">${esc(r.host.avatar)}</span>
+                    <span class="pg-room-av" style="--c:${esc(r.host.color)}">${Nexus.ui.avatar.html(r.host.avatar)}</span>
                     <span class="pg-room-info"><b>${esc(r.host.name)}</b><small>Nivel ${r.host.level} · sala ${esc(r.code)} · ${this.ago(r.ts)}</small></span>
                     <button class="btn btn-primary" data-do="join" data-code="${esc(r.code)}" type="button">Unirse</button>
                 </div>`).join('');
@@ -810,7 +810,7 @@
             const ready = n.ready;
             const card = (info, isMe, rdy) => `
                 <div class="pg-seat ${isMe ? 'me' : 'foe'}${rdy ? ' ready' : ''}">
-                    <span class="pg-seat-av">${esc(info.avatar)}</span>
+                    <span class="pg-seat-av">${Nexus.ui.avatar.html(info.avatar)}</span>
                     <b>${esc(info.name)}${isMe ? ' <small>(tú)</small>' : ''}</b>
                     <small>Nivel ${info.level || 1}${(isMe ? n.role : (n.role === 'host' ? 'guest' : 'host')) === 'host' ? ' · anfitrión' : ''}</small>
                     <span class="pg-seat-state">${rdy ? '✅ Listo' : '⏳ No listo'}</span>
@@ -1158,11 +1158,11 @@
             if (!full) return;
             // Nombres, modo, conexión
             const mine = this.myInfo();
-            set('pg-me-av', mine.avatar); set('pg-me-name', mine.name);
+            Nexus.ui.avatar.set(this.$('#pg-me-av'), mine.avatar); set('pg-me-name', mine.name);
             const online = this.kind === 'online' && this.net;
             const peer = online && this.net.peer;
             const isOnline = this.kind === 'online';
-            set('pg-foe-av', isOnline ? (peer ? peer.avatar : '❔') : '🤖');
+            { const fv = isOnline ? (peer ? peer.avatar : '❔') : '🤖', fe = this.$('#pg-foe-av'); if (fe && fe.dataset.raw !== fv) { fe.dataset.raw = fv; fe.innerHTML = Nexus.ui.avatar.html(fv); } }
             set('pg-foe-name', isOnline ? (peer ? peer.name : 'Rival') : 'CPU');
             set('pg-mode', this.kind === 'online' ? '🌐 Online' : `${this.level.emoji} ${this.level.label}`);
             const ms = Nexus.services.progress.stats('pong').byMode[this.kind === 'online' ? 'online' : this.level.id];

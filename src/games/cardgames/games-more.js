@@ -63,7 +63,7 @@
             return `${tags.join('')}🪙 ${formatNumber(p.chips)}${st}${cards}`;
         },
         scoreHtml: (v, g) => `<div class="cg-ch-scores">${v.players.map((p, i) => [p, i]).sort((a, b) => b[0].chips - a[0].chips).map(([p, i]) => `
-            <div class="cg-ch-row ${i === v.me ? 'mine' : ''} ${p.active ? '' : 'out'}"><span>${esc(g.pub[i].avatar)} ${nm(g, i)}</span><b>${formatNumber(p.chips)}</b>
+            <div class="cg-ch-row ${i === v.me ? 'mine' : ''} ${p.active ? '' : 'out'}"><span>${Nexus.ui.avatar.html(g.pub[i].avatar)} ${nm(g, i)}</span><b>${formatNumber(p.chips)}</b>
             <span class="cg-bar"><i style="width:${Math.min(100, p.chips / (PK.START * v.n) * 100)}%"></i></span></div>`).join('')}</div>
             <small class="cg-note">Ciegas ${v.sb}/${v.bb} · suben en ${v.nextLevelIn} mano${v.nextLevelIn === 1 ? '' : 's'}.</small>`,
         pill: (v) => `${formatNumber(v.players[v.me].chips)} 🪙`,
@@ -150,7 +150,7 @@
         },
         seatBadge: (v, i) => `${v.players[i].count} carta${v.players[i].count === 1 ? '' : 's'}${v.pendingWin === i ? ' · ¡sin cartas!' : ''}`,
         scoreHtml: (v, g) => `<div class="cg-ch-scores">${v.players.map((p, i) => [p, i]).sort((a, b) => a[0].count - b[0].count).map(([p, i]) => `
-            <div class="cg-ch-row ${i === v.me ? 'mine' : ''}"><span>${esc(g.pub[i].avatar)} ${nm(g, i)}</span><b>${p.count}</b>
+            <div class="cg-ch-row ${i === v.me ? 'mine' : ''}"><span>${Nexus.ui.avatar.html(g.pub[i].avatar)} ${nm(g, i)}</span><b>${p.count}</b>
             <span class="cg-bar"><i style="width:${Math.min(100, p.count / 40 * 100 * v.n / 2)}%"></i></span></div>`).join('')}</div>
             <small class="cg-note">Ronda ${v.round} · montón ${v.pileCount} · retiradas ${v.discarded}. Tus acusaciones: ${v.stats.goodCalls}/${v.stats.calls} acertadas.</small>`,
         pill: (v) => `${v.hand.length} cartas`,

@@ -9,8 +9,8 @@
     const { esc, formatNumber, formatTime, pct } = Nexus.util;
     const C = Nexus.ui.components = {};
 
-    C.avatar = (user, size = 'md') => `
-        <span class="avatar avatar-${size}" style="--user-color:${esc(user.color)}" aria-hidden="true">${esc(user.avatar)}</span>`;
+    /** Avatar PNG redondo de un usuario (ver ui/avatar.js). */
+    C.avatar = (user, size = 'md') => Nexus.ui.avatar.user(user, size);
 
     C.statTile = (label, value, icon, sub) => `
         <div class="stat-tile">
@@ -100,35 +100,8 @@
             </li>`;
     };
 
-    /**
-     * Selector de avatar + color. Devuelve { el, get() }.
-     */
-    C.avatarColorPicker = (avatar, color) => {
-        const U = Nexus.services.users;
-        const state = { avatar, color };
-        const el = document.createElement('div');
-        el.innerHTML = `
-            <div class="field">
-                <span class="field-label">Avatar</span>
-                <div class="avatar-grid" role="radiogroup" aria-label="Avatar">
-                    ${U.AVATARS.map(a => `<button type="button" class="avatar-opt${a === avatar ? ' selected' : ''}" role="radio" aria-checked="${a === avatar}" data-avatar="${esc(a)}">${esc(a)}</button>`).join('')}
-                </div>
-            </div>
-            <div class="field">
-                <span class="field-label">Color</span>
-                <div class="color-grid" role="radiogroup" aria-label="Color">
-                    ${U.COLORS.map(c => `<button type="button" class="color-opt${c === color ? ' selected' : ''}" role="radio" aria-checked="${c === color}" data-color="${esc(c)}" style="--c:${esc(c)}" aria-label="${esc(c)}"></button>`).join('')}
-                </div>
-            </div>`;
-        const bind = (sel, key, dataKey) => el.querySelectorAll(sel).forEach(b => b.addEventListener('click', () => {
-            el.querySelectorAll(sel).forEach(x => { x.classList.remove('selected'); x.setAttribute('aria-checked', 'false'); });
-            b.classList.add('selected'); b.setAttribute('aria-checked', 'true');
-            state[key] = b.dataset[dataKey];
-        }));
-        bind('.avatar-opt', 'avatar', 'avatar');
-        bind('.color-opt', 'color', 'color');
-        return { el, get: () => ({ avatar: state.avatar, color: state.color }) };
-    };
+    /** Abre el selector de avatares a pantalla completa (ver ui/avatar-picker.js). */
+    C.openAvatarPicker = (opts) => Nexus.ui.avatarPicker.open(opts);
 
     // ── Controles de ajustes ────────────────────────────────
     C.switchRow = (key, title, desc) => `

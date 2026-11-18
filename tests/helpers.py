@@ -6,6 +6,16 @@ def register(page, name='Tester', pw='secreta1'):
     page.fill('#au-name', name); page.fill('#au-pass', pw); page.fill('#au-pass2', pw)
     page.click('#au-submit')
     page.wait_for_selector('#shell:not([hidden])')
+    skip_avatar_onboarding(page)
+
+def skip_avatar_onboarding(page):
+    """Tras registrarse se abre el selector de avatar de bienvenida: «Más tarde» lo cierra."""
+    try:
+        page.wait_for_selector('.avp [data-close]', timeout=4000)
+        page.click('.avp [data-close]')
+        page.wait_for_selector('.avp', state='detached', timeout=3000)
+    except Exception:
+        pass
 
 def login(page, name='Tester', pw='secreta1'):
     page.wait_for_selector('#auth-screen:not([hidden])')

@@ -16,28 +16,9 @@
         catch (e) { err.textContent = e.message || 'No se pudo completar la operación.'; err.hidden = false; return false; }
     }
 
+    /** Selector de avatares a pantalla completa; al guardar se vuelve a pintar el perfil. */
     function openEdit(user, rerender) {
-        const body = document.createElement('div');
-        body.innerHTML = `
-            <div data-slot="picker"></div>
-            <p class="field-hint">El nombre de usuario (<strong>${esc(user.name)}</strong>) no se puede cambiar.</p>
-            <p class="form-error" role="alert" hidden></p>`;
-        const picker = C.avatarColorPicker(user.avatar, user.color);
-        $('[data-slot="picker"]', body).replaceWith(picker.el);
-        const err = $('.form-error', body);
-
-        Nexus.ui.modal.open({
-            title: 'Editar avatar', icon: '✏️', className: 'modal-form', body,
-            actions: [
-                { label: 'Cancelar', kind: 'ghost' },
-                { label: 'Guardar', kind: 'primary', keepOpen: true, onClick: async (api) => {
-                    err.hidden = true;
-                    const ok = await attempt(api, err, () => users().updateProfile(picker.get()));
-                    if (ok) { Nexus.ui.toast('Avatar actualizado', { type: 'success' }); rerender(); }
-                    return false;
-                } }
-            ]
-        });
+        Nexus.ui.avatarPicker.open().then((saved) => { if (saved) rerender(); });
     }
 
     function openPassword(rerender) {
@@ -114,7 +95,7 @@
 
             root.innerHTML = `
                 <div class="page-body">
-                    <section class="profile-hero card-surface" style="--user-color:${esc(user.color)}">
+                    <section class="profile-hero card-surface" style="--user-color:${esc(Nexus.ui.avatar.accent(user.avatar))}">
                         ${C.avatar(user, 'xl')}
                         <div class="profile-hero-info">
                             <h2>${esc(user.name)}</h2>
@@ -122,7 +103,7 @@
                             ${C.progressBar(lv.pct)}
                             <small class="muted">${formatNumber(lv.xp)} / ${formatNumber(lv.next)} XP · ${formatNumber(lv.total)} XP totales · ${esc(formatDuration(data.meta.playTime))} jugados</small>
                         </div>
-                        <button class="btn btn-ghost" id="pf-edit" type="button">✏️ Editar avatar</button>
+                        <button class="btn btn-ghost" id="pf-edit" type="button">✏️ Cambiar avatar</button>
                     </section>
 
                     <section class="section card-surface">

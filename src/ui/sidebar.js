@@ -115,8 +115,8 @@
             if (!user) return;
             const lv = Nexus.services.progress.level();
             const card = $('#user-card');
-            card.style.setProperty('--user-color', user.color);
-            $('#user-avatar').textContent = user.avatar;
+            card.style.setProperty('--user-color', Nexus.ui.avatar.accent(user.avatar));
+            Nexus.ui.avatar.set($('#user-avatar'), user.avatar, Nexus.ui.avatar.pick(42));
             $('#user-name').textContent = user.name;
             $('#user-rank').textContent = `${lv.rank.icon} ${lv.rank.name} · Nivel ${lv.level}`;
             $('#user-xp-fill').style.width = lv.pct + '%';

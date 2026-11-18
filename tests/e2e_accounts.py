@@ -2,7 +2,7 @@
 python3 tests/e2e_accounts.py"""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from helpers import register, login
+from helpers import register, login, skip_avatar_onboarding
 from playwright.sync_api import sync_playwright
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 URL = f'file://{ROOT}/index.html'
@@ -28,6 +28,25 @@ with sync_playwright() as p:
     check(page.locator('#au-error').inner_text().strip() != '', 'contraseñas distintas rechazadas')
     page.fill('#au-pass2', 'secreta1'); page.click('#au-submit'); page.wait_for_selector('#shell:not([hidden])')
     check(page.inner_text('#user-name') == 'Ana_01', 'registro correcto')
+
+    # Avatares PNG: bienvenida tras el registro, filas por colección y confirmación antes → después
+    page.wait_for_selector('.avp', timeout=4000)
+    check(page.locator('.avp-row').count() == 7 and page.locator('.avp-opt').count() == 42, 'selector: 7 colecciones y 42 avatares')
+    check(page.evaluate("Nexus.services.users.current().avatar") == 'nx-nexo', 'cuenta nueva con el avatar por defecto')
+    page.click('.avp-opt[data-id=fa-fox]'); page.wait_for_selector('.avp-confirm:not([hidden])')
+    check(page.locator('.avp-confirm [data-av=nx-nexo]').count() == 1 and page.locator('.avp-confirm [data-av=fa-fox]').count() == 1, 'confirmación con el avatar actual y el nuevo')
+    page.click('[data-c-cancel]'); page.wait_for_timeout(100)
+    check(page.evaluate("Nexus.services.users.current().avatar") == 'nx-nexo', '«Volver» no cambia nada')
+    page.click('.avp-opt[data-id=fa-fox]'); page.click('[data-c-save]'); page.wait_for_selector('.avp', state='detached')
+    check(page.evaluate("Nexus.services.users.current().avatar") == 'fa-fox', 'avatar guardado como id')
+    check(page.locator('#user-avatar nx-av[data-av=fa-fox]').count() == 1 and page.locator('#topbar-avatar nx-av[data-av=fa-fox]').count() == 1, 'barra lateral y superior con el avatar nuevo')
+    page.wait_for_timeout(300)
+    check(page.locator('#user-avatar nx-av.is-missing').count() == 1, 'sin PNG todavía: se ve el rombo de reserva')
+    page.goto(URL + '#/profile'); page.wait_for_timeout(300); page.click('#pf-edit'); page.wait_for_selector('.avp')
+    page.keyboard.press('ArrowRight'); page.keyboard.press('Escape'); page.wait_for_selector('.avp', state='detached')
+    check(page.evaluate("Nexus.services.users.current().avatar") == 'fa-fox', 'Esc cierra el selector sin guardar')
+    # Una cuenta antigua con emoji se ve con su avatar equivalente
+    check(page.evaluate("Nexus.services.avatars.resolve('🐼')") == 'fa-panda' and page.evaluate("Nexus.services.avatars.resolve('xx')") == 'nx-nexo', 'emojis antiguos → id equivalente')
 
     # Sesión persistente al recargar
     page.reload(); page.wait_for_selector('#shell:not([hidden])')
@@ -97,6 +116,7 @@ with sync_playwright() as p:
     page.click('.auth-tab[data-tab=register]'); page.fill('#au-name', 'ANA_01'); page.fill('#au-pass', 'secreta1'); page.fill('#au-pass2', 'secreta1'); page.click('#au-submit'); page.wait_for_timeout(400)
     check('uso' in page.locator('#au-error').inner_text().lower() or page.locator('#au-error').inner_text().strip() != '', 'nombre duplicado (sin distinguir mayúsculas) rechazado')
     page.fill('#au-name', 'Beto'); page.click('#au-submit'); page.wait_for_selector('#shell:not([hidden])')
+    skip_avatar_onboarding(page)
     page.goto(URL + '#/rankings'); page.wait_for_timeout(600)
     check('Ana_01' in page.inner_text('#view') and 'Beto' in page.inner_text('#view'), 'ranking muestra ambas cuentas')
 

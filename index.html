@@ -12,6 +12,7 @@
 
     <link rel="stylesheet" href="assets/css/base.css">
     <link rel="stylesheet" href="assets/css/icons.css">
+    <link rel="stylesheet" href="assets/css/avatars.css">
     <link rel="stylesheet" href="assets/css/layout.css">
     <link rel="stylesheet" href="assets/css/components.css">
     <link rel="stylesheet" href="assets/css/pages.css">
@@ -66,7 +67,7 @@
 
                 <div class="sidebar-footer">
                     <a id="user-card" class="user-card" href="#/profile">
-                        <span class="avatar avatar-md" aria-hidden="true"><span id="user-avatar">🎮</span><span class="sync-dot" id="sync-dot" data-state="idle"></span></span>
+                        <span class="avatar avatar-md" aria-hidden="true"><span class="avatar-slot" id="user-avatar"></span><span class="sync-dot" id="sync-dot" data-state="idle"></span></span>
                         <span class="user-info">
                             <span class="user-name" id="user-name">Jugador</span>
                             <span class="user-rank" id="user-rank">Nivel 1</span>
@@ -111,7 +112,7 @@
                         <span class="topbar-sep" aria-hidden="true"></span>
                         <div class="tb-user">
                             <button type="button" class="tb-user-btn" id="topbar-user-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="topbar-menu" title="Tu cuenta">
-                                <span class="avatar avatar-sm" aria-hidden="true"><span id="topbar-avatar">🎮</span></span>
+                                <span class="avatar avatar-sm" aria-hidden="true"><span class="avatar-slot" id="topbar-avatar"></span></span>
                                 <svg class="nx-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
                                 <span class="sr-only">Menú de la cuenta</span>
                             </button>
@@ -141,6 +142,8 @@
     <script src="src/core/net.js"></script>
 
     <!-- Servicios -->
+    <script src="assets/avatars/manifest.js"></script>
+    <script src="src/services/avatars.js"></script>
     <script src="src/services/settings.js"></script>
     <script src="src/services/users.js"></script>
     <script src="src/services/progress.js"></script>
@@ -153,6 +156,8 @@
     <script src="src/ui/modal.js"></script>
     <script src="src/ui/fx.js"></script>
     <script src="src/ui/particles.js"></script>
+    <script src="src/ui/avatar.js"></script>
+    <script src="src/ui/avatar-picker.js"></script>
     <script src="src/ui/components.js"></script>
     <script src="src/ui/game-settings.js"></script>
     <script src="src/ui/launcher.js"></script>

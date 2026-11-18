@@ -137,12 +137,13 @@
             const lv = Nexus.services.progress.level(), B = Nexus.ui.brand;
             const item = (href, emo, label) => `<a role="menuitem" class="tb-mi" href="${href}"><span aria-hidden="true">${emo}</span>${esc(label)}</a>`;
             this.menu.innerHTML = `
-                <div class="tb-menu-head" style="--user-color:${esc(u.color)}"><span class="avatar avatar-md">${esc(u.avatar)}</span>
+                <div class="tb-menu-head" style="--user-color:${esc(Nexus.ui.avatar.accent(u.avatar))}">${Nexus.ui.avatar.user(u, 'md')}
                     <span><b>${esc(u.name)}</b><small>${esc(lv.rank.icon)} ${esc(lv.rank.name)} · Nivel ${lv.level}</small></span></div>
-                ${item('#/profile', '👤', 'Mi perfil')}${item('#/achievements', '🏅', 'Logros')}${item('#/stats', '📊', 'Estadísticas')}${item('#/settings', '⚙️', 'Ajustes')}
+                ${item('#/profile', '👤', 'Mi perfil')}<button role="menuitem" type="button" class="tb-mi" data-avatar-pick><span aria-hidden="true">🎨</span>Cambiar avatar</button>${item('#/achievements', '🏅', 'Logros')}${item('#/stats', '📊', 'Estadísticas')}${item('#/settings', '⚙️', 'Ajustes')}
                 ${Nexus.services.users.isAdmin() ? item('#/admin', '🛡️', 'Administración') : ''}
                 <hr><button role="menuitem" type="button" class="tb-mi tb-mi-out" data-logout>${B.icon('logout', 18)}Cerrar sesión</button>`;
             $('[data-logout]', this.menu).addEventListener('click', () => { this.closeMenu(); Nexus.app.logout(); });
+            $('[data-avatar-pick]', this.menu).addEventListener('click', () => { this.closeMenu(); Nexus.ui.avatarPicker.open(); });
             this.menu.hidden = false; this.ubtn.setAttribute('aria-expanded', 'true');
             const first = $('[role=menuitem]', this.menu); if (first) first.focus({ preventScroll: true });
         },
@@ -155,7 +156,7 @@
             const ring = $('#topbar-ring'); if (ring) ring.title = `Nivel ${lv.level} · ${formatNumber(lv.xp)} / ${formatNumber(lv.next)} XP`;
             const xp = $('#topbar-xp'); if (xp) xp.style.width = lv.pct + '%';
             const lvEl = $('#topbar-level'); if (lvEl) lvEl.textContent = `Nivel ${lv.level}`;
-            const av = $('#topbar-avatar'); if (av) { av.textContent = user.avatar; av.parentElement.style.setProperty('--user-color', user.color); }
+            const av = $('#topbar-avatar'); if (av) { Nexus.ui.avatar.set(av, user.avatar, Nexus.ui.avatar.pick(38)); av.parentElement.style.setProperty('--user-color', Nexus.ui.avatar.accent(user.avatar)); }
         },
         /** Miga de pan de la barra superior. */
         setCrumb(text) { const c = $('#page-crumb'); if (c) c.textContent = text; }

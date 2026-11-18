@@ -32,6 +32,19 @@ const ADMIN_CACHE_MS = 15000;
 const MSG_KINDS = ['info', 'warn', 'alert'];
 const RESERVED = ['admin', 'root', 'nexus', 'system', 'invitado', 'guest', 'null', 'undefined'];
 const NAME_RE = /^[A-Za-z0-9_-]{3,16}$/;
+
+// ── Avatares (copia de assets/avatars/manifest.js; la regenera  node tools/avatars/export.mjs --sync) ──
+// @avatars-begin
+const AVATAR_IDS = new Set(['nx-nexo', 'nx-gamepad', 'nx-crown', 'nx-gem', 'nx-star', 'nx-bolt', 'ar-joystick', 'ar-invader', 'ar-robot', 'ar-rocket', 'ar-snake', 'ar-blocks', 'ca-joker', 'ca-sota', 'ca-copas', 'ca-ace', 'ca-shark', 'ca-bluff', 'me-brain', 'me-owl', 'me-sphinx', 'me-wordsmith', 'me-archer', 'me-puzzle', 'es-knight', 'es-queen', 'es-captain', 'es-dragon', 'es-lion', 'es-paddle', 'mi-detective', 'mi-explorer', 'mi-alchemist', 'mi-astronaut', 'mi-pharaoh', 'mi-octopus', 'fa-fox', 'fa-panda', 'fa-frog', 'fa-unicorn', 'fa-phoenix', 'fa-axolotl']);
+const AVATAR_DEFAULT = 'nx-nexo';
+const AVATAR_LEGACY = {"🎮": "nx-gamepad", "🕹": "ar-joystick", "👾": "ar-invader", "🤖": "ar-robot", "🦊": "fa-fox", "🐱": "mi-detective", "🐼": "fa-panda", "🦁": "es-lion", "🐸": "fa-frog", "🐙": "mi-octopus", "🦄": "fa-unicorn", "🐲": "es-dragon", "🚀": "ar-rocket", "⚡": "nx-bolt", "🔥": "fa-phoenix", "💎": "nx-gem", "🎯": "me-archer", "🧠": "me-brain", "👑": "nx-crown", "🌟": "nx-star"};
+// @avatars-end
+/** Id de avatar válido para cualquier valor: id del catálogo, emoji de la versión anterior o nada. */
+function avatarId(v) {
+    if (typeof v !== 'string') return AVATAR_DEFAULT;
+    if (AVATAR_IDS.has(v)) return v;
+    return AVATAR_LEGACY[v.replace(/[\uFE0F\u{1F3FB}-\u{1F3FF}]/gu, '')] || AVATAR_DEFAULT;
+}
 const KEY_RE = /^[a-z0-9_-]{1,24}$/;
 const enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -260,7 +273,7 @@ function summarize(rec) {
         played += stats[g].played; wins += stats[g].wins;
     }
     return {
-        id: rec.id, name: rec.name, avatar: rec.avatar, color: rec.color,
+        id: rec.id, name: rec.name, avatar: avatarId(rec.avatar), color: rec.color,
         level: d.xp.level, totalXP: d.xp.total, played, wins,
         achievements: Object.keys(d.achievements).length, stats
     };
@@ -291,13 +304,13 @@ async function updateLeaderboard(env, id, summary, label) {
 }
 
 // ── Cuentas ─────────────────────────────────────────────────
-const publicUser = (r, env) => ({ id: r.id, name: r.name, avatar: r.avatar, color: r.color, createdAt: r.createdAt, ...(env && isAdminName(env, r.name) ? { admin: true } : {}) });
+const publicUser = (r, env) => ({ id: r.id, name: r.name, avatar: avatarId(r.avatar), color: r.color, createdAt: r.createdAt, ...(env && isAdminName(env, r.name) ? { admin: true } : {}) });
 const newData = () => ({ v: 2, xp: { level: 1, xp: 0, total: 0 }, stats: {}, history: [], achievements: {}, settings: {},
     meta: { playTime: 0, daysPlayed: 0, dayStreak: 0, bestDayStreak: 0, lastDay: null }, saves: {} });
 
 function cleanProfile(avatar, color) {
     return {
-        avatar: typeof avatar === 'string' && avatar.length > 0 && avatar.length <= 8 ? avatar : '🎮',
+        avatar: avatarId(avatar),
         color: typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color) ? color.toLowerCase() : '#6c5ce7'
     };
 }
@@ -579,7 +592,7 @@ async function adminRoute(env, tok, pathname, method, body, url) {
         const msgs = st.json.messages;
         const users = dirs.filter((d) => NAME_RE.test(d)).map((lname) => {
             const p = byName[lname] || {}, list = Array.isArray(msgs[lname]) ? msgs[lname] : [];
-            return { lname, name: p.name || lname, avatar: p.avatar || '🎮', color: p.color || '#6c5ce7', level: p.level || 1, totalXP: p.totalXP || 0,
+            return { lname, name: p.name || lname, avatar: avatarId(p.avatar), color: p.color || '#6c5ce7', level: p.level || 1, totalXP: p.totalXP || 0,
                 played: p.played || 0, wins: p.wins || 0, achievements: p.achievements || 0, stats: p.stats || {},
                 admin: isAdminName(env, lname), suspended: activeSusp(st.json.suspended[lname]), unread: list.filter((m) => !m.readAt).length };
         });
@@ -595,7 +608,7 @@ async function adminRoute(env, tok, pathname, method, body, url) {
         await loadData(env, u);
         const a = u.account, d = u.data, st = await readAdmin(env);
         return [200, {
-            account: { id: a.id, name: a.name, avatar: a.avatar, color: a.color, createdAt: a.createdAt, lastLoginAt: a.lastLoginAt || null,
+            account: { id: a.id, name: a.name, avatar: avatarId(a.avatar), color: a.color, createdAt: a.createdAt, lastLoginAt: a.lastLoginAt || null,
                 admin: isAdminName(env, a.name), totp: !!a.totp, suspended: activeSusp(a.suspended) },
             updatedAt: u.updatedAt,
             data: { xp: d.xp, meta: d.meta, stats: d.stats, achievements: d.achievements, history: d.history.slice(0, 40) },
@@ -716,7 +729,7 @@ async function route(request, env, url, body) {
             j.totpLast[u.lname] = step;
             logAction(j, u.account.name, 'login');
         }, `acceso de ${u.lname}`);
-        return [200, { token: await signToken(env, u.account, true), admin: { name: u.account.name, avatar: u.account.avatar }, expiresAt: Date.now() + ADMIN_TTL }];
+        return [200, { token: await signToken(env, u.account, true), admin: { name: u.account.name, avatar: avatarId(u.account.avatar) }, expiresAt: Date.now() + ADMIN_TTL }];
     }
 
     // Vincular Google Authenticator: contraseña + clave de alta (ADMIN_KEY) → secreto nuevo y QR; se confirma con un código
