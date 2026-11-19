@@ -14,9 +14,9 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
 - **Sesión local y partidas persistentes**: al recargar sigues dentro de tu cuenta y las partidas de Tetris, Pac-Man y Snake
   (y las de Wordle y Pasapalabra) se restauran en pausa con «Continuar». El progreso se guarda al instante en local y se sincroniza en
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
-- **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días. No hay exportación de datos.
+- **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial y la racha diaria de **Nexito**, la mascota. No hay exportación de datos.
 - **Logros 2.0**: 219 logros con escaleras Bronce → Nexus, secretos, de evento y Maestría por juego; rareza real (% de jugadores),
-  «Casi lo tienes», misiones diarias y semanales con racha, **Rombos**, pase de batalla gratuito, tienda semanal y cosméticos
+  «Casi lo tienes», misiones diarias y semanales, **Rombos**, pase de batalla gratuito, tienda semanal y cosméticos
   (marcos, títulos, temas, partículas, fondos de perfil, aspectos de juego y avatares exclusivos). Ver [Logros y recompensas](#logros-y-recompensas).
 - **Rankings globales** (general, puntos de logro y por juego/modo/métrica) y comparación de logros con cualquier jugador.
 - **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
@@ -69,7 +69,7 @@ semana doble y eventos). El % real de cada logro sólo se muestra con 20 jugador
 - **Maestría**: todos los logros de un juego dan una corona en la biblioteca, 500 Rombos, el título «Maestro de …» y el
   marco de maestría.
 - **Misiones**: 3 diarias (fácil, media, difícil; 20 / 40 / 70 Rombos) y 1 semanal (250), iguales para todos el mismo día. Se
-  puede cambiar una al día. Completar las tres mantiene la **racha** (premios a 3, 7 y 30 días; perdona un día por semana).
+  puede cambiar una al día. Cada misión da además una comida a Nexito, y las tres diarias rescatan su racha si está en peligro.
 - **Rombos**: la moneda, sólo cosmética. Se ganan con logros, misiones, rachas y temporada (×2 el fin de semana en logros y
   misiones; tope de 3.000 al día). El saldo está en la barra superior.
 - **Pase de batalla**: una temporada de 6 semanas (la 1.ª empezó el 2 nov 2026), 30 niveles de 150 Rombos ganados, todos
@@ -80,9 +80,36 @@ semana doble y eventos). El % real de cada logro sólo se muestra con 20 jugador
 - **Perfil**: escaparate de hasta 3 logros (★ en cada tarjeta), título y fondo. Las legendarias se celebran a pantalla
   completa con confeti y se pueden **compartir** como imagen PNG.
 - **Curva de XP**: crece un 12 % por nivel hasta un tope de 1.500 XP por nivel (nivel 20 ≈ 6.300 XP, 30 ≈ 19.300 XP).
-- **Servidor**: el Worker guarda `rewards` con topes (saldo, ids de cosméticos y logros, escaparate ≤ 3, nivel de pase ≤ 30) y
+- **Servidor**: el Worker guarda `rewards` (en `users/<nombre>/rewards.json`) con topes (saldo, ids de cosméticos y logros, escaparate ≤ 3, nivel de pase ≤ 30) y
   publica en el ranking sólo lo necesario: ids de logros (rareza real), puntos, escaparate, título, marco y partidas de la
   temporada.
+
+## Nexito, la mascota de racha
+
+`src/services/pet.js` (reglas), `src/ui/pages/pet.js` (página `#/pet`, con su entrada en el menú), `src/ui/nexito.js`
+(tarjeta de Inicio, línea del resultado y avisos), el dibujo en `src/ui/art.js` y los estilos en `assets/css/pet.css`.
+Es la única racha diaria: sustituye a «Días seguidos» y a la racha de misiones, y las cuentas antiguas se migran solas
+quedándose con la mejor de las dos.
+
+- **Un día cuenta** con 1 partida y 1 comida. Cada día hay una merienda gratis; las misiones dan galleta (fácil),
+  bocadillo (media), tarta (difícil) y banquete (semanal, lo pone feliz 24 h). Helado y pizza se compran con Rombos.
+- **Escudos**: un día sin cuidar gasta uno y la racha sigue. Se empieza con 1, cada lunes se regala otro y se guardan 2
+  como máximo (también se compran: 300 Rombos). **Rescate**: sin escudos, la racha queda en peligro un día y las 3 misiones
+  diarias la recuperan (una vez cada 30 días). Si se rompe vuelve a 0, sin perder la mejor racha, la fase ni lo ganado.
+- **Vacaciones**: hasta 14 días al año con la racha congelada (Ajustes de Nexito).
+- **Necesidades**: Comida (−4 por hora), Diversión (+15 por partida, +5 si cambias de juego, −3 por hora) y Descanso (+20 por
+  hora sin jugar, baja jugando seguido). Se calculan con el tiempo real al volver, sin temporizadores. El ánimo sale de las
+  tres (Feliz, Contento, Hambriento, Aburrido, Cansado, Dormido de 1:00 a 7:00, Descansado tras una pausa). Nunca muere ni
+  enferma: lo peor es «un poco triste». Tras 45 min seguidos sugiere una pausa, sin bloquear nada.
+- **Evolución** por días cuidados en total (nunca retrocede): Huevo, Cría (3), Nexito (7), Nexito Pro (30), Nexito Dorado
+  (100) y Leyenda (365). **Hitos de racha**: 60 Rombos (3 días), 200 + bufanda (7), un escudo (14), 1.000 + cúpula (30), título
+  «Inseparables» y marco (100), avatar exclusivo y pedestal (365). Cada hito se cobra una sola vez.
+- **Vestir**: sombrero, gafas, cuello, cúpula y pedestal, en la Colección y la tienda de Cosméticos y en el pase.
+- **Logros**: escalera «Inseparables» (3, 7, 30, 100 y 365 días) y 3 secretos.
+- **Rankings**: pestaña «Rachas de Nexito»; al comparar con otro jugador se ve su Nexito. El perfil muestra el tuyo.
+- **Ajustes**: ocultarlo (la racha sigue contando), avisos de racha, nombre propio y vacaciones.
+- **Servidor**: el Worker acota `pet` (días cuidados ≤ días desde que nació, sin fechas futuras, necesidades 0–100, escudos ≤ 3)
+  y expone la cabecera `Date`: con servidor, Nexito usa su hora y adelantar el reloj del dispositivo no sirve.
 
 ## Activar cuentas y rankings globales
 
@@ -391,13 +418,13 @@ partidas completas entre bots.
 index.html
 assets/
   css/        base · layout · components · pages · games/{minesweeper,wordle,pasapalabra,arcade,tetris,pacman,snake,pong,
-              online,chess,battleship,cards,puzzles,solitaire} · icons · avatars · library · rewards · achievements
+              online,chess,battleship,cards,puzzles,solitaire} · icons · avatars · library · rewards · achievements · pet
   data/       words-es.js (diccionario)
   avatars/    manifest.js (catálogo) · una carpeta de PNG por colección
 src/
   core/       namespace, utils, events, storage, hash, schema, audio, backend (servidor / local), net (multijugador P2P)
-  services/   settings, users, avatars, progress, achievements, rewards (Rombos, misiones, temporada, tienda), leaderboard, notices
-  ui/         icons, avatar, avatar-picker, toast, celebrate, art, modal, fx, particles, components, sidebar, router, auth, pages/*
+  services/   settings, users, avatars, progress, achievements, rewards (Rombos, misiones, temporada, tienda), pet (Nexito), leaderboard, notices
+  ui/         icons, avatar, avatar-picker, toast, celebrate, art, nexito, modal, fx, particles, components, sidebar, router, auth, pages/*
   games/      registry.js · minesweeper/ · wordle/{dictionary,phrases,game}.js
               pasapalabra/{bank,game}.js
               shared/kit.js (canvas, bucle, táctil) · shared/online.js (vestíbulo online)
@@ -432,7 +459,8 @@ tools/        avatars/export.mjs (prepara los PNG de avatar y sincroniza la list
 pip install playwright && playwright install chromium
 python3 tests/e2e_smoke.py        # flujo completo + capturas
 python3 tests/e2e_accounts.py     # registro/login, sesión, partidas persistentes, ranking, borrar cuenta
-python3 tests/e2e_rewards.py      # Rombos, misiones, racha, temporada, tienda, cosméticos, escaleras, secretos, rareza real, celebraciones
+python3 tests/e2e_rewards.py      # Rombos, misiones, temporada, tienda, cosméticos, escaleras, secretos, rareza real, celebraciones
+python3 tests/e2e_pet.py          # Nexito: regla del día, necesidades, escudos, rescate, rotura, vacaciones, hitos, evolución, migración, interfaz
 python3 tests/e2e_minesweeper.py
 python3 tests/e2e_pasapalabra.py  # rosco diario, dificultades, marca de tiempo, persistencia y migración
 python3 tests/e2e_wordle_phrase.py  # Frase del día: frase oculta, letras reveladas, 6 intentos, logros

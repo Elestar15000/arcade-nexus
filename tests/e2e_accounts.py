@@ -31,7 +31,7 @@ with sync_playwright() as p:
 
     # Avatares PNG: bienvenida tras el registro, filas por colección y confirmación antes → después
     page.wait_for_selector('.avp', timeout=4000)
-    check(page.locator('.avp-row').count() == 8 and page.locator('.avp-opt').count() == 50, 'selector: 8 colecciones y 50 avatares')
+    check(page.locator('.avp-row').count() == 8 and page.locator('.avp-opt').count() == 51, 'selector: 8 colecciones y 51 avatares')
     check(page.evaluate("Nexus.services.users.current().avatar") == 'nx-nexo', 'cuenta nueva con el avatar por defecto')
     page.click('.avp-opt[data-id=fa-fox]'); page.wait_for_selector('.avp-confirm:not([hidden])')
     check(page.locator('.avp-confirm [data-av=nx-nexo]').count() == 1 and page.locator('.avp-confirm [data-av=fa-fox]').count() == 1, 'confirmación con el avatar actual y el nuevo')

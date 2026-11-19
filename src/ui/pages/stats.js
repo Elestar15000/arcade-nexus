@@ -87,7 +87,7 @@
                         ${C.statTile('Partidas jugadas', formatNumber(t.played), '🎮')}
                         ${C.statTile('Victorias', formatNumber(t.wins), '🏆', pct(t.wins, t.played) + ' % de acierto')}
                         ${C.statTile('Tiempo jugado', formatDuration(m.playTime), '⏱️')}
-                        ${C.statTile('Racha de días', m.dayStreak, '🔥', `Mejor: ${m.bestDayStreak}`)}
+                        ${(() => { const st = Nexus.services.pet.streak() || { count: 0, best: 0 }; return C.statTile('Racha de Nexito', st.count, '🔥', `Mejor: ${st.best}`); })()}
                         ${C.statTile('XP total', formatNumber(data.xp.total), '✨', `Nivel ${data.xp.level}`)}
                         ${C.statTile('Días jugados', m.daysPlayed, '📆')}
                     </div>

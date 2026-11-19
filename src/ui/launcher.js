@@ -130,7 +130,7 @@
                     <a class="tpop-item ${x.done ? 'done' : ''}" href="${esc(x.href)}" style="--game-accent:${esc(x.accent || 'var(--primary)')}">
                         <span class="tpop-emo">${esc(x.emoji)}</span><span class="tpop-txt"><b>${esc(x.label)}</b><small>${esc(x.name)} · ${esc(x.text)}</small></span>
                         <span class="tpop-state">${x.done ? '✅' : '▶'}</span></a>`).join('') || '<p class="muted small">No hay retos diarios.</p>'}</div>
-                <div class="tpop-foot"><span class="muted small">🔥 Racha de días: <b>${formatNumber((Nexus.services.users.data() || { meta: {} }).meta.dayStreak || 0)}</b></span></div>`;
+                <div class="tpop-foot"><span class="muted small">🔥 Racha de ${esc(Nexus.services.pet.name())}: <b>${formatNumber((Nexus.services.pet.streak() || { count: 0 }).count)}</b></span></div>`;
             this.pop.hidden = false; this.btn.setAttribute('aria-expanded', 'true');
         },
         openMenu() {
@@ -140,7 +140,7 @@
             this.menu.innerHTML = `
                 <div class="tb-menu-head" style="--user-color:${esc(Nexus.ui.avatar.accent(u.avatar))}">${Nexus.ui.avatar.user(u, 'md')}
                     <span><b>${esc(u.name)}</b><small>${esc(lv.rank.icon)} ${esc(lv.rank.name)} · Nivel ${lv.level}</small></span></div>
-                ${item('#/profile', '👤', 'Mi perfil')}<button role="menuitem" type="button" class="tb-mi" data-avatar-pick><span aria-hidden="true">🎨</span>Cambiar avatar</button>${item('#/achievements', '🏅', 'Logros')}${item('#/cosmetics', '💎', 'Cosméticos')}${item('#/stats', '📊', 'Estadísticas')}${item('#/settings', '⚙️', 'Ajustes')}
+                ${item('#/profile', '👤', 'Mi perfil')}<button role="menuitem" type="button" class="tb-mi" data-avatar-pick><span aria-hidden="true">🎨</span>Cambiar avatar</button>${item('#/achievements', '🏅', 'Logros')}${Nexus.services.pet.isHidden() ? '' : item('#/pet', '💛', esc(Nexus.services.pet.name()))}${item('#/cosmetics', '💎', 'Cosméticos')}${item('#/stats', '📊', 'Estadísticas')}${item('#/settings', '⚙️', 'Ajustes')}
                 ${Nexus.services.users.isAdmin() ? item('#/admin', '🛡️', 'Administración') : ''}
                 <hr><button role="menuitem" type="button" class="tb-mi tb-mi-out" data-logout>${B.icon('logout', 18)}Cerrar sesión</button>`;
             $('[data-logout]', this.menu).addEventListener('click', () => { this.closeMenu(); Nexus.app.logout(); });

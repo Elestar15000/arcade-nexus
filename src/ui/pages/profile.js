@@ -119,6 +119,13 @@
                             : C.empty('⭐', 'Tu escaparate está vacío', 'En Logros, pulsa ☆ en hasta 3 logros conseguidos para enseñarlos aquí, en el ranking y en las salas online.')}
                     </section>
 
+                    ${(() => { const PT = Nexus.services.pet; if (!PT || !PT.data() || PT.isHidden()) return ''; const st = PT.streak();
+                        return `<section class="section card-surface pf-pet">
+                        <div class="section-head"><h2 class="section-title"><span>💛</span> ${esc(PT.name())}</h2><a class="link" href="#/pet">Ver a ${esc(PT.name())}</a></div>
+                        <div class="pf-pet-row"><span class="pf-pet-art">${Nexus.ui.nexito.mini()}</span>
+                            <div class="pf-pet-stats"><span><b>${formatNumber(st.count)}</b><small>Racha actual</small></span><span><b>${formatNumber(st.best)}</b><small>Mejor racha</small></span>
+                            <span><b>${formatNumber(PT.data().caredDays)}</b><small>Días cuidados</small></span><span><b>${esc(PT.stage().name)}</b><small>Fase</small></span></div></div></section>`; })()}
+
                     <section class="section card-surface">
                         <div class="section-head"><h2 class="section-title"><span>🏅</span> Logros destacados</h2>
                             <a class="link" href="#/achievements">${A.countUnlocked()}/${A.visible().length} · Ver todos</a></div>

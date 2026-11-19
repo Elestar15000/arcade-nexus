@@ -88,7 +88,8 @@
             { id: 'rw-phoenix-gold',   collection: 'recompensas', name: 'Fénix dorado',     unlock: { reward: 'av:rw-phoenix-gold' } },
             { id: 'rw-legend',         collection: 'recompensas', name: 'Leyenda',          unlock: { reward: 'av:rw-legend' } },
             { id: 'rw-ghost',          collection: 'recompensas', name: 'Fantasma',         unlock: { reward: 'av:rw-ghost' } },
-            { id: 'rw-xmas',           collection: 'recompensas', name: 'Duende navideño',  unlock: { reward: 'av:rw-xmas' } }
+            { id: 'rw-xmas',           collection: 'recompensas', name: 'Duende navideño',  unlock: { reward: 'av:rw-xmas' } },
+            { id: 'rw-nexito',         collection: 'recompensas', name: 'Nexito Leyenda',   unlock: { reward: 'av:rw-nexito' } }
         ],
 
         // Avatares de la versión con emojis → id equivalente (cuentas antiguas y clientes viejos online)

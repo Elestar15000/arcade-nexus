@@ -106,7 +106,7 @@
                     <span class="nh-near-txt"><b>${esc(m.text)}</b>${bar(m.prog / m.n * 100)}</span><span class="nh-near-n">${m.done ? '✓' : `${dia(13)} ${RW.MISSION_ROMBOS[m.tier]}`}</span></li>`).join('')}</ul>
                 <a class="nh-season" href="#/cosmetics" data-cos-tab="pase">
                     <span><b>Pase de batalla</b> · temporada ${s.id} · nivel ${s.level}/${s.max}</span>${bar(s.into / s.cost * 100)}
-                    <small>🔥 Racha de misiones: ${M.streak.count} · ${dia(13)} ${formatNumber(RW.balance())} Rombos</small></a>
+                    <small>🔥 Racha de ${esc(Nexus.services.pet.name())}: ${Nexus.services.pet.streak().count} · ${dia(13)} ${formatNumber(RW.balance())} Rombos</small></a>
             </section>
         </div>`;
     }
@@ -151,12 +151,13 @@
                                 <span class="nh-stat"><i aria-hidden="true">🎮</i><b>${formatNumber(totals.played)}</b><small>Partidas</small></span>
                                 <span class="nh-stat"><i aria-hidden="true">🏆</i><b>${formatNumber(totals.wins)}</b><small>Victorias</small></span>
                                 <span class="nh-stat"><i aria-hidden="true">🏅</i><b>${A.countUnlocked()}</b><small>Logros</small></span>
-                                <span class="nh-stat"><i aria-hidden="true">🔥</i><b>${formatNumber(data.meta.dayStreak)}</b><small>Días seguidos</small></span>
+                                <span class="nh-stat"><i aria-hidden="true">🔥</i><b>${formatNumber(Nexus.services.pet.streak() ? Nexus.services.pet.streak().count : 0)}</b><small>Días de racha</small></span>
                             </div>
                             <span class="nh-prog-rank">${esc(lv.rank.icon)} ${esc(lv.rank.name)} · ${esc(greeting())}, <b>${esc(user.name)}</b></span>
                         </a>
                     </div>
 
+                    ${Nexus.ui.nexito.card()}
                     ${goals()}
 
                     <section class="nh-sec">

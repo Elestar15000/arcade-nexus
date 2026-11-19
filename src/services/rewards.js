@@ -57,6 +57,26 @@
         C('fr-fire', 'frame', 'Fuego', 'Un aro de llamas naranjas.', 800),
         C('fr-mastery', 'frame', 'Maestría', 'Corona dorada: para quien completa un juego entero.'),
         C('fr-legend', 'frame', 'Leyenda', 'El marco de quien tiene 50 logros.'),
+        C('fr-nexito', 'frame', 'Nexito', 'Nexito asomado a tu avatar: 100 días de racha.'),
+        C('t-inseparables', 'title', 'Inseparables', '100 días de racha con Nexito.'),
+        C('av:rw-nexito', 'avatar', 'Nexito Leyenda', 'Avatar exclusivo: 365 días de racha con Nexito.'),
+
+        // Nexito: sombreros, gafas, cuello, cúpula y pedestal (services/pet.js · SLOTS)
+        C('nx-gorra', 'pet-hat', 'Gorra Nexus', 'Gorra amarilla con el rombo.', 400),
+        C('nx-auriculares', 'pet-hat', 'Auriculares gamer', 'Para concentrarse en la partida.', 500),
+        C('nx-copa', 'pet-hat', 'Sombrero de copa', 'Elegancia de casino.', 600),
+        C('nx-corona', 'pet-hat', 'Corona', 'El rey del arcade.', 900),
+        C('nx-gafas-sol', 'pet-glasses', 'Gafas de sol', 'Estilo de verano.', 400),
+        C('nx-gafas-pixel', 'pet-glasses', 'Gafas pixeladas', 'Deal with it.', 600),
+        C('nx-bufanda', 'pet-scarf', 'Bufanda', 'Hito: 7 días de racha.'),
+        C('nx-pajarita', 'pet-scarf', 'Pajarita', 'Para las ocasiones especiales.', 350),
+        C('nx-capa', 'pet-scarf', 'Capa de héroe', 'Una capa roja al viento.', 800),
+        C('nx-cupula-estrellas', 'pet-dome', 'Cúpula estrellada', 'Hito: 30 días de racha.'),
+        C('nx-cupula-neon', 'pet-dome', 'Cúpula neón', 'Luz rosa y cian.', 600),
+        C('nx-cupula-oro', 'pet-dome', 'Cúpula dorada', 'Cristal tintado en oro.', 900),
+        C('nx-base-arcade', 'pet-base', 'Pedestal arcade', 'Con luces de recreativa.', 500),
+        C('nx-base-oro', 'pet-base', 'Pedestal de oro', 'Oro macizo (o casi).', 700),
+        C('nx-base-leyenda', 'pet-base', 'Pedestal Leyenda', 'Hito: 365 días de racha.'),
 
         C('t-campeon', 'title', 'Campeón', '100 victorias.'),
         C('t-explorador', 'title', 'Explorador', 'Ha probado todos los juegos.'),
@@ -106,7 +126,8 @@
     ];
     const BY_ID = new Map(CATALOG.map(c => [c.id, c]));
     const KINDS = { frame: 'Marcos', title: 'Títulos', theme: 'Temas', particles: 'Efectos de fondo', banner: 'Fondos de perfil',
-        snake: 'Snake', cards: 'Cartas', chess: 'Ajedrez', tetris: 'Tetris', avatar: 'Avatares' };
+        snake: 'Snake', cards: 'Cartas', chess: 'Ajedrez', tetris: 'Tetris', avatar: 'Avatares',
+        'pet-hat': 'Nexito · Sombreros', 'pet-glasses': 'Nexito · Gafas', 'pet-scarf': 'Nexito · Cuello', 'pet-dome': 'Nexito · Cúpulas', 'pet-base': 'Nexito · Pedestales' };
 
     /** Cosmético por id (los títulos de Maestría se crean al vuelo: t-master-<juego>). */
     function item(id) {
@@ -119,9 +140,9 @@
     // ── Pase de temporada y rangos ──────────────────────────
     const R = (n) => ({ rombos: n });
     const SEASON_REWARDS = [
-        R(50), 'bn-galaxia', R(75), 't-estratega', 'sk-snake-ice', R(75), 'fr-neon', R(100), 'sk-tetris-pastel', 'av:rw-pad-gold',
+        R(50), 'bn-galaxia', R(75), 't-estratega', 'sk-snake-ice', 'nx-pajarita', 'fr-neon', R(100), 'sk-tetris-pastel', 'av:rw-pad-gold',
         R(100), 'sk-cards-indigo', R(125), 't-pixel', 'av:rw-phoenix-gold', R(125), 'sk-chess-ocean', R(150), 'bn-oro', 'pt-rombos',
-        R(150), 'sk-snake-gold', R(175), 't-tahur', 'th-oro', R(200), 'fr-diamond', R(200), 't-veterano', 'av:rw-nexo-gold'
+        'nx-cupula-neon', 'sk-snake-gold', R(175), 't-tahur', 'th-oro', R(200), 'fr-diamond', R(200), 't-veterano', 'av:rw-nexo-gold'
     ];
     const RANK_REWARDS = { 5: ['fr-silver'], 10: ['bn-arcade'], 15: ['fr-gold'], 20: ['av:rw-crown-neon'], 25: ['th-nocturno'], 30: ['av:rw-legend', 't-leyenda'] };
 
@@ -209,6 +230,7 @@
             U().saveData(); this.apply();
             Nexus.bus.emit('rewards:change', { kind: 'equip' });
             if (kind === 'title' || kind === 'frame') Nexus.bus.emit('user:update', U().current());
+            if (/^pet-/.test(kind) && Nexus.services.pet) { Nexus.bus.emit('pet:change', { kind: 'outfit' }); Nexus.services.pet._checkAch(); }
             return true;
         },
         title() { const id = this.equipped('title'); const it = id && item(id); return it ? it.name : ''; },
@@ -342,6 +364,7 @@
                 m.done = true;
                 const M = this.data().missions; M.completed++;
                 this.earn(MISSION_ROMBOS[m.tier], `Misión: ${m.text}`, { double: true });
+                m.food = Nexus.services.pet ? Nexus.services.pet.giveFood(m.tier) : null;   // cada misión da una comida a Nexito
                 done.push(m);
             }
         },
@@ -351,8 +374,7 @@
             const gap = st.last ? daysBetween(st.last, today) : 0;
             st.count = gap === 1 || (gap === 2 && st.freezeWeek === weekKey()) ? st.count + 1 : 1;
             st.last = today; st.best = Math.max(st.best, st.count);
-            const prize = STREAK_PRIZES[st.count];
-            if (prize) this.earn(prize, `Racha de misiones: ${st.count} días`, { double: false });
+            // Sin premios: la racha diaria es la de Nexito (services/pet.js). Este contador sólo alimenta el logro «Disciplina».
             return st.count;
         },
 
@@ -387,9 +409,11 @@
             const done = [];
             r.missions.list.forEach(m => this._progress(m, e, done));
             if (r.missions.weekly) this._progress(r.missions.weekly, e, done);
-            const streak = this._streakUpdate();
-            if (done.length) Nexus.bus.emit('rewards:missions', { done, streak });
-            return { done, streak };
+            this._streakUpdate();
+            // Las 3 misiones diarias rescatan la racha de Nexito si está en peligro
+            const rescued = r.missions.list.length && r.missions.list.every(m => m.done) && Nexus.services.pet ? Nexus.services.pet.onAllMissions(e.at) : false;
+            if (done.length) Nexus.bus.emit('rewards:missions', { done, rescued });
+            return { done, rescued };
         },
 
         // ── Seguir un logro y escaparate ────────────────────

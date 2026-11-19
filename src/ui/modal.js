@@ -197,9 +197,12 @@
         // Misiones completadas en esta partida
         const md = r.missions && r.missions.done;
         if (md && md.length && RW) {
-            parts.push('<div class="modal-missions">' + md.map(m => `<span class="rw-mchip">${CEL ? CEL.diamond(14) : ''} Misión: ${esc(m.text)} <b>+${RW.MISSION_ROMBOS[m.tier]}</b></span>`).join('') +
-                (r.missions.streak ? `<span class="rw-mchip streak">Racha de misiones: ${r.missions.streak} días</span>` : '') + '</div>');
+            const PF = Nexus.services.pet ? Nexus.services.pet.FOOD : {};
+            parts.push('<div class="modal-missions">' + md.map(m => `<span class="rw-mchip">${CEL ? CEL.diamond(14) : ''} Misión: ${esc(m.text)} <b>+${RW.MISSION_ROMBOS[m.tier]}</b>${m.food && PF[m.food] ? ` · ${PF[m.food].icon}` : ''}</span>`).join('') +
+                (r.missions.rescued ? '<span class="rw-mchip streak">🔥 ¡Racha de Nexito rescatada!</span>' : '') + '</div>');
         }
+        // Nexito: diversión, y si falta, la comida del día (con botón de merienda)
+        if (Nexus.ui.nexito) parts.push(Nexus.ui.nexito.resultLine(r));
         // «Casi lo tienes»: los logros más cercanos de este juego (o generales)
         if (ACH && o.game !== false) {
             const g = o.game || (r.game) || null;

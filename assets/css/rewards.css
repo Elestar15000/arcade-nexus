@@ -191,6 +191,7 @@ body > .rw-confetti { position: fixed; z-index: 1400; }
 .rw-prev.frame .avatar { width: 56px; height: 56px; }
 .rw-prev.avatar nx-av { width: 70px; height: 70px; }
 .rw-prev.title { padding: 6px; }
+.rw-prev.pet { padding: 4px; } .rw-prev.pet svg { width: 100%; height: 100%; }
 .rw-prev.rombos { background: rgba(var(--primary-rgb), .08); }
 .rw-prev.swatch { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; padding: 14px; }
 .rw-prev.swatch i { width: 100%; aspect-ratio: 1; border-radius: 4px; transform: rotate(45deg) scale(.7); }

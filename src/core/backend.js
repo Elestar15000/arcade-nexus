@@ -39,7 +39,9 @@
             achievements: Object.keys(data.achievements || {}).length, stats,
             ach: Object.keys(data.achievements || {}), points: rw.points | 0,
             showcase: (rw.showcase || []).slice(0, 3), title: eq.title || '', frame: eq.frame || '',
-            season: { id: (rw.season || {}).id | 0, played: (rw.season || {}).played | 0 }
+            season: { id: (rw.season || {}).id | 0, played: (rw.season || {}).played | 0 },
+            pet: (() => { const p = rw.pet || {}, s = p.streak || {}, days = p.caredDays | 0, st = Nexus.services.pet ? Nexus.services.pet.stage(days).id : 'egg';
+                return { name: p.name || 'Nexito', best: s.best | 0, count: s.count | 0, days, stage: st, hat: eq['pet-hat'] || '', dome: eq['pet-dome'] || '', hidden: !!p.hidden }; })()
         };
     }
 
@@ -53,6 +55,8 @@
                 body: body ? JSON.stringify(body) : undefined
             });
         } catch (e) { throw fail(0, 'No se pudo conectar con el servidor.', { offline: true }); }
+        // Hora del servidor (Nexito no se fía del reloj del dispositivo)
+        try { const dh = Date.parse(res.headers.get('Date') || ''); if (dh) { Nexus.clock = Nexus.clock || { offset: 0, now() { return Date.now() + this.offset; } }; Nexus.clock.offset = Math.abs(dh - Date.now()) > 120e3 ? dh - Date.now() : 0; } } catch (e) { /* sin cabecera */ }
         let json = null;
         try { json = await res.json(); } catch (e) { /* sin cuerpo */ }
         if (!res.ok) {

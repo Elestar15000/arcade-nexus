@@ -18,6 +18,7 @@
         { route: 'home', icon: '🏠', label: 'Inicio' },
         { route: 'library', icon: '🎮', label: 'Biblioteca' },
         { route: 'achievements', icon: '🏅', label: 'Logros' },
+        { route: 'pet', icon: '💛', label: 'Nexito' },
         { route: 'cosmetics', icon: '💎', label: 'Cosméticos' },
         { route: 'rankings', icon: '🏆', label: 'Rankings' },
         { route: 'stats', icon: '📊', label: 'Estadísticas' }

@@ -53,6 +53,19 @@
                         </label>
                     </section>
 
+                    <section class="section card-surface">
+                        <h2 class="section-title"><span>💛</span> Nexito</h2>
+                        <label class="setting-row">
+                            <span class="setting-text"><strong>Mostrar a Nexito</strong><small>En Inicio, el menú y al terminar cada partida. Si lo ocultas, su racha sigue contando</small></span>
+                            <span class="switch"><input type="checkbox" id="st-pet-show" /><span class="switch-track"><span class="switch-thumb"></span></span></span>
+                        </label>
+                        <label class="setting-row">
+                            <span class="setting-text"><strong>Avisos de racha</strong><small>Racha en peligro y sugerencia de pausa tras 45 minutos seguidos</small></span>
+                            <span class="switch"><input type="checkbox" id="st-pet-alerts" /><span class="switch-track"><span class="switch-thumb"></span></span></span>
+                        </label>
+                        <p class="muted small">El nombre y el modo vacaciones están en <a href="#/pet" data-pet-settings>Ajustes de Nexito</a>.</p>
+                    </section>
+
                     <p class="muted small">Los ajustes de cada juego (pieza fantasma, modo difícil, cuadrícula…) están dentro del propio juego, en el botón ⚙️ de su cabecera.</p>
 
                     <section class="section card-surface">
@@ -96,6 +109,14 @@
             });
 
             $('#st-test-sound', root).addEventListener('click', () => Nexus.audio.play('win'));
+            // Nexito (services/pet.js)
+            const PT = Nexus.services.pet, ps = $('#st-pet-show', root), pa = $('#st-pet-alerts', root);
+            if (PT && PT.data()) {
+                ps.checked = !PT.isHidden(); pa.checked = !PT.data().noAlerts;
+                ps.addEventListener('change', (e) => { e.stopPropagation(); PT.setHidden(!ps.checked); });
+                pa.addEventListener('change', (e) => { e.stopPropagation(); PT.setAlerts(pa.checked); });
+            }
+            const pl = $('[data-pet-settings]', root); if (pl) pl.addEventListener('click', () => { Nexus.ui.petPanel = 'settings'; });
             $('#st-reset', root).addEventListener('click', async () => {
                 const ok = await Nexus.ui.modal.confirm({ title: 'Restablecer ajustes', message: 'Todos los ajustes volverán a sus valores por defecto.', confirmLabel: 'Restablecer' });
                 if (ok) { S().reset(); syncControls(); Nexus.ui.toast('Ajustes restablecidos', { type: 'success' }); }

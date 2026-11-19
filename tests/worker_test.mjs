@@ -100,7 +100,7 @@ r = await call('GET', '/api/session', null, exp + '.zzz'); ok(r.status === 401, 
 r = await call('PUT', '/api/data', { data: data(1234) }, ana); ok(r.status === 200 && r.json.updatedAt > 0, 'PUT data');
 { // estructura de carpetas
     const names = [...files.keys()].filter(k => k.startsWith('users/ana_01/')).map(k => k.split('/')[2]).sort();
-    ok(JSON.stringify(names) === JSON.stringify(['account.json', 'achievements.json', 'history.json', 'progress.json', 'saves.json', 'settings.json', 'stats.json']), 'carpeta de usuario con account/progress/stats/achievements/history/settings/saves: ' + names.join(','));
+    ok(JSON.stringify(names) === JSON.stringify(['account.json', 'achievements.json', 'history.json', 'progress.json', 'rewards.json', 'saves.json', 'settings.json', 'stats.json']), 'carpeta de usuario con account/progress/stats/achievements/history/settings/saves/rewards: ' + names.join(','));
     ok(readJson('users/ana_01/stats.json').snake.bestScore === 1234, 'stats.json contiene las estadísticas');
     ok(JSON.stringify(readJson('users/ana_01/achievements.json')) === JSON.stringify({ a: 1, b: 2 }), 'achievements.json contiene los logros');
     ok(readJson('users/ana_01/progress.json').xp.level === 3 && readJson('users/ana_01/progress.json').updatedAt > 0, 'progress.json contiene XP/nivel y updatedAt');
@@ -114,6 +114,21 @@ r = await call('PUT', '/api/data', { data: data(1234) }, ana); ok(r.status === 2
 r = await call('GET', '/api/leaderboard'); ok(r.status === 200 && r.json.players.length === 1 && r.json.players[0].stats.snake.bestScore === 1234 && r.json.players[0].level === 3, 'leaderboard refleja los datos');
 ok(r.headers.get('Cache-Control').includes('max-age'), 'leaderboard con Cache-Control');
 ok(!JSON.stringify(r.json).includes('hash') && !JSON.stringify(r.json).includes('history'), 'leaderboard sin datos privados');
+// Nexito: topes del servidor (días cuidados ≤ días de vida, sin fechas futuras, escudos ≤ 3) y resumen público
+{
+    const today = new Date().toISOString().slice(0, 10);
+    const pet = { name: 'Rombito', born: today, caredDays: 9999, tick: Date.now() + 864e7, needs: { food: 500, fun: -3, rest: 50 },
+        streak: { count: 9999, best: 9999, shields: 50, last: today, milestones: [3, 7] }, food: { tarta: 1e6 }, hidden: false };
+    await call('PUT', '/api/data', { data: { ...data(1234), rewards: { rombos: 10, pet, cosmetics: { owned: ['nx-gorra'], equipped: { 'pet-hat': 'nx-gorra' } } } } }, ana);
+    r = await call('GET', '/api/session', null, ana);
+    const sp = r.json.data.rewards.pet;
+    ok(sp.caredDays <= 2 && sp.streak.count <= sp.caredDays && sp.streak.shields <= 3, 'Nexito: días y racha acotados por la edad, escudos ≤ 3');
+    ok(sp.tick <= Date.now() + 10 * 60e3 && sp.needs.food === 100 && sp.needs.fun === 0 && sp.food.tarta === 99, 'Nexito: sin fechas futuras, necesidades 0–100, comida ≤ 99');
+    r = await call('GET', '/api/leaderboard');
+    const pp = r.json.players.find(p => p.name === 'Ana_01').pet;
+    ok(pp && pp.name === 'Rombito' && pp.hat === 'nx-gorra' && pp.stage === 'egg', 'Nexito en el resumen público (nombre, fase, sombrero)');
+    ok(r.headers.get('Access-Control-Expose-Headers') === 'Date', 'cabecera Date expuesta para la hora del servidor');
+}
 r = await call('PUT', '/api/data', { data: { nada: 1 } }, ana); ok(r.status === 400, 'data inválido → 400');
 r = await call('PUT', '/api/data', { data: { ...data(1), settings: { big: 'x'.repeat(300000) } } }, ana); ok(r.status === 413, 'data demasiado grande → 413');
 r = await call('PUT', '/api/data', { data: data(999999999999) }, ana); r = await call('GET', '/api/leaderboard');
@@ -199,7 +214,7 @@ r = await call('GET', '/api/leaderboard'); ok(r.headers.get('Access-Control-Allo
     const sec = r.json.secret, setupToken = r.json.setupToken;
     ok(!JSON.stringify(readJson('users/jefe/account.json')).includes('totp'), 'authenticator: nada se guarda hasta confirmar con un código');
     r = await call('POST', '/api/admin/totp/enable', { setupToken, code: '000000' === totp(sec) ? '111111' : '000000' }); ok(r.status === 400, 'authenticator: confirmar con un código erróneo falla');
-    r = await call('POST', '/api/admin/totp/enable', { setupToken: setupToken.replace(/.$/, 'A'), code: totp(sec) }); ok(r.status === 400, 'authenticator: token de alta manipulado → rechazado');
+    r = await call('POST', '/api/admin/totp/enable', { setupToken: setupToken.slice(0, -1) + (setupToken.endsWith('A') ? 'B' : 'A'), code: totp(sec) }); ok(r.status === 400, 'authenticator: token de alta manipulado → rechazado');
     const enableCode = totp(sec);
     r = await call('POST', '/api/admin/totp/enable', { setupToken, code: enableCode }); ok(r.status === 200, 'authenticator: vinculado con el primer código');
     const acc = readJson('users/jefe/account.json');

@@ -16,7 +16,7 @@
             const L = Nexus.services.leaderboard;
             const me = Nexus.services.users.current();
             const games = Nexus.games.registry.available();
-            const tabs = [{ id: 'overall', label: '🌐 General' }, { id: 'points', label: '🏅 Puntos de logro' }]
+            const tabs = [{ id: 'overall', label: '🌐 General' }, { id: 'points', label: '🏅 Puntos de logro' }, { id: 'streaks', label: '🔥 Rachas de Nexito' }]
                 .concat(games.map(g => ({ id: g.id, label: `${g.emoji} ${g.name}` })));
             const state = { tab: Nexus.ui.rankingsTab && games.some(g => g.id === Nexus.ui.rankingsTab) ? Nexus.ui.rankingsTab : 'overall', mode: 'all', metric: null };
             Nexus.ui.rankingsTab = null;
@@ -92,6 +92,19 @@
                     <p class="muted small center">10 / 25 / 50 / 100 puntos por logro común / raro / épico / legendario. Pulsa un jugador para comparar.</p>`;
             };
 
+            const petArt = (pt) => pt && Nexus.ui.nexito ? `<span class="rk-pet">${Nexus.ui.art.nexito({ stage: pt.stage || 'egg', mood: 'content', outfit: { 'pet-hat': pt.hat || '' } })}</span>` : '';
+            const drawStreaks = () => {
+                $('#rk-filters', root).innerHTML = '';
+                const rows = L.byStreak();
+                if (!rows.length) return C.empty('🔥', 'Sin rachas todavía', 'Cuida a Nexito (1 partida y 1 comida al día) para entrar.');
+                const STG = Nexus.services.pet.STAGES;
+                return `<div class="table-wrap"><table class="table table-rank">
+                    <thead><tr><th>#</th><th>Jugador</th><th></th><th class="num">Mejor racha</th><th class="num">Racha actual</th><th>Fase</th></tr></thead>
+                    <tbody>${rows.map(r => `<tr${rowCls(r.user)}>${posCell(r.pos)}<td>${who(r.user, r)}</td><td>${petArt(r.pet)}</td>
+                        <td class="num strong">${formatNumber(r.pet.best)}</td><td class="num">${formatNumber(r.pet.count)}</td><td>${esc((STG.find(s => s.id === r.pet.stage) || STG[0]).name)}</td></tr>`).join('')}</tbody></table></div>
+                    <p class="muted small center">Un día cuenta con 1 partida y 1 comida para Nexito. Pulsa un jugador para ver su Nexito y comparar logros.</p>`;
+            };
+
             /** Comparar mis logros con los de otro jugador, juego a juego. */
             const compare = (id) => {
                 const p = L.player(id); if (!p) return;
@@ -105,7 +118,8 @@
                 }).join('');
                 const onlyThem = A.all().filter(d => theirs.has(d.id) && !mine.has(d.id) && !d.hidden).slice(0, 6);
                 const body = document.createElement('div');
-                body.innerHTML = `<div class="rk-cmp-head">${C.avatar(p, 'lg')}<div><b>${esc(p.name)}</b>${p.title ? `<span class="rw-title-chip">${esc(titleOf(p.title))}</span>` : ''}
+                const pt = p.pet && !p.pet.hidden ? p.pet : null;
+                body.innerHTML = `${pt ? `<div class="rk-cmp-pet">${petArt(pt)}<span><b>${esc(pt.name || 'Nexito')} de ${esc(p.name)}</b><small>Racha de ${formatNumber(pt.count)} días · mejor ${formatNumber(pt.best)} · ${esc((Nexus.services.pet.STAGES.find(s => s.id === pt.stage) || {}).name || '')}</small></span></div>` : ''}<div class="rk-cmp-head">${C.avatar(p, 'lg')}<div><b>${esc(p.name)}</b>${p.title ? `<span class="rw-title-chip">${esc(titleOf(p.title))}</span>` : ''}
                         <small class="muted">${formatNumber(p.points || 0)} puntos · ${p.achievements} logros</small><span class="rk-shows">${showIcons(p.showcase)}</span></div></div>
                     <div class="table-wrap"><table class="table"><thead><tr><th>Juego</th><th class="num">Tú</th><th class="num">${esc(p.name)}</th><th class="num">Total</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>
                     ${onlyThem.length ? `<p class="small"><b>Tiene y tú no:</b> ${onlyThem.map(d => `${esc(d.icon)} ${esc(d.name)}`).join(' · ')}</p>` : ''}`;
@@ -118,7 +132,7 @@
                     const on = t.dataset.tab === state.tab;
                     t.classList.toggle('active', on); t.setAttribute('aria-selected', String(on));
                 });
-                $('#rk-table', root).innerHTML = (state.tab === 'overall' ? drawOverall() : state.tab === 'points' ? drawPoints() : drawGame());
+                $('#rk-table', root).innerHTML = (state.tab === 'overall' ? drawOverall() : state.tab === 'points' ? drawPoints() : state.tab === 'streaks' ? drawStreaks() : drawGame());
             };
 
             $$('.tab', root).forEach(t => t.addEventListener('click', () => {

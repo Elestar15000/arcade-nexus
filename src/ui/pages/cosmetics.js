@@ -20,6 +20,7 @@
     /** Vista previa de un cosmético. */
     function preview(it) {
         const k = it.kind;
+        if (/^pet-/.test(k) && Nexus.ui.nexito) return `<span class="rw-prev pet">${Nexus.ui.nexito.mini({ outfit: { [k]: it.id }, mood: 'happy', scene: k === 'pet-dome' || k === 'pet-base' })}</span>`;
         if (k === 'frame') return `<span class="rw-prev frame">${Nexus.ui.avatar.user(Object.assign({}, Nexus.services.users.current(), { frame: it.id }), 'lg')}</span>`;
         if (k === 'title') return `<span class="rw-prev title"><span class="rw-title-chip">${esc(it.name)}</span></span>`;
         if (k === 'avatar') return `<span class="rw-prev avatar">${Nexus.ui.avatar.html(it.id.slice(3), { size: 256 })}</span>`;

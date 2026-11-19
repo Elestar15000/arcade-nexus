@@ -53,7 +53,7 @@
         { id: 'ld-games', game: 'general', name: 'Jugón', grades: ['first_game', 'games_10', 'games_50', 'games_200'] },
         { id: 'ld-wins', game: 'general', name: 'Ganador', grades: ['wins_1', 'wins_25', 'wins_100'] },
         { id: 'ld-level', game: 'general', name: 'Escalador', grades: ['level_5', 'level_10', 'level_20'] },
-        { id: 'ld-days', game: 'general', name: 'Constante', grades: ['days_3', 'days_7'] },
+        { id: 'ld-days', game: 'general', name: 'Inseparables', grades: ['days_3', 'days_7', 'pet_30', 'pet_100', 'pet_365'] },
         { id: 'ld-wordle', game: 'wordle', name: 'Palabrero', grades: ['wd_win_1', 'wd_win_10', 'wd_win_50'] },
         { id: 'ld-rosco', game: 'pasapalabra', name: 'Roscos superados', grades: ['pp_win_1', 'pp_win_10', 'pp_win_40'] },
         { id: 'ld-snake-len', game: 'snake', name: 'Longitud', grades: ['sn_len15', 'sn_len40'] },
@@ -238,6 +238,8 @@
     const totalPlayed = (c) => Nexus.services.progress.totals(c.data).played;
     const totalWins = (c) => Nexus.services.progress.totals(c.data).wins;
     const R = (c) => (c.data.rewards || {});
+    const PET = (c) => (R(c).pet || {});
+    const petBest = (c) => ((PET(c).streak || {}).best || 0);
     const today = (c) => (R(c).today || {});
 
     Achievements.register([
@@ -261,10 +263,17 @@
             ...counter((c) => c.data.xp.level, 10) },
         { id: 'level_20', name: 'En la cima', desc: 'Alcanza el nivel 20.', icon: '🏔️', rarity: 'epic',
             ...counter((c) => c.data.xp.level, 20) },
-        { id: 'days_3', name: 'Constancia', desc: 'Juega 3 días seguidos.', icon: '📆', rarity: 'common',
-            ...counter((c) => c.data.meta.bestDayStreak, 3) },
-        { id: 'days_7', name: 'Semana perfecta', desc: 'Juega 7 días seguidos.', icon: '🔥', rarity: 'epic',
-            ...counter((c) => c.data.meta.bestDayStreak, 7) },
+        // Racha de Nexito (services/pet.js): 1 partida + 1 comida al día
+        { id: 'days_3', name: 'Constancia', desc: 'Cuida a Nexito 3 días seguidos.', icon: '📆', rarity: 'common',
+            ...counter(petBest, 3) },
+        { id: 'days_7', name: 'Semana perfecta', desc: 'Cuida a Nexito 7 días seguidos.', icon: '🔥', rarity: 'epic',
+            ...counter(petBest, 7) },
+        { id: 'pet_30', name: 'Un mes juntos', desc: 'Cuida a Nexito 30 días seguidos.', icon: '💛', rarity: 'epic',
+            ...counter(petBest, 30) },
+        { id: 'pet_100', name: 'Inseparables', desc: 'Cuida a Nexito 100 días seguidos.', icon: '🏅', rarity: 'legendary',
+            ...counter(petBest, 100) },
+        { id: 'pet_365', name: 'Un año con Nexito', desc: 'Cuida a Nexito 365 días seguidos.', icon: '👑', rarity: 'legendary',
+            ...counter(petBest, 365) },
         { id: 'explorer', name: 'Explorador', desc: 'Juega a todos los juegos disponibles.', icon: '🧭', rarity: 'rare', title: 't-explorador',
             progress: (c) => {
                 const games = Nexus.games.registry.available();
@@ -317,6 +326,12 @@
             icon: '🎃', rarity: 'epic', test: (c) => { if (!c.event) return false; const d = new Date(c.event.at); return d.getDay() === 5 && d.getDate() === 13; } },
         { id: 'sx_zero', name: 'Cero patatero', desc: 'Termina 5 partidas con 0 puntos.', hint: 'Lo importante es participar', hidden: true,
             icon: '🥚', rarity: 'common', test: (c) => (R(c).zeroes || 0) >= 5 },
+        { id: 'sx_pet_night', name: 'Merienda de medianoche', desc: 'Da de comer a Nexito entre las 0:00 y las 5:00.', hint: 'Nexito también tiene hambre de noche', hidden: true,
+            icon: '🌙', rarity: 'rare', test: (c) => (PET(c).stats || {}).nightFeeds > 0 },
+        { id: 'sx_pet_dress', name: 'De punta en blanco', desc: 'Viste a Nexito con sombrero, gafas, cuello, cúpula y pedestal a la vez.', hint: 'Nexito, de gala', hidden: true,
+            icon: '🎩', rarity: 'epic', test: (c) => { const e = (R(c).cosmetics || {}).equipped || {}; return ['pet-hat', 'pet-glasses', 'pet-scarf', 'pet-dome', 'pet-base'].every(k => !!e[k]); } },
+        { id: 'sx_pet_wake', name: 'Despertador', desc: 'Despierta a Nexito 10 veces.', hint: 'Zzz…', hidden: true,
+            icon: '⏰', rarity: 'rare', test: (c) => (PET(c).stats || {}).wakes >= 10 },
         { id: 'sx_secrets', name: 'Buscador de secretos', desc: 'Descubre 5 logros secretos.', hint: 'Hay más de lo que se ve', hidden: true, meta: true,
             icon: '🔮', rarity: 'legendary', reward: 'pt-estrellas', title: 't-buscador',
             test: () => defs.filter(d => d.hidden && d.id !== 'sx_secrets' && Achievements.isUnlocked(d.id)).length >= 5 }

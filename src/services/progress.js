@@ -188,6 +188,8 @@
             const event = { game: p.game, mode: p.mode, won: !!p.won, endless: !!p.endless, score, time, extra: p.extra || {}, at: Date.now(),
                 record: !!(result.records.score || result.records.time) };
             if (Nexus.services.rewards) result.missions = Nexus.services.rewards.onGame(event);
+            // Nexito: diversión, descanso y la partida del día para la racha
+            if (Nexus.services.pet) result.pet = Nexus.services.pet.onGame(Object.assign({}, event, { at: Nexus.services.pet.now() }));
 
             // Logros (pueden dar XP extra y desbloquear otros por nivel)
             const unlocked = Nexus.services.achievements.check(event);

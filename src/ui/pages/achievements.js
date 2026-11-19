@@ -192,7 +192,7 @@
                     <span class="mx-ic">${ICON(m.id)}</span>
                     <div class="mx-main"><span class="mx-tier">${esc(RW().TIER_LABEL[m.tier])}</span><b>${esc(m.text)}</b>${bar(pct(m.prog, m.n))}</div>
                     <span class="mx-n">${m.prog} / ${m.n}</span>
-                    <span class="mx-rw">${rombos(RW().MISSION_ROMBOS[m.tier] * (RW().isWeekend() ? 2 : 1), 22)}</span>
+                    <span class="mx-rw">${rombos(RW().MISSION_ROMBOS[m.tier] * (RW().isWeekend() ? 2 : 1), 22)}<i class="mx-food" title="Comida para ${esc(Nexus.services.pet.name())}: ${esc(Nexus.services.pet.FOOD[Nexus.services.pet.TIER_FOOD[m.tier]].name)}">${Nexus.services.pet.FOOD[Nexus.services.pet.TIER_FOOD[m.tier]].icon}</i></span>
                     <span class="mx-act">${m.done ? '<span class="mx-done">✓ Hecha</span>'
                         : `${rerollable ? `<button type="button" class="mx-reroll" data-reroll="${i}" title="Cambiar misión (una vez al día)" aria-label="Cambiar misión">🔄</button>` : ''}<a class="mx-go" href="#/library"${col ? ` data-col="${esc(col)}"` : ''}>Ir</a>`}</span>
                 </li>`;
@@ -204,17 +204,18 @@
                         <p>Completa misiones y gana Rombos por jugar en Nexus Arcade.</p>${switcher()}</div>
                     <div class="ac-hero-art mx-chest">${ART().chest()}</div>
                 </section>`;
+            /** Recompensa destacada: el próximo hito de la racha de Nexito. */
             const featured = (M) => {
-                const st = M.streak, prizes = Object.entries(RW().STREAK_PRIZES).map(([d, n]) => [+d, n]);
-                const next = prizes.find(([d]) => st.count < d) || prizes[prizes.length - 1];
-                const today = M.daily.every(m => m.done);
+                const PT = Nexus.services.pet, st = PT.streak(), next = PT.nextMilestone() || PT.MILESTONES[PT.MILESTONES.length - 1];
+                const prize = next.rombos ? rombos(next.rombos, 22) : next.shield ? '🛡 Escudo de racha' : esc(next.items.map(id => (RW().item(id) || {}).name || id).join(' + '));
+                const t = PT.todo();
                 return `<section class="mx-card mx-feat">
                     <h3 class="mx-card-t"><span class="mx-card-ic">🎁</span>Recompensa destacada</h3>
-                    <div class="mx-feat-body"><div class="mx-feat-art">${ART().chest()}</div>
-                        <div class="mx-feat-txt"><p>Completa las 3 misiones diarias <b>${next[0]} días seguidos</b>.</p>
-                            <div class="mx-feat-prize">${rombos(next[1], 22)}</div>
-                            ${bar(pct(Math.min(st.count, next[0]), next[0]), 'gold')}<small class="mx-sub">Racha: ${Math.min(st.count, next[0])}/${next[0]} días · mejor ${st.best}</small>
-                            ${today ? '<span class="mx-claimed">✓ Hoy, completado</span>' : '<a class="mx-cta" href="#/library">Jugar ahora</a>'}</div></div>
+                    <div class="mx-feat-body"><div class="mx-feat-art">${Nexus.ui.nexito.mini({ mood: 'happy' })}</div>
+                        <div class="mx-feat-txt"><p>Cuida a ${esc(PT.name())} <b>${next.days} días seguidos</b>: 1 partida y 1 comida al día. Cada misión le da una comida.</p>
+                            <div class="mx-feat-prize">${prize}</div>
+                            ${bar(pct(Math.min(st.count, next.days), next.days), 'gold')}<small class="mx-sub">Racha: ${Math.min(st.count, next.days)}/${next.days} días · mejor ${st.best}</small>
+                            ${t.cared ? '<span class="mx-claimed">✓ Hoy, cuidado</span>' : `<a class="mx-cta" href="#/pet">Ir con ${esc(PT.name())}</a>`}</div></div>
                 </section>`;
             };
             const weeklyCard = (M) => `
@@ -224,12 +225,12 @@
                         <div class="mx-week-row">${bar(pct(M.weekly.prog, M.weekly.n))}${rombos(RW().MISSION_ROMBOS.weekly, 20)}</div>
                         <small class="mx-sub">${M.weekly.done ? '✓ Completada' : `${M.weekly.prog} / ${M.weekly.n}`}</small></div>
                 </section>`;
-            const streakCard = (M) => {
-                const st = M.streak;
+            const streakCard = () => {
+                const PT = Nexus.services.pet, st = PT.streak();
                 return `<section class="mx-card">
-                    <h3 class="mx-card-t"><span class="mx-card-ic">🔥</span>Racha de misiones</h3>
-                    <div class="mx-streak"><b>${st.count}</b><span>día${st.count === 1 ? '' : 's'} seguidos completando las tres misiones diarias<small>Mejor racha: ${st.best} · perdona un día por semana</small></span></div>
-                    <div class="mx-prizes">${Object.entries(RW().STREAK_PRIZES).map(([d, n]) => `<span class="${st.best >= +d ? 'on' : ''}"><b>${d} días</b>${rombos(n)}</span>`).join('')}</div>
+                    <h3 class="mx-card-t"><span class="mx-card-ic">🔥</span>Racha de ${esc(PT.name())}</h3>
+                    <div class="mx-streak"><b>${st.count}</b><span>día${st.count === 1 ? '' : 's'} seguidos cuidando a ${esc(PT.name())}<small>Mejor racha: ${st.best} · ${st.shields} escudo${st.shields === 1 ? '' : 's'} · si se pone en peligro, las 3 misiones diarias la rescatan</small></span></div>
+                    <div class="mx-prizes">${PT.MILESTONES.slice(0, 4).map(x => `<span class="${st.best >= x.days ? 'on' : ''}"><b>${x.days} días</b>${x.rombos ? rombos(x.rombos) : x.shield ? '🛡 Escudo' : '🎁'}</span>`).join('')}</div>
                 </section>`;
             };
             const drawMisiones = () => {
@@ -249,7 +250,7 @@
                         <header class="mx-panel-h"><span class="mx-panel-ic">📆</span><span class="mx-panel-tt"><small>Termina en:</small><b>⏱ ${untilMonday()}</b></span>
                             <span class="mx-panel-note">${formatNumber(M.completed || 0)} misiones completadas en total</span></header>
                         <ul class="mx-list">${mRow(M.weekly, -1, false)}</ul></section>
-                        <div class="mx-duo">${streakCard(M)}${featured(M)}</div>`;
+                        <div class="mx-duo">${streakCard()}${featured(M)}</div>`;
                 } else {
                     const events = A().all().filter(d => d.window && A().isActive(d)), unlocked = A().unlockedMap();
                     body = `<div class="mx-duo">

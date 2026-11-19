@@ -71,12 +71,43 @@
         mastery: {}, ranks: [], community: [],
         today: { key: '', played: 0, games: [], records: [] },
         nights: [], zeroes: 0, losing: 0, lostBefore: 0, weekendBoth: false, lastSat: '',
-        events: {}
+        events: {},
+        pet: petData()                              // Nexito, la mascota de racha (services/pet.js)
     });
+
+    /** Nexito: necesidades, racha, comida, vacaciones y ajustes. */
+    const petData = () => ({
+        name: 'Nexito', born: '', caredDays: 0,
+        needs: { food: 80, fun: 80, rest: 100 },
+        tick: 0, lastPlay: 0, lastGame: '', sessionStart: 0, tiredAt: 0, restedUntil: 0, happyUntil: 0, wokeUntil: 0,
+        today: { day: '', played: false, fed: false, cared: false, snack: true },
+        streak: { count: 0, best: 0, last: '', shields: 1, shieldWeek: '', shieldLog: [], danger: '', rescueUsed: '', milestones: [] },
+        food: { galleta: 0, bocadillo: 0, tarta: 0, banquete: 0, helado: 0, pizza: 0 },
+        vacation: { from: '', to: '', year: '', used: 0 },
+        stats: { fed: 0, nightFeeds: 0, wakes: 0, pokes: 0 },
+        hidden: false, noAlerts: false, stageSeen: '', migrated: false
+    });
+
+    /** Las dos rachas diarias anteriores (días seguidos y misiones) pasan a la de Nexito, quedándose con la mejor. */
+    function migratePet(d) {
+        const p = d.rewards.pet, m = d.meta, ms = d.rewards.missions.streak || {};
+        const U = Nexus.util, today = U.dayKey(), yesterday = U.dayKey(Date.now() - 864e5);
+        p.migrated = true;
+        p.born = m.lastDay || today;
+        p.caredDays = Math.max(0, m.daysPlayed | 0);
+        p.streak.best = Math.max(m.bestDayStreak | 0, ms.best | 0);
+        if (m.lastDay === today || m.lastDay === yesterday) { p.streak.count = m.dayStreak | 0; p.streak.last = p.streak.count ? m.lastDay : ''; }
+        p.streak.best = Math.max(p.streak.best, p.streak.count);
+        // Los premios de 3, 7 y 30 días ya cobrados con la racha de misiones no se pagan dos veces
+        p.streak.milestones = [3, 7, 30].filter(n => (ms.best | 0) >= n);
+        if (m.lastDay === today) p.today = { day: today, played: true, fed: false, cared: false, snack: true };
+    }
 
     /** Rellena campos que falten y corrige tipos. Seguro de llamar siempre. */
     function normalize(raw) {
         const d = (raw && typeof raw === 'object') ? raw : {};
+        const hadPet = !!(d.rewards && d.rewards.pet && d.rewards.pet.migrated);
+        const isNew = !d.meta;
         Nexus.util.fillDefaults(d, userData());
         d.v = SCHEMA_VERSION;
         if (!Array.isArray(d.history)) d.history = [];
@@ -92,12 +123,17 @@
         if (!Array.isArray(r.cosmetics.owned)) r.cosmetics.owned = [];
         if (!Array.isArray(r.missions.list)) r.missions.list = [];
         r.rombos = Math.max(0, r.rombos | 0);
+        const p = r.pet;
+        if (!hadPet) { if (isNew) { p.migrated = true; p.born = Nexus.util.dayKey(); } else migratePet(d); }
+        for (const k of ['shieldLog', 'milestones']) if (!Array.isArray(p.streak[k])) p.streak[k] = [];
+        for (const k of ['food', 'fun', 'rest']) p.needs[k] = Math.max(0, Math.min(100, +p.needs[k] || 0));
+        p.streak.shields = Math.max(0, Math.min(3, p.streak.shields | 0));
         return d;
     }
 
     Nexus.schema = {
         VERSION: SCHEMA_VERSION,
         DEFAULT_SETTINGS,
-        gameStats, modeStats, userData, rewardsData, normalize
+        gameStats, modeStats, userData, rewardsData, petData, normalize
     };
 })();

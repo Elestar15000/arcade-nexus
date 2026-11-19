@@ -10,6 +10,7 @@
          history.json                 últimas partidas
          settings.json                ajustes del usuario
          saves.json                   partidas en curso (Wordle, Pasapalabra…)
+         rewards.json                 Rombos, misiones, temporada, cosméticos y Nexito (mascota de racha)
      leaderboard.json                 resumen público de cada jugador
      admin.json                       estado de administración: mantenimiento, cuentas
                                       suspendidas, pop-ups enviados y registro de acciones
@@ -35,7 +36,7 @@ const NAME_RE = /^[A-Za-z0-9_-]{3,16}$/;
 
 // ── Avatares (copia de assets/avatars/manifest.js; la regenera  node tools/avatars/export.mjs --sync) ──
 // @avatars-begin
-const AVATAR_IDS = new Set(['nx-nexo', 'nx-gamepad', 'nx-crown', 'nx-gem', 'nx-star', 'nx-bolt', 'ar-joystick', 'ar-invader', 'ar-robot', 'ar-rocket', 'ar-snake', 'ar-blocks', 'ca-joker', 'ca-sota', 'ca-copas', 'ca-ace', 'ca-shark', 'ca-bluff', 'me-brain', 'me-owl', 'me-sphinx', 'me-wordsmith', 'me-archer', 'me-puzzle', 'es-knight', 'es-queen', 'es-captain', 'es-dragon', 'es-lion', 'es-paddle', 'mi-detective', 'mi-explorer', 'mi-alchemist', 'mi-astronaut', 'mi-pharaoh', 'mi-octopus', 'fa-fox', 'fa-panda', 'fa-frog', 'fa-unicorn', 'fa-phoenix', 'fa-axolotl', 'rw-nexo-gold', 'rw-pad-gold', 'rw-detective-gold', 'rw-crown-neon', 'rw-phoenix-gold', 'rw-legend', 'rw-ghost', 'rw-xmas']);
+const AVATAR_IDS = new Set(['nx-nexo', 'nx-gamepad', 'nx-crown', 'nx-gem', 'nx-star', 'nx-bolt', 'ar-joystick', 'ar-invader', 'ar-robot', 'ar-rocket', 'ar-snake', 'ar-blocks', 'ca-joker', 'ca-sota', 'ca-copas', 'ca-ace', 'ca-shark', 'ca-bluff', 'me-brain', 'me-owl', 'me-sphinx', 'me-wordsmith', 'me-archer', 'me-puzzle', 'es-knight', 'es-queen', 'es-captain', 'es-dragon', 'es-lion', 'es-paddle', 'mi-detective', 'mi-explorer', 'mi-alchemist', 'mi-astronaut', 'mi-pharaoh', 'mi-octopus', 'fa-fox', 'fa-panda', 'fa-frog', 'fa-unicorn', 'fa-phoenix', 'fa-axolotl', 'rw-nexo-gold', 'rw-pad-gold', 'rw-detective-gold', 'rw-crown-neon', 'rw-phoenix-gold', 'rw-legend', 'rw-ghost', 'rw-xmas', 'rw-nexito']);
 const AVATAR_DEFAULT = 'nx-nexo';
 const AVATAR_LEGACY = {"🎮": "nx-gamepad", "🕹": "ar-joystick", "👾": "ar-invader", "🤖": "ar-robot", "🦊": "fa-fox", "🐱": "mi-detective", "🐼": "fa-panda", "🦁": "es-lion", "🐸": "fa-frog", "🐙": "mi-octopus", "🦄": "fa-unicorn", "🐲": "es-dragon", "🚀": "ar-rocket", "⚡": "nx-bolt", "🔥": "fa-phoenix", "💎": "nx-gem", "🎯": "me-archer", "🧠": "me-brain", "👑": "nx-crown", "🌟": "nx-star"};
 // @avatars-end
@@ -264,7 +265,7 @@ function sanitizeData(d) {
 
 // ── Recompensas (Rombos, misiones, temporada, cosméticos) ─
 // El cliente es de confianza, pero se acotan tipos y tamaños y se ponen topes razonables
-const COSMETIC_RE = /^(?:fr|t|th|pt|bn|sk|av:rw)-[a-z0-9-]{1,40}$/;
+const COSMETIC_RE = /^(?:fr|t|th|pt|bn|sk|nx|av:rw)-[a-z0-9-]{1,40}$/;
 const ACH_RE = /^[a-z0-9_]{1,32}$/;
 const MAX_ROMBOS = 10000000;
 function sanitizeRewards(r) {
@@ -282,8 +283,48 @@ function sanitizeRewards(r) {
     const s = isObj(r.season) ? r.season : {};
     out.season = { id: clampInt(s.id, 9999), earned: clampInt(s.earned, MAX_ROMBOS), level: Math.min(30, clampInt(s.level, 30)), played: clampInt(s.played, 1e6) };
     if (Array.isArray(out.log)) out.log = out.log.slice(0, 30);
+    if (isObj(r.pet)) out.pet = sanitizePet(r.pet, out.cosmetics.owned);
     return out;
 }
+
+// ── Nexito (mascota de racha) ─────────────────────────────
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const day = (v) => (typeof v === 'string' && DAY_RE.test(v) ? v : '');
+const daysSince = (k) => (k ? Math.floor((Date.now() - Date.parse(k + 'T00:00:00Z')) / 864e5) + 2 : 0);
+function sanitizePet(p) {
+    const out = plain(p);
+    const n = isObj(p.needs) ? p.needs : {};
+    const pct = (v) => Math.max(0, Math.min(100, Number(v) || 0));
+    out.needs = { food: pct(n.food), fun: pct(n.fun), rest: pct(n.rest) };
+    out.name = typeof p.name === 'string' ? p.name.slice(0, 16) : 'Nexito';
+    out.born = day(p.born);
+    // Días cuidados: nunca más que los días desde que nació (+1 de margen por husos horarios)
+    const maxDays = out.born ? Math.max(1, daysSince(out.born)) : 4000;
+    out.caredDays = Math.min(clampInt(p.caredDays, 4000), maxDays);
+    const now = Date.now();
+    for (const k of ['tick', 'lastPlay', 'sessionStart', 'tiredAt', 'restedUntil', 'happyUntil', 'wokeUntil']) {
+        // Sin fechas en el futuro: el reloj del dispositivo no adelanta a Nexito
+        const v = Number(p[k]) || 0; out[k] = Math.max(0, Math.min(v, now + (k.endsWith('Until') ? 25 * 36e5 : 10 * 60e3)));
+    }
+    const s = isObj(p.streak) ? p.streak : {};
+    out.streak = {
+        count: Math.min(clampInt(s.count, 4000), out.caredDays), best: Math.min(clampInt(s.best, 4000), Math.max(out.caredDays, clampInt(s.best, 4000))),
+        last: day(s.last), shields: Math.min(3, clampInt(s.shields, 3)), shieldWeek: day(s.shieldWeek),
+        shieldLog: (Array.isArray(s.shieldLog) ? s.shieldLog : []).map(day).filter(Boolean).slice(0, 10),
+        danger: day(s.danger), rescueUsed: day(s.rescueUsed),
+        milestones: (Array.isArray(s.milestones) ? s.milestones : []).map(x => clampInt(x, 4000)).filter(Boolean).slice(0, 20)
+    };
+    out.streak.best = Math.max(out.streak.best, out.streak.count);
+    const f = isObj(p.food) ? p.food : {};
+    out.food = {};
+    for (const k of ['galleta', 'bocadillo', 'tarta', 'banquete', 'helado', 'pizza']) out.food[k] = Math.min(99, clampInt(f[k], 99));
+    const v = isObj(p.vacation) ? p.vacation : {};
+    out.vacation = { from: day(v.from), to: day(v.to), year: /^\d{4}$/.test(v.year || '') ? v.year : '', used: Math.min(14, clampInt(v.used, 14)) };
+    const st = isObj(p.stats) ? p.stats : {};
+    out.stats = { fed: clampInt(st.fed, 1e6), nightFeeds: clampInt(st.nightFeeds, 1e6), wakes: clampInt(st.wakes, 1e6), pokes: clampInt(st.pokes, 1e7) };
+    return out;
+}
+const PET_STAGES = [[365, 'legend'], [100, 'gold'], [30, 'pro'], [7, 'nexito'], [3, 'baby'], [0, 'egg']];
 const bestTime = (t) => (t === null || t === undefined || !Number.isFinite(Number(t)) || Number(t) < 0 ? null : Math.floor(Number(t)));
 const modeStats = (m) => ({ played: clampInt(m && m.played, 1e9), wins: clampInt(m && m.wins, 1e9), bestScore: clampInt(m && m.bestScore, 1e9), bestTime: bestTime(m && m.bestTime) });
 
@@ -308,7 +349,15 @@ function summarize(rec) {
         showcase: (Array.isArray(rw.showcase) ? rw.showcase : []).filter((x) => typeof x === 'string' && ACH_RE.test(x)).slice(0, 3),
         title: typeof eq.title === 'string' && COSMETIC_RE.test(eq.title) ? eq.title : '',
         frame: typeof eq.frame === 'string' && COSMETIC_RE.test(eq.frame) ? eq.frame : '',
-        season: { id: clampInt(season.id, 9999), played: clampInt(season.played, 1e6) }
+        season: { id: clampInt(season.id, 9999), played: clampInt(season.played, 1e6) },
+        // Nexito: mejor racha, racha actual, fase y sombrero (perfil, ranking de rachas y «visitar»)
+        pet: (() => {
+            const p = isObj(rw.pet) ? rw.pet : {}, s = isObj(p.streak) ? p.streak : {}, days = clampInt(p.caredDays, 4000);
+            const hat = typeof eq['pet-hat'] === 'string' && COSMETIC_RE.test(eq['pet-hat']) ? eq['pet-hat'] : '';
+            const dome = typeof eq['pet-dome'] === 'string' && COSMETIC_RE.test(eq['pet-dome']) ? eq['pet-dome'] : '';
+            return { name: typeof p.name === 'string' ? p.name.slice(0, 16) : 'Nexito', best: clampInt(s.best, 4000), count: clampInt(s.count, 4000),
+                days, stage: PET_STAGES.find(([n]) => days >= n)[1], hat, dome, hidden: !!p.hidden };
+        })()
     };
 }
 
@@ -356,14 +405,14 @@ function validatePassword(pw) {
 }
 
 // ── Carpeta de usuario: users/<nombre>/{account,progress,stats,…}.json ──
-const DATA_FILES = ['progress', 'stats', 'achievements', 'history', 'settings', 'saves'];
+const DATA_FILES = ['progress', 'stats', 'achievements', 'history', 'settings', 'saves', 'rewards'];
 const userDir = (lname) => `users/${lname}`;
 const filePath = (lname, f) => `${userDir(lname)}/${f}.json`;
 const userCache = new Map();     // lname → { archivo: { sha, json } } (se valida con el sha del listado)
 
 function splitData(d, updatedAt) {
     return { progress: { v: d.v, xp: d.xp, meta: d.meta, updatedAt }, stats: d.stats, achievements: d.achievements,
-        history: d.history, settings: d.settings, saves: d.saves };
+        history: d.history, settings: d.settings, saves: d.saves, rewards: isObj(d.rewards) ? d.rewards : {} };
 }
 function joinData(f) {
     const base = newData(), g = (k) => (f[k] ? f[k].json : undefined), p = isObj(g('progress')) ? g('progress') : {};
@@ -371,7 +420,8 @@ function joinData(f) {
         v: p.v || 2, xp: isObj(p.xp) ? p.xp : base.xp, meta: isObj(p.meta) ? p.meta : base.meta,
         stats: isObj(g('stats')) ? g('stats') : {}, achievements: isObj(g('achievements')) ? g('achievements') : {},
         history: Array.isArray(g('history')) ? g('history') : [], settings: isObj(g('settings')) ? g('settings') : {},
-        saves: isObj(g('saves')) ? g('saves') : {}
+        saves: isObj(g('saves')) ? g('saves') : {},
+        rewards: isObj(g('rewards')) ? g('rewards') : {}
     };
 }
 
@@ -915,7 +965,8 @@ export default {
     async fetch(request, env) {
         const origin = request.headers.get('Origin');
         const allow = origin ? allowedOrigin(env, origin) : null;
-        const cors = allow ? { 'Access-Control-Allow-Origin': allow, Vary: 'Origin' } : {};
+        // Date expuesta: el cliente usa la hora del servidor para Nexito (el reloj del dispositivo se puede adelantar)
+        const cors = allow ? { 'Access-Control-Allow-Origin': allow, 'Access-Control-Expose-Headers': 'Date', Vary: 'Origin' } : {};
         const reply = (status, obj, extra = {}) => new Response(JSON.stringify(obj), {
             status, headers: { 'Content-Type': 'application/json; charset=utf-8', ...cors, ...extra }
         });

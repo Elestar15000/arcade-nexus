@@ -51,6 +51,7 @@ users/
     history.json          últimas partidas
     settings.json         ajustes
     saves.json            partidas en curso (Wordle, Pasapalabra…)
+    rewards.json          Rombos, misiones, temporada, cosméticos y Nexito (mascota de racha)
 leaderboard.json          resumen público de todos los jugadores (ranking)
 admin.json                mantenimiento, suspensiones, pop-ups enviados (y si se leyeron) y registro del panel
 ```

@@ -178,7 +178,10 @@ a.ac-stat:hover { border-color: rgba(var(--primary-rgb), .5); transform: transla
 .mx-main .ac-bar { max-width: 360px; }
 .mx-tier { width: fit-content; padding: 1px 9px; border-radius: 99px; font-size: .66em; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--tc); background: color-mix(in srgb, var(--tc) 14%, transparent); }
 .mx-n { font-weight: 800; color: var(--text-dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.mx-rw { display: inline-flex; align-items: center; gap: 10px; }
 .mx-rw .rw-amount { font-family: var(--font-title); font-size: 1.15em; gap: 7px; }
+.mx-food { font-style: normal; font-size: 1.1em; color: #4fe3c8; }
+.mx-feat-art .nx-pet { width: 100%; height: auto; display: block; filter: drop-shadow(0 12px 18px rgba(0, 0, 0, .4)); }
 .mx-act { display: flex; align-items: center; gap: 8px; justify-content: flex-end; min-width: 96px; }
 .mx-go, .mx-cta {
     display: inline-flex; align-items: center; justify-content: center; min-width: 84px; padding: 11px 22px; border-radius: 12px; text-decoration: none;

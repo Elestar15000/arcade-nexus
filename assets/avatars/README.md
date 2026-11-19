@@ -21,7 +21,7 @@ así que se puede publicar con las carpetas vacías o a medio llenar.
 2. `node tools/avatars/export.mjs` crea los dos tamaños en la carpeta de su colección (recorte cuadrado centrado,
    fondo opaco). Necesita `sharp` (`npm i -D sharp`) o ImageMagick. Con un id (`… export.mjs nx-nexo`) sólo ese.
 3. `node tools/avatars/export.mjs --check` dice qué falta y avisa si algún PNG pasa de 120 KB (512) o 40 KB (256).
-4. `node tests/avatars_test.mjs` comprueba el catálogo; con `--strict` exige además las 100 imágenes.
+4. `node tests/avatars_test.mjs` comprueba el catálogo; con `--strict` exige además las 102 imágenes.
 
 ## Añadir un avatar nuevo
 

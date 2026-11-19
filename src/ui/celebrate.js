@@ -144,9 +144,9 @@
     // ── Avisos del sistema de recompensas ───────────────────
     const inGame = () => /^#\/game\//.test(location.hash);
     Nexus.bus.on('achievement:unlock', achievement);
-    Nexus.bus.on('rewards:missions', ({ done, streak }) => {
+    Nexus.bus.on('rewards:missions', ({ done }) => {
         if (inGame() && document.querySelector('.modal-result')) return;   // ya se ven en el modal de resultados
-        done.forEach((m, i) => setTimeout(() => Nexus.ui.toastHtml(`<span class="toast-icon">${diamond(22)}</span><div class="toast-body"><span class="toast-kicker">Misión ${esc(RW().TIER_LABEL[m.tier].toLowerCase())} completada</span><strong>${esc(m.text)}</strong><span class="toast-sub">+${RW().MISSION_ROMBOS[m.tier]} Rombos${streak ? ` · Racha de ${streak} días` : ''}</span></div>`, { duration: 4000, className: 'toast-mission' }), i * 900));
+        done.forEach((m, i) => setTimeout(() => Nexus.ui.toastHtml(`<span class="toast-icon">${diamond(22)}</span><div class="toast-body"><span class="toast-kicker">Misión ${esc(RW().TIER_LABEL[m.tier].toLowerCase())} completada</span><strong>${esc(m.text)}</strong><span class="toast-sub">+${RW().MISSION_ROMBOS[m.tier]} Rombos${m.food && Nexus.services.pet ? ` · +1 ${esc(Nexus.services.pet.FOOD[m.food].name.toLowerCase())} para ${esc(Nexus.services.pet.name())}` : ''}</span></div>`, { duration: 4000, className: 'toast-mission' }), i * 900));
     });
     Nexus.bus.on('rewards:season', ({ level, item }) => setTimeout(() => Nexus.ui.toastHtml(`<span class="toast-icon">${diamond(22)}</span><div class="toast-body"><span class="toast-kicker">Pase de batalla · nivel ${level}</span><strong>${item ? esc(item.name) : 'Nivel alcanzado'}</strong><span class="toast-sub">Míralo en Cosméticos · Pase de batalla</span></div>`, { duration: 4500, className: 'toast-season' }), 1200));
     Nexus.bus.on('rewards:mastery', ({ game }) => {

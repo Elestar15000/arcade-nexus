@@ -40,7 +40,7 @@
             const progress = Nexus.services.progress;
             const rows = this._all().map(p => ({
                 user: { id: p.id, name: p.name, avatar: p.avatar, color: p.color, frame: p.frame || '' },
-                title: p.title || '', showcase: p.showcase || [], points: p.points || 0,
+                title: p.title || '', showcase: p.showcase || [], points: p.points || 0, pet: p.pet || null,
                 level: p.level, totalXP: p.totalXP,
                 rank: progress.rankFor(p.level),
                 played: p.played, wins: p.wins,
@@ -49,6 +49,12 @@
             }));
             rows.sort((a, b) => b.totalXP - a.totalXP || b.wins - a.wins);
             return rows.map((r, i) => Object.assign(r, { pos: i + 1 }));
+        },
+
+        /** Clasificación por mejor racha de Nexito (sin quienes lo ocultan). */
+        byStreak() {
+            const rows = this.overall().filter(r => r.pet && !r.pet.hidden && r.pet.best > 0).sort((a, b) => b.pet.best - a.pet.best || b.pet.count - a.pet.count);
+            return rows.map((r, i) => Object.assign({}, r, { pos: i + 1 }));
         },
 
         /** Clasificación por puntos de logro. */
