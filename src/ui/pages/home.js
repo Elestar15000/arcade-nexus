@@ -104,8 +104,8 @@
                 ${head('📅', 'Misiones de hoy', '#/achievements', 'Ver todas')}
                 <ul class="nh-missions">${M.daily.map(m => `<li class="${m.done ? 'done' : ''}"><span class="nh-m-tier t-${esc(m.tier)}">${esc(RW.TIER_LABEL[m.tier])}</span>
                     <span class="nh-near-txt"><b>${esc(m.text)}</b>${bar(m.prog / m.n * 100)}</span><span class="nh-near-n">${m.done ? '✓' : `${dia(13)} ${RW.MISSION_ROMBOS[m.tier]}`}</span></li>`).join('')}</ul>
-                <a class="nh-season" href="#/achievements" data-ach-tab="temporada">
-                    <span><b>Temporada ${s.id}</b> · nivel ${s.level}/${s.max}</span>${bar(s.into / s.cost * 100)}
+                <a class="nh-season" href="#/cosmetics" data-cos-tab="pase">
+                    <span><b>Pase de batalla</b> · temporada ${s.id} · nivel ${s.level}/${s.max}</span>${bar(s.into / s.cost * 100)}
                     <small>🔥 Racha de misiones: ${M.streak.count} · ${dia(13)} ${formatNumber(RW.balance())} Rombos</small></a>
             </section>
         </div>`;
@@ -210,7 +210,7 @@
             Nexus.ui.launcher.bindRows(root);
             // Una categoría abre la biblioteca con esa colección seleccionada
             $$('.nh-cat[data-col]', root).forEach(a => a.addEventListener('click', () => { Nexus.ui.gotoCollection = a.dataset.col; }));
-            $$('[data-ach-tab]', root).forEach(a => a.addEventListener('click', () => { Nexus.ui.achievementsTab = a.dataset.achTab; }));
+            $$('[data-cos-tab]', root).forEach(a => a.addEventListener('click', () => { Nexus.ui.cosmeticsTab = a.dataset.cosTab; }));
             $$('.nh-goal .nh-more', root).forEach((a, i) => a.addEventListener('click', () => { Nexus.ui.achievementsTab = i === 1 ? 'misiones' : 'logros'; }));
 
             // Carrusel del banner

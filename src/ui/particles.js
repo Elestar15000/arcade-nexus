@@ -71,7 +71,7 @@
             const { ctx, canvas, particles } = this;
             const w = canvas.width, h = canvas.height;
             ctx.clearRect(0, 0, w, h);
-            // Efecto de fondo equipado en Colección (services/rewards.js): rombos dorados o estrellas fugaces
+            // Efecto de fondo equipado en Cosméticos · Colección (services/rewards.js): rombos dorados o estrellas fugaces
             const mode = document.documentElement.dataset.particles || '';
             if (mode === 'pt-estrellas') this.shooting(ctx, w, h);
 

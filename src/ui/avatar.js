@@ -34,7 +34,7 @@
     function user(u, size = 'md', { label = false } = {}) {
         u = u || {};
         const a = A().info(u.avatar);
-        // Marco de avatar (Logros · Colección): el propio se lee de las recompensas; el de otros, de su resumen público
+        // Marco de avatar (Cosméticos · Colección): el propio se lee de las recompensas; el de otros, de su resumen público
         const me = Nexus.services.users && Nexus.services.users.current();
         const frame = u.frame !== undefined ? u.frame : (me && u.id === me.id && Nexus.services.rewards ? Nexus.services.rewards.frame() : '');
         const fcls = frame && /^[a-z0-9-]+$/.test(frame) ? ` has-frame frame-${frame}` : '';

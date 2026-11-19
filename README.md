@@ -16,7 +16,7 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
 - **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial, racha de días. No hay exportación de datos.
 - **Logros 2.0**: 219 logros con escaleras Bronce → Nexus, secretos, de evento y Maestría por juego; rareza real (% de jugadores),
-  «Casi lo tienes», misiones diarias y semanales con racha, **Rombos**, pase de temporada gratuito, tienda semanal y cosméticos
+  «Casi lo tienes», misiones diarias y semanales con racha, **Rombos**, pase de batalla gratuito, tienda semanal y cosméticos
   (marcos, títulos, temas, partículas, fondos de perfil, aspectos de juego y avatares exclusivos). Ver [Logros y recompensas](#logros-y-recompensas).
 - **Rankings globales** (general, puntos de logro y por juego/modo/métrica) y comparación de logros con cualquier jugador.
 - **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
@@ -48,8 +48,10 @@ web y en el Worker. Si una imagen todavía no existe se ve el rombo de Nexus sob
 
 ## Logros y recompensas
 
-`src/services/achievements.js` (logros) y `src/services/rewards.js` (todo lo demás); la interfaz está en Logros, con las
-pestañas **Logros · Misiones · Temporada · Tienda · Colección**, y las celebraciones en `src/ui/celebrate.js`.
+`src/services/achievements.js` (logros) y `src/services/rewards.js` (todo lo demás). La interfaz son dos páginas, cada una
+con su acceso en el menú: **Logros** (`src/ui/pages/achievements.js`: pestañas Logros y Misiones) y **Cosméticos**
+(`src/ui/pages/cosmetics.js`: Pase de batalla, Tienda y Colección; también desde el saldo de Rombos de la barra superior).
+Las celebraciones están en `src/ui/celebrate.js`.
 
 - **Rareza y recompensa**: común / raro / épico / legendario dan 25 / 60 / 120 / 300 XP, 10 / 25 / 60 / 150 Rombos y
   10 / 25 / 50 / 100 puntos de logro. Con 20 jugadores o más la rareza se calcula con el % real que lo tiene (≥ 50 % común,
@@ -66,7 +68,8 @@ pestañas **Logros · Misiones · Temporada · Tienda · Colección**, y las cel
   puede cambiar una al día. Completar las tres mantiene la **racha** (premios a 3, 7 y 30 días; perdona un día por semana).
 - **Rombos**: la moneda, sólo cosmética. Se ganan con logros, misiones, rachas y temporada (×2 el fin de semana en logros y
   misiones; tope de 3.000 al día). El saldo está en la barra superior.
-- **Temporada**: 6 semanas (la 1.ª empezó el 2 nov 2026), 30 niveles de 150 Rombos ganados con premio en cada uno. Meta de
+- **Pase de batalla**: una temporada de 6 semanas (la 1.ª empezó el 2 nov 2026), 30 niveles de 150 Rombos ganados, todos
+  gratuitos y con premio (no hay niveles premium). Meta de
   comunidad: si entre todos se juegan 2.000 partidas, quien haya jugado esa temporada recibe un fondo y 300 Rombos.
 - **Tienda**: 6 artículos que cambian cada lunes. **Colección**: equipa marco, título, tema, partículas, fondo de perfil y
   aspectos de Snake, Tetris, Ajedrez y cartas. Los rangos (niveles 5, 10, 15, 20, 25 y 30) también dan cosméticos.

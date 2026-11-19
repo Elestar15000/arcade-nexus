@@ -101,15 +101,26 @@ with sync_playwright() as p:
     page.wait_for_timeout(500); page.screenshot(path=str(OUT / 'rw_1_logros.png'), full_page=True)
     check(page.locator('.ach-ladder').count() >= 10, 'escaleras visibles')
     check(page.locator('.ach-card.secret').count() >= 5, 'logros secretos ocultos (???)')
-    for tab in ['misiones', 'temporada', 'tienda', 'coleccion']:
+    check(page.locator('.rw-tab').count() == 2, 'Logros: sólo pestañas Logros y Misiones')
+    page.click('.rw-tab[data-tab=misiones]'); page.wait_for_timeout(300)
+    page.screenshot(path=str(OUT / 'rw_misiones.png'), full_page=True)
+    check(page.locator('.rw-mission').count() == 4, 'pestaña de misiones: 3 + semanal')
+
+    # Cosméticos: página propia con acceso en el menú lateral y en el de la cuenta
+    check(page.locator('.sidebar [href="#/cosmetics"], #sidebar [href="#/cosmetics"], [data-route=cosmetics]').count() >= 1, 'acceso «Cosméticos» en el menú')
+    page.click('#topbar-rombos'); page.wait_for_selector('.cos-page')
+    check(page.locator('.rw-tab').count() == 3, 'Cosméticos: Pase de batalla, Tienda y Colección')
+    for tab in ['pase', 'tienda', 'coleccion']:
         page.click(f'.rw-tab[data-tab={tab}]'); page.wait_for_timeout(300)
         page.screenshot(path=str(OUT / f'rw_{tab}.png'), full_page=True)
-    page.click('.rw-tab[data-tab=misiones]'); page.wait_for_timeout(200)
-    check(page.locator('.rw-mission').count() == 4, 'pestaña de misiones: 3 + semanal')
-    page.click('.rw-tab[data-tab=temporada]'); page.wait_for_timeout(200)
-    check(page.locator('.rw-tier').count() == 30, 'pestaña de temporada: 30 niveles')
+    page.click('.rw-tab[data-tab=pase]'); page.wait_for_timeout(200)
+    check(page.locator('.rw-tier').count() == 30, 'pase de batalla: 30 niveles')
+    check(page.locator('.rw-tier.big, .rw-tier.premium').count() == 0, 'pase sin niveles premium')
     page.click('.rw-tab[data-tab=tienda]'); page.wait_for_timeout(200)
-    check(page.locator('.rw-shop .rw-item').count() == 6, 'pestaña de tienda: 6 artículos')
+    check(page.locator('.rw-shop .rw-item').count() == 6, 'tienda: 6 artículos')
+    page.goto(URL + '#/profile'); page.wait_for_timeout(400)
+    page.click('[data-cos-tab=coleccion]'); page.wait_for_selector('.cos-page')
+    check(page.locator('.rw-tab.active[data-tab=coleccion]').count() == 1, 'Perfil → Personalizar abre la Colección')
 
     page.goto(URL + '#/home'); page.wait_for_timeout(600)
     check(page.locator('.nh-goals').count() == 1, 'inicio: «Casi lo tienes» y misiones')
@@ -132,11 +143,12 @@ with sync_playwright() as p:
 
     # Móvil sin scroll horizontal
     page.set_viewport_size({'width': 390, 'height': 800})
-    page.goto(URL + '#/achievements'); page.wait_for_timeout(500)
-    for tab in ['logros', 'misiones', 'temporada', 'tienda', 'coleccion']:
-        page.click(f'.rw-tab[data-tab={tab}]'); page.wait_for_timeout(200)
-        w = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
-        check(w <= 1, f'móvil {tab}: sin scroll horizontal')
+    for route, tabs in [('achievements', ['logros', 'misiones']), ('cosmetics', ['pase', 'tienda', 'coleccion'])]:
+        page.goto(URL + '#/' + route); page.wait_for_timeout(500)
+        for tab in tabs:
+            page.click(f'.rw-tab[data-tab={tab}]'); page.wait_for_timeout(200)
+            w = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+            check(w <= 1, f'móvil {tab}: sin scroll horizontal')
     page.screenshot(path=str(OUT / 'rw_mobile.png'), full_page=True)
 
     check(not errs, 'sin errores de JS: ' + ' | '.join(errs[:3]))

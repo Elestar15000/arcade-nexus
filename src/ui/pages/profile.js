@@ -106,9 +106,9 @@
                             <small class="muted">${formatNumber(lv.xp)} / ${formatNumber(lv.next)} XP · ${formatNumber(lv.total)} XP totales · ${esc(formatDuration(data.meta.playTime))} jugados</small>
                         </div>
                         <div class="pf-hero-side">
-                            <a class="rw-wallet" href="#/achievements" data-ach-tab="tienda" title="Rombos">${Nexus.ui.celebrate.diamond(18)}<b>${formatNumber(RW ? RW.balance() : 0)}</b><small>Rombos</small></a>
+                            <a class="rw-wallet" href="#/cosmetics" data-cos-tab="tienda" title="Rombos">${Nexus.ui.celebrate.diamond(18)}<b>${formatNumber(RW ? RW.balance() : 0)}</b><small>Rombos</small></a>
                             <button class="btn btn-ghost" id="pf-edit" type="button">✏️ Cambiar avatar</button>
-                            <a class="btn btn-ghost" href="#/achievements" data-ach-tab="coleccion">🎨 Personalizar</a>
+                            <a class="btn btn-ghost" href="#/cosmetics" data-cos-tab="coleccion">🎨 Personalizar</a>
                         </div>
                     </section>
 
@@ -146,7 +146,7 @@
 
             const on = (id, fn) => { const el = $('#' + id, root); if (el) el.addEventListener('click', fn); };
             on('pf-edit', () => openEdit(user, rerender));
-            $$('[data-ach-tab]', root).forEach(a => a.addEventListener('click', () => { Nexus.ui.achievementsTab = a.dataset.achTab; }));
+            $$('[data-cos-tab]', root).forEach(a => a.addEventListener('click', () => { Nexus.ui.cosmeticsTab = a.dataset.cosTab; }));
             on('pf-pass', () => openPassword(rerender));
             on('pf-logout', () => Nexus.app.logout());
             on('pf-reset', async () => {

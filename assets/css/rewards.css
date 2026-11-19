@@ -167,7 +167,6 @@ body > .rw-confetti { position: fixed; z-index: 1400; }
 .rw-track { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .rw-tier { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 10px 12px; border-radius: 18px; text-align: center;
     background: var(--bg-dark); border: 1px solid var(--panel-border); opacity: .75; }
-.rw-tier.big { background: linear-gradient(160deg, rgba(var(--primary-rgb), .12), var(--bg-dark)); border-color: rgba(var(--primary-rgb), .45); }
 .rw-tier.got { opacity: 1; border-color: var(--success); }
 .rw-tier.next { opacity: 1; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(var(--primary-rgb), .3); }
 .rw-tier b { font-size: .84em; } .rw-tier small { color: var(--text-muted); font-size: .7em; }
