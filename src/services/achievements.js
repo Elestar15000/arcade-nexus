@@ -169,7 +169,8 @@
 
         // ── Rareza real ─────────────────────────────────────
         setRealRarity(pctMap, players) { realPct = pctMap; realPlayers = players | 0; },
-        realPct(id) { return realPct && realPlayers > 0 ? (realPct[id] || 0) : null; },
+        /** % real de jugadores que lo tienen (sólo con muestra suficiente; con pocos jugadores no significa nada). */
+        realPct(id) { return realPct && realPlayers >= MIN_PLAYERS_FOR_REAL ? (realPct[id] || 0) : null; },
         /** Rareza que se muestra: real si hay jugadores suficientes; si no, la fija del logro. */
         rarityOf(def) {
             const p = this.realPct(def.id);

@@ -49,9 +49,13 @@ web y en el Worker. Si una imagen todavía no existe se ve el rombo de Nexus sob
 ## Logros y recompensas
 
 `src/services/achievements.js` (logros) y `src/services/rewards.js` (todo lo demás). La interfaz son dos páginas, cada una
-con su acceso en el menú: **Logros** (`src/ui/pages/achievements.js`: pestañas Logros y Misiones) y **Cosméticos**
+con su acceso en el menú: **Logros** (`src/ui/pages/achievements.js`, estilos en `assets/css/achievements.css`: vista de
+logros en `#/achievements` y de misiones en `#/achievements/misiones`) y **Cosméticos**
 (`src/ui/pages/cosmetics.js`: Pase de batalla, Tienda y Colección; también desde el saldo de Rombos de la barra superior).
-Las celebraciones están en `src/ui/celebrate.js`.
+Las celebraciones están en `src/ui/celebrate.js` y las ilustraciones de cabecera (trofeo, diana y cofre) en `src/ui/art.js`.
+La vista de logros filtra por Todos, Por categoría, Por rareza o Secretos y por estado; la de misiones tiene las pestañas
+Diarias (con la misión semanal y la recompensa destacada de la racha), Semanales y Especiales (meta de comunidad, fin de
+semana doble y eventos). El % real de cada logro sólo se muestra con 20 jugadores o más.
 
 - **Rareza y recompensa**: común / raro / épico / legendario dan 25 / 60 / 120 / 300 XP, 10 / 25 / 60 / 150 Rombos y
   10 / 25 / 50 / 100 puntos de logro. Con 20 jugadores o más la rareza se calcula con el % real que lo tiene (≥ 50 % común,
@@ -387,13 +391,13 @@ partidas completas entre bots.
 index.html
 assets/
   css/        base · layout · components · pages · games/{minesweeper,wordle,pasapalabra,arcade,tetris,pacman,snake,pong,
-              online,chess,battleship,cards,puzzles,solitaire} · icons · avatars · library · rewards
+              online,chess,battleship,cards,puzzles,solitaire} · icons · avatars · library · rewards · achievements
   data/       words-es.js (diccionario)
   avatars/    manifest.js (catálogo) · una carpeta de PNG por colección
 src/
   core/       namespace, utils, events, storage, hash, schema, audio, backend (servidor / local), net (multijugador P2P)
   services/   settings, users, avatars, progress, achievements, rewards (Rombos, misiones, temporada, tienda), leaderboard, notices
-  ui/         icons, avatar, avatar-picker, toast, celebrate, modal, fx, particles, components, sidebar, router, auth, pages/*
+  ui/         icons, avatar, avatar-picker, toast, celebrate, art, modal, fx, particles, components, sidebar, router, auth, pages/*
   games/      registry.js · minesweeper/ · wordle/{dictionary,phrases,game}.js
               pasapalabra/{bank,game}.js
               shared/kit.js (canvas, bucle, táctil) · shared/online.js (vestíbulo online)

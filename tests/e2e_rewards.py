@@ -97,14 +97,35 @@ with sync_playwright() as p:
     check(int(page.inner_text('#topbar-rombos-n').replace('.', '').replace(',', '') or 0) == bal, 'saldo en la barra superior')
 
     # Páginas
-    page.goto(URL + '#/achievements'); page.wait_for_selector('.rw-tabs')
-    page.wait_for_timeout(500); page.screenshot(path=str(OUT / 'rw_1_logros.png'), full_page=True)
-    check(page.locator('.ach-ladder').count() >= 10, 'escaleras visibles')
-    check(page.locator('.ach-card.secret').count() >= 5, 'logros secretos ocultos (???)')
-    check(page.locator('.rw-tab').count() == 2, 'Logros: sólo pestañas Logros y Misiones')
-    page.click('.rw-tab[data-tab=misiones]'); page.wait_for_timeout(300)
-    page.screenshot(path=str(OUT / 'rw_misiones.png'), full_page=True)
-    check(page.locator('.rw-mission').count() == 4, 'pestaña de misiones: 3 + semanal')
+    page.goto(URL + '#/achievements'); page.wait_for_selector('.ac-hero')
+    page.wait_for_timeout(700); page.screenshot(path=str(OUT / 'rw_1_logros.png'), full_page=True)
+    check(page.locator('.ac-stat').count() == 4, 'logros: 4 cifras bajo la cabecera')
+    check(page.locator('.ac-card.r-ladder').count() >= 10, 'escaleras visibles')
+    check(page.locator('.ac-chip').count() == 4, 'filtros Todos · Por categoría · Por rareza · Secretos')
+    n0 = page.locator('.ac-card').count()
+    page.click('[data-more]'); page.wait_for_timeout(300)
+    check(page.locator('.ac-card').count() > n0, '«Mostrar más» carga otra tanda')
+    page.click('.ac-chip[data-mode=secretos]'); page.wait_for_timeout(300)
+    check(page.locator('.ac-card.r-secret').count() >= 5, 'logros secretos ocultos (???)')
+    page.click('.ac-chip[data-mode=rareza]'); page.wait_for_timeout(300)
+    check(page.locator('.ac-sec').count() >= 3, 'agrupados por rareza')
+    page.click('.ac-chip[data-mode=categoria]'); page.wait_for_timeout(300)
+    check(page.locator('.ac-mastery').count() >= 5, 'por categoría, con Maestría por juego')
+    page.screenshot(path=str(OUT / 'rw_1b_categoria.png'))
+    page.select_option('.ac-select select', 'unlocked'); page.wait_for_timeout(300)
+    check(page.locator('.ac-card.locked').count() == 0, 'filtro de estado: sólo desbloqueados')
+    page.click('.ac-switch a[href="#/achievements/misiones"]'); page.wait_for_selector('.mx-tabs')
+    page.wait_for_timeout(500); page.screenshot(path=str(OUT / 'rw_misiones.png'), full_page=True)
+    check(page.locator('.mx-list .mx-row').count() == 3, 'misiones diarias: 3 filas')
+    check(page.locator('.mx-feat').count() == 1, 'recompensa destacada')
+    page.click('.mx-tab[data-mtab=semanales]'); page.wait_for_timeout(200)
+    check(page.locator('.mx-list .mx-row').count() == 1, 'pestaña semanal')
+    page.click('.mx-tab[data-mtab=especiales]'); page.wait_for_timeout(200)
+    page.screenshot(path=str(OUT / 'rw_especiales.png'), full_page=True)
+    check(page.locator('.mx-card').count() >= 2, 'pestaña de especiales')
+    page.click('.mx-tab[data-mtab=diarias]'); page.wait_for_timeout(200)
+    page.locator('.mx-go').first.click(); page.wait_for_timeout(400)
+    check(page.evaluate("location.hash") == '#/library', '«Ir» lleva a la biblioteca')
 
     # Cosméticos: página propia con acceso en el menú lateral y en el de la cuenta
     check(page.locator('.sidebar [href="#/cosmetics"], #sidebar [href="#/cosmetics"], [data-route=cosmetics]').count() >= 1, 'acceso «Cosméticos» en el menú')
@@ -143,7 +164,12 @@ with sync_playwright() as p:
 
     # Móvil sin scroll horizontal
     page.set_viewport_size({'width': 390, 'height': 800})
-    for route, tabs in [('achievements', ['logros', 'misiones']), ('cosmetics', ['pase', 'tienda', 'coleccion'])]:
+    for url in ['achievements', 'achievements/misiones']:
+        page.goto(URL + '#/' + url); page.wait_for_timeout(500)
+        w = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+        check(w <= 1, f'móvil {url}: sin scroll horizontal')
+        page.screenshot(path=str(OUT / f"rw_m_{url.replace('/', '_')}.png"), full_page=True)
+    for route, tabs in [('cosmetics', ['pase', 'tienda', 'coleccion'])]:
         page.goto(URL + '#/' + route); page.wait_for_timeout(500)
         for tab in tabs:
             page.click(f'.rw-tab[data-tab={tab}]'); page.wait_for_timeout(200)

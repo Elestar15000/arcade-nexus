@@ -101,7 +101,7 @@
                     : C.empty('🏅', '¡Juega para empezar!', 'Aquí verás los logros que tienes más cerca.')}
             </section>
             <section class="nh-panel nh-goal">
-                ${head('📅', 'Misiones de hoy', '#/achievements', 'Ver todas')}
+                ${head('📅', 'Misiones de hoy', '#/achievements/misiones', 'Ver todas')}
                 <ul class="nh-missions">${M.daily.map(m => `<li class="${m.done ? 'done' : ''}"><span class="nh-m-tier t-${esc(m.tier)}">${esc(RW.TIER_LABEL[m.tier])}</span>
                     <span class="nh-near-txt"><b>${esc(m.text)}</b>${bar(m.prog / m.n * 100)}</span><span class="nh-near-n">${m.done ? '✓' : `${dia(13)} ${RW.MISSION_ROMBOS[m.tier]}`}</span></li>`).join('')}</ul>
                 <a class="nh-season" href="#/cosmetics" data-cos-tab="pase">
