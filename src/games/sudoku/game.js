@@ -117,10 +117,10 @@
                 main: `<div class="sd-wrap"><div class="sd-grid" id="sd-grid" role="grid" aria-label="Sudoku"></div></div>
                     <div class="sd-pad" id="sd-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button type="button" data-n="${n}"><b>${n}</b><small></small></button>`).join('')}</div>
                     <div class="sd-tools">
-                        <button type="button" class="btn btn-ghost" data-t="undo">↶ Deshacer</button>
-                        <button type="button" class="btn btn-ghost" data-t="erase">⌫ Borrar</button>
-                        <button type="button" class="btn btn-ghost" data-t="notes" aria-pressed="false">✏️ Notas</button>
-                        <button type="button" class="btn btn-ghost" data-t="hint">💡 Pista</button>
+                        <button type="button" class="btn btn-ghost" data-t="undo"><span>↶</span><small>Deshacer</small></button>
+                        <button type="button" class="btn btn-ghost" data-t="erase"><span>⌫</span><small>Borrar</small></button>
+                        <button type="button" class="btn btn-ghost" data-t="notes" aria-pressed="false"><span>✏️</span><small>Notas</small></button>
+                        <button type="button" class="btn btn-ghost" data-t="hint"><span>💡</span><small>Pista</small></button>
                     </div>`,
                 side: `<div class="ax-card"><h3>Partida</h3><div class="ax-rows">
                     <div class="ax-row"><span>Nivel</span><b data-s="lvl">–</b></div>
@@ -250,7 +250,7 @@
                 if (wrong.has(i) && v) cls.push('bad');
                 if (COL(i) % 3 === 2 && COL(i) < 8) cls.push('br');
                 if (ROW(i) % 3 === 2 && ROW(i) < 8) cls.push('bb');
-                const inner = v ? `<b>${v}</b>` : this.notes[i] ? `<span class="sd-notes">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<i>${this.notes[i] & (1 << n) ? n : ''}</i>`).join('')}</span>` : '';
+                const inner = v ? `<b>${v}</b>` : this.notes[i] ? `<span class="sd-notes">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<i${sv === n && this.notes[i] & (1 << n) ? ' class="hl"' : ''}>${this.notes[i] & (1 << n) ? n : ''}</i>`).join('')}</span>` : '';
                 return `<button type="button" class="${cls.join(' ')}" data-i="${i}" aria-label="Fila ${ROW(i) + 1}, columna ${COL(i) + 1}${v ? ': ' + v : ''}">${inner}</button>`;
             }).join('');
             const counts = new Array(10).fill(0);

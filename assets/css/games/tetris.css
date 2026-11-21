@@ -7,3 +7,16 @@
 .tetris .ax-btn-row .btn:disabled { opacity: .45; cursor: not-allowed; }
 .tt-touch button { min-width: 50px; min-height: 50px; }
 @media (max-width: 900px) { .tetris .tt-pair { grid-template-columns: 1fr 1fr; } .tetris .ax-stage-wrap { height: min(70vh, 640px); } }
+
+/* Auditoría F4: reserva y siguientes en una columna estrecha junto al tablero (móvil) */
+.tetris .tt-mcol { display: none; }
+@media (max-width: 900px) {
+    .tetris .ax-stage-wrap { padding-right: 68px; }
+    .tetris .tt-mcol { display: flex; flex-direction: column; align-items: center; gap: 4px; position: absolute; right: 4px; top: 8px; width: 60px; }
+    .tetris .tt-mcol small { font-size: .6rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+    .tetris .tt-mcol canvas { width: 60px; height: auto; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 10px; }
+    .tetris .tt-pair .ax-card:has(#tt-hold), .tetris .tt-pair .ax-card:has(#tt-next) { display: none; }
+    .tetris .tt-pair { grid-template-columns: 1fr; }
+    .tt-touch { gap: 6px; }
+    .tt-touch button { min-width: 44px; min-height: 48px; }
+}

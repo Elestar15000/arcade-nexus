@@ -41,15 +41,18 @@
             const api = {
                 ctx, lw, lh, scale: 1,
                 resize() {
-                    const availW = Math.max(120, wrap.clientWidth - 8), availH = Math.max(120, wrap.clientHeight - 8);
-                    const k = Math.min(availW / lw, availH / lh);
-                    const cw = Math.floor(lw * k), ch = Math.floor(lh * k);
+                    // Se descuenta el relleno del contenedor (deja sitio a columnas laterales, p. ej. la reserva del Tetris en móvil)
+                    const cs = getComputedStyle(wrap), px = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0), py = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+                    const availW = Math.max(120, wrap.clientWidth - px - 8), availH = Math.max(120, wrap.clientHeight - py - 8);
+                    // api.lw/lh se pueden cambiar en caliente (p. ej. Pong gira la pista en móvil vertical)
+                    const k = Math.min(availW / api.lw, availH / api.lh);
+                    const cw = Math.floor(api.lw * k), ch = Math.floor(api.lh * k);
                     stage.style.width = cw + 'px';
                     stage.style.height = ch + 'px';
                     const dpr = Math.min(window.devicePixelRatio || 1, 2);
                     canvas.width = Math.floor(cw * dpr);
                     canvas.height = Math.floor(ch * dpr);
-                    api.scale = (cw * dpr) / lw;
+                    api.scale = (cw * dpr) / api.lw;
                     ctx.setTransform(api.scale, 0, 0, api.scale, 0, 0);
                     ctx.imageSmoothingEnabled = true;
                     if (onResize) onResize(api);
@@ -181,6 +184,18 @@
             el.addEventListener('touchmove', move, { passive: false });
             el.addEventListener('touchend', end, { passive: true });
             el.addEventListener('touchcancel', () => { active = false; }, { passive: true });
+        },
+
+        /** Controles táctiles flotantes sobre el tablero (Pac-Man, Snake). Por defecto «solo deslizar»: la cruceta se oculta
+         *  y los botones de poder quedan pequeños en una esquina del tablero; con el ajuste `<juego>.dpad` la cruceta aparece
+         *  semitransparente sobre el tablero. Devuelve una función para desuscribirse. */
+        touchLayout(gameRoot, touchEl, wrapEl, settingKey) {
+            if (!touchEl || !wrapEl) return () => {};
+            wrapEl.appendChild(touchEl);            // los eventos ya están enlazados al propio elemento
+            touchEl.classList.add('ax-float');
+            const apply = () => gameRoot.classList.toggle('ax-dpad-on', !!Nexus.services.settings.get(settingKey));
+            apply();
+            return Nexus.bus.on('settings:change', (e) => { if (!e || e.key === settingKey || e.key === '*') apply(); });
         },
 
         /** Botones táctiles `[data-act]`: onDown(act) al pulsar y onUp(act) al soltar. */

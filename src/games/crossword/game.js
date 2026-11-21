@@ -140,7 +140,7 @@
         }
         layout() {
             return {
-                main: `<div class="cw-clue" id="cw-clue">–</div>
+                main: `<div class="cw-cluebar"><button type="button" class="cw-nav" data-nav="-1" aria-label="Definición anterior">‹</button><div class="cw-clue" id="cw-clue">–</div><button type="button" class="cw-nav" data-nav="1" aria-label="Definición siguiente">›</button></div>
                     <div class="cw-wrap"><div class="cw-grid" id="cw-grid"></div></div>
                     <div class="cw-kbd" id="cw-kbd">${KEYS.map(row => `<div>${row.split('').map(k => `<button type="button" data-k="${k}">${k}</button>`).join('')}${row === 'ZXCVBNM' ? '<button type="button" data-k="DEL" class="wide">⌫</button>' : ''}</div>`).join('')}</div>`,
                 side: `<div class="ax-card cw-tools"><button type="button" class="btn btn-ghost" data-t="check">✔️ Comprobar</button><button type="button" class="btn btn-ghost" data-t="letter">🔡 Letra</button><button type="button" class="btn btn-ghost" data-t="word">🧾 Palabra</button></div>
@@ -158,6 +158,7 @@
             this.$('#cw-across').addEventListener('click', clueClick);
             this.$('#cw-down').addEventListener('click', clueClick);
             this.$('#cw-kbd').addEventListener('click', (e) => { const b = e.target.closest('[data-k]'); if (b) this.key(b.dataset.k); });
+            this.root.querySelectorAll('.cw-nav').forEach(b => b.addEventListener('click', () => this.nextWord(+b.dataset.nav)));
             this.$('.cw-tools').addEventListener('click', (e) => { const b = e.target.closest('[data-t]'); if (b) this.tool(b.dataset.t); });
             this.onKey = (e) => {
                 if (this.state !== 'playing' || !this.overlay.hidden || e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input,textarea')) return;

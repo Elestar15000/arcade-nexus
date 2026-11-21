@@ -91,22 +91,46 @@ check(JSON.stringify(R.guinote.canteSuits(st, st.turnSeat)) === '["o","c"]', 'Gu
 // Malas y buenas (a 101): marcador en vivo, idas enteras y vueltas con victoria inmediata
 {
     const G = R.guinote;
-    let st = G.setup(4); st.trump = 'o';
-    st.totals = [95, 40]; st.handNo = 2; st.phase = 'trickEnd'; st.trickWinner = 0; st.turnSeat = null;
+    const bots = ['bot', 'bot', 'bot', 'bot'];
+    let st = G.setup(4, null, bots); st.trump = 'o';
+    st.totals = [95, 40]; st.cardTotals = [40, 20]; st.handNo = 2; st.phase = 'trickEnd'; st.trickWinner = 0; st.turnSeat = null;
     st.trick = [{ s: 0, c: 'c1' }, { s: 1, c: 'c4' }, { s: 2, c: 'c5' }, { s: 3, c: 'c6' }];
     G.step(st);
-    check(st.over && JSON.stringify(st.over.winners) === '[0,2]' && st.over.scores[0] === 106 && G.view(st, 0).score[0] === 106, 'Guiñote vueltas: la primera pareja que pasa de 50 buenas gana al instante');
+    check(st.phase === 'gameEnd' && st.games[0] === 1 && st.lastGame.win === 0 && G.view(st, 0).score[0] === 106, 'Guiñote vueltas: una pareja de bots que pasa de 50 buenas (con 30 de cartas) gana la partida al instante');
+    G.step(st);
+    check(st.phase === 'play' && st.handNo === 1 && st.totals.join() === '0,0' && st.gameNo === 2, 'Guiñote: tras ganar una partida empieza la siguiente del coto');
+    // Sin 30 de cartas no se sale
+    st = G.setup(4, null, bots); st.trump = 'o'; st.totals = [95, 40]; st.cardTotals = [5, 20]; st.handNo = 2; st.phase = 'trickEnd'; st.trickWinner = 0; st.turnSeat = null;
+    st.trick = [{ s: 0, c: 'c4' }, { s: 1, c: 'c5' }, { s: 2, c: 'c6' }, { s: 3, c: 'c7' }]; st.pts = [0, 0]; st.cantePts = [12, 0];
+    G.step(st);
+    check(st.phase === 'play' && st.games[0] === 0, 'Guiñote: sin 30 de cartas no se puede salir aunque se pase de 50 buenas');
+    // Pareja con persona: hay que declarar «¡Fuera!»; mal declarado se pierde
+    st = G.setup(4, null, ['me', 'bot', 'bot', 'bot']); st.trump = 'o'; st.totals = [95, 40]; st.cardTotals = [40, 20]; st.handNo = 2;
+    st.phase = 'trickEnd'; st.trickWinner = 0; st.turnSeat = null; st.trick = [{ s: 0, c: 'c1' }, { s: 1, c: 'c4' }, { s: 2, c: 'c5' }, { s: 3, c: 'c6' }];
+    G.step(st);
+    check(st.phase === 'play' && st.canFuera === 0 && G.view(st, 0).buttons.some(b => b.action.type === 'fuera'), 'Guiñote vueltas: con una persona en la pareja aparece el botón «¡Fuera!»');
+    G.apply(st, 0, { type: 'fuera' });
+    check(st.phase === 'gameEnd' && st.lastGame.win === 0, 'Guiñote: «¡Fuera!» bien declarado gana la partida');
+    st = G.setup(4, null, ['me', 'bot', 'bot', 'bot']); st.trump = 'o'; st.totals = [60, 40]; st.cardTotals = [40, 20]; st.handNo = 2;
+    st.phase = 'trickEnd'; st.trickWinner = 0; st.turnSeat = null; st.trick = [{ s: 0, c: 'c4' }, { s: 1, c: 'c5' }, { s: 2, c: 'c6' }, { s: 3, c: 'c7' }];
+    G.step(st); G.apply(st, 0, { type: 'fuera' });
+    check(st.phase === 'gameEnd' && st.lastGame.win === 1, 'Guiñote: «¡Fuera!» con la cuenta mal hace perder la partida');
+    // Coto: la tercera partida da el coto
+    st = G.setup(4, null, bots); st.games = [2, 1]; st.totals = [95, 40]; st.cardTotals = [40, 20]; st.handNo = 2; st.phase = 'trickEnd'; st.trickWinner = 0; st.turnSeat = null;
+    st.trick = [{ s: 0, c: 'c1' }, { s: 1, c: 'c4' }, { s: 2, c: 'c5' }, { s: 3, c: 'c6' }]; st.trump = 'o';
+    G.step(st);
+    check(st.over && JSON.stringify(st.over.winners) === '[0,2]' && st.over.games.join() === '3,1', 'Guiñote: 3 partidas ganan el coto');
     st = G.setup(4); st.trump = 'o';
     st.totals = [0, 0]; st.handNo = 1; st.pts = [95, 0]; st.phase = 'trickEnd'; st.trickWinner = 0; st.turnSeat = null;
     st.trick = [{ s: 0, c: 'c1' }, { s: 1, c: 'c4' }, { s: 2, c: 'c5' }, { s: 3, c: 'c6' }];
     G.step(st);
     check(!st.over && G.view(st, 0).score[0] === 106, 'Guiñote idas: se ve en vivo, pero la mano se juega entera');
-    st = G.setup(4); st.trump = 'o'; st.handNo = 3; st.totals = [70, 85]; st.pts = [0, 0];
+    st = G.setup(4, null, bots); st.trump = 'o'; st.handNo = 3; st.totals = [70, 85]; st.pts = [0, 0]; st.cardTotals = [35, 35];
     const s1 = st.turnSeat; st.lastWinner = s1; st.trick = []; st.phase = 'play';
     st.hands[s1] = ['o12', 'o10', 'e2', 'b2', 'c4', 'c5'];
     const sd = s1 % 2; st.totals[sd] = 65;
     G.apply(st, s1, { type: 'cante', suit: 'o' });
-    check(st.over && st.over.winners.includes(s1), 'Guiñote vueltas: cantar las 40 para pasar el límite da la victoria');
+    check(st.phase === 'gameEnd' && st.lastGame.win === sd, 'Guiñote vueltas: cantar las 40 para pasar el límite da la partida');
     st = G.setup(4); st.trump = 'o'; st.deck = []; st.muestra = null; st.phase = 'play';
     const s2 = st.turnSeat; st.lastWinner = s2; st.trick = [];
     st.hands[s2] = ['c12', 'c10', 'e2'];

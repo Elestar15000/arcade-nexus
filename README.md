@@ -125,6 +125,9 @@ cuentas del modo local no se migran al servidor.
 - 4 poderes **limitados**, sin recarga durante la partida (los orbes del tablero sólo dan puntos): 🛡️ Escudo (×1: se activa y
   destapa la casilla que elijas sin riesgo; si es mina, no explota), 🔍 Scanner (×2, área 3×3), 🎯 Francotirador (×3, casilla
   segura) y ⚡ EMP (×1, marca minas).
+- **Móvil**: los tableros apaisados (16×30, 20×30) se muestran girados en vertical; si las casillas quedan por debajo de 30 px aparece
+  la lupa (🔍 Acercar a 32 px y arrastrar / 🔎 Ver todo). Los poderes son una barra de iconos bajo el tablero y el contador 🚩 de la
+  cabecera es el interruptor del modo bandera. El poder armado se ve en el borde del tablero.
 
 ## Ajustes de cada juego
 
@@ -174,6 +177,8 @@ siempre abren en su modo por defecto.
 ## Tetris Fusion
 
 - Tetris moderno (SRS con kicks, reserva, pieza fantasma, T-Spin, combos y back-to-back).
+- **Móvil**: botones ⟲/⟳ y gestos sobre el tablero (arrastrar = mover/bajar, toque = girar —en el tercio izquierdo, al revés—,
+  deslizar rápido abajo = caída directa, arriba = reserva). Reserva y siguientes en una columna estrecha junto al tablero.
 - **Bloques de poder** en las piezas: 💥 Bomba (5×5), ⚡ Rayo (columna), ❄️ Hielo (congela la caída) y ⭐ Estrella (×2); se activan
   al limpiar su línea y pueden encadenarse.
 - **Energía** que se carga limpiando líneas: ⏪ Rebobinar (deshace la última pieza) y 🧹 Purga (borra las 3 filas de abajo).
@@ -182,6 +187,9 @@ siempre abren en su modo por defecto.
   (nivel 5) y ~0,05 s (nivel 10).
 - Modos con poderes: **Fusión**, **Cascada** (los bloques caen solos tras limpiar y las reacciones en cadena multiplican), **Caos**
   (evento aleatorio cada 18 piezas: marea, espejo, prisa, calma, lluvia de poderes) y **Sprint** de 40 líneas.
+- **Reglas de la guía**: nivel cada 10 líneas con la curva oficial (0,8 − (N−1)·0,007)^(N−1) s por fila; **Sprint** puro de 40
+  líneas sin poderes (y **Sprint Fusión** aparte, con su propio récord); T-Spin **Mini** por la regla de las esquinas frontales
+  (100/200/400) frente al completo (400/800/1.200/1.600); tabla de Perfect Clear 800/1.200/1.800/2.000 (3.200 Tetris B2B).
 
 ## Pac-Man Nexus
 
@@ -189,6 +197,12 @@ siempre abren en su modo por defecto.
   Saltarín (se teletransporta), Sombra (sigue tu rastro) y Blindado (inmune a las píldoras de poder).
 - **7 poderes** que se recogen en el mapa y se guardan en 2 ranuras: ⚡ Turbo, 🧲 Imán, 👻 Fase, ❄️ Hielo, 🛡️ Escudo, 💥 Onda y 🌀 Salto.
 - Modos: **Clásico** (4 fantasmas, sin poderes), **Nexus** (poderes y enemigos nuevos nivel a nivel) y **Horda** (los 8 desde el inicio).
+- **Móvil** (también Snake): por defecto se juega deslizando; ⚙️ «Cruceta en pantalla» la muestra semitransparente sobre el tablero.
+  Los botones de poder flotan en una esquina. En Clásico no se muestran ranuras de poder.
+- **Clásico** fiel al original: laberinto de 28×31 (244 pastillas), fruta a las 70 y 170 pastillas (cereza 100 … llave 5.000, las
+  últimas comidas en el panel), tablas de velocidad por nivel (Pac-Man acelera con los fantasmas asustados y se frena al comer),
+  duración del susto por nivel (0 desde el 19), salida de la casa por contador de pastillas (4 s de respaldo), sin bonus por limpiar
+  y pantalla de «Nivel N» con su fruta. Nexus y Horda alternan tres laberintos distintos.
 
 ## Snake Neón
 
@@ -234,6 +248,10 @@ siempre abren en su modo por defecto.
   (15 Hz, algo más de latencia). Para mejorar la conexión directa se puede añadir un servidor TURN en `config.js` (`P2P.ICE_SERVERS`).
 - Privacidad: los brokers públicos son abiertos; por ellos sólo pasan el código de sala, nombre, avatar y nivel del anfitrión y
   los datos de la partida. Ni contraseñas ni progreso. Las partidas online, como el resto, se registran en el cliente (no son a prueba de trampas).
+- **2 jugadores** en el mismo dispositivo: W/S contra ↑/↓ o una mitad de la pantalla cada uno (el Turbo se arma solo; no cuenta
+  para estadísticas). En móvil vertical la pista se gira (tu pala abajo) y la pala se arrastra con el dedo. La exhibición del menú
+  queda quieta con «reducir movimiento» y en pantallas táctiles.
+- Se gana a **7, 11 o 21** (⚙️; por defecto 11) siempre con **2 de ventaja**. El remate turbo ya no pasa de la velocidad máxima.
 
 ## Ajedrez
 
@@ -358,6 +376,7 @@ Los cinco comparten una base (`src/games/shared/puzzle.js`): menú de modos, rel
   compartan palabras o familia y comprueba las reglas de los juegos de palabras. Partida libre (4 fallos), difícil (2) y diario.
 - **2048** — clásico 4×4, grande 5×5 (meta 4096), contrarreloj de 3 minutos y reto diario (misma secuencia de fichas para todos,
   150 movimientos). Deslizar o flechas/WASD, animaciones y 3 «deshacer» en los modos sin tiempo.
+- **2048**: la victoria se registra en cuanto llegas al objetivo; puedes seguir en modo infinito (el final cuenta como puntuación).
 
 ## Juegos de cartas: Brisca, Guiñote y Chinchón
 
@@ -398,6 +417,11 @@ partidas completas entre bots.
 - **Tiempo de turno online** (todas las mesas, también Póker y Mentiroso): 30 s por decisión (25 s en Póker), con barra en el asiento
   que juega. Al agotarse se juega solo (en Póker pasa o se retira; en el resto, la jugada del bot). Tres turnos seguidos sin jugar:
   le sustituye un bot y la mesa sigue. Contra la CPU no hay límite.
+- **Brisca**: mano a mano o **2 contra 2** (mesa de 4), partido **al mejor de 3 manos** y puntos ocultos durante la mano (⚙️
+  «Marcador visible» para aprender).
+- **Guiñote**: para salir hacen falta **30 de cartas** (sin cantes; si las dos parejas los tienen, deciden las últimas); en las
+  vueltas se declara **«¡Fuera!»** (mal declarado, se pierde; los bots lo hacen solos); se juega a **cotos** (3 partidas) y, con ⚙️
+  «Canta la pareja», también canta el compañero de quien gana la baza.
 
 ## Póker, Mentiroso y Solitario
 
@@ -479,6 +503,8 @@ python3 tests/e2e_admin.py       # panel de administración: Google Authenticato
 python3 tests/e2e_turnbased.py    # Ajedrez y Hundir la flota: CPU y online (sincronía, tablas, revancha, anti-trampas, abandono)
 python3 tests/e2e_cards.py        # Brisca, Guiñote y Chinchón: CPU y online con 2 y 3 navegadores + bot, sustitución, vuelta a la mesa
 python3 tests/e2e_cards_more.py   # Póker y Mentiroso (CPU y online) y Solitario (tocar, arrastrar, deshacer, pista, terminar, diario)
+python3 tests/e2e_mobile.py       # interfaz móvil: Buscaminas girado, Tetris, Pac-Man, Pasapalabra, mini-mapa de la flota, puzles
+python3 tests/e2e_rules.py        # reglas reales: Tetris (guía, Sprint puro, T-Spin Mini, Perfect Clear), Pong, 2048, Pac-Man clásico
 python3 tests/e2e_timers.py       # tiempo de turno online: cartas (jugada automática, bot tras 3), reloj de ajedrez, disparo automático
 python3 tests/e2e_audit.py        # correcciones de la auditoría de juegos (fases 1 y 2)
                                   # (las tres anteriores arrancan brokers MQTT locales: tests/mqtt_test_broker.mjs; sin Internet)

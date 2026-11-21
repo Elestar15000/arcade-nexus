@@ -120,3 +120,18 @@
 @media (prefers-reduced-motion: reduce) {
     .pg-logo-b, .pg-net-status i, .pg-turbo-card.full .pg-meter > i { animation: none; }
 }
+
+/* Auditoría F4 */
+.pong .pg-pts { display: none; }                         /* el marcador ya está en la cabecera */
+.pong .pg-choice.local { --pg-c: #a3e635; }
+.pong.pg-vertical .pg-touch [data-act="up"], .pong.pg-vertical .pg-touch [data-act="down"] { display: none; }   /* girada: se arrastra la pala */
+.pong.pg-local .pg-touch { display: none; }
+.pong.pg-local #pg-turbo-card .ax-btn-row { display: none; }
+@media (max-width: 900px) {
+    .pong.pg-vertical.pg-playing .ax-stage-wrap { aspect-ratio: auto; height: min(70vh, 640px); max-height: none; }
+}
+@media (max-width: 600px) {
+    .pong .pg-choices { grid-template-columns: 1fr; gap: 8px; }
+    .pong .pg-choice { display: grid; grid-template-columns: auto 1fr; column-gap: 12px; align-items: center; text-align: left; padding: 10px 14px; }
+    .pong .pg-choice-emoji { grid-row: span 2; font-size: 1.6em; }
+}

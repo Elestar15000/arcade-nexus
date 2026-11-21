@@ -66,10 +66,11 @@ try:
         # ═════════ BRISCA contra la máquina ═════════
         open_game(A, 'brisca')
         check(A.locator('.cg-choice').count() == 2, 'brisca: menú con máquina / online')
-        A.click('[data-do=go-cpu]')
+        A.click('[data-do=go-cpu]'); A.click('[data-do=start]')
         A.wait_for_selector('#cg-hand .pc', timeout=4000)
         v = A.evaluate('__g.v')
         check(v['n'] == 2 and len(v['hand']) == 3, 'brisca: 2 jugadores, 3 cartas en mano')
+        check(v['pts'] is None and '¿?' in A.inner_text('#cg-score'), 'brisca: los puntos no se ven durante la mano')
         check(A.locator('.cg-stock .cg-muestra').count() == 1, 'brisca: muestra visible bajo el mazo')
         check('hands' not in v and all('count' in pl for pl in v['players']), 'brisca: la vista no incluye las manos ajenas')
         A.screenshot(path=str(SHOTS / 'cards_brisca.png'))
@@ -78,6 +79,7 @@ try:
         A.wait_for_selector('.modal-result, .modal', timeout=6000)
         v = A.evaluate('__g.v')
         check(sum(v['pts']) == 120, f'brisca: se reparten los 120 puntos ({v["pts"]})')
+        check(max(v['games']) == 2, f'brisca: partido al mejor de 3 ({v["games"]})')
         A.screenshot(path=str(SHOTS / 'cards_brisca_end.png'))
         A.evaluate('__autoOn(false)')
 
@@ -201,7 +203,7 @@ try:
         code = A.evaluate('__g.lobby.net.code')
         B.fill('.ol-code-input', code); B.click('.ol-join-form button[type=submit]')
         A.wait_for_function('document.querySelectorAll(".cg-seat-item.guest").length === 1', timeout=20000)
-        check(A.locator('.ol-seg').count() == 0, 'brisca online: mesa fija de 2')
+        check(A.locator('.ol-seg [data-n]').count() == 3, 'brisca online: mesa de 2 a 4 (con 4, por parejas)')
         A.click('[data-ol-do=start]')
         for P in (A, B): P.wait_for_selector('#cg-hand .pc', timeout=8000)
         # Jugada ilegal del invitado (fuera de turno) se rechaza

@@ -135,10 +135,10 @@
                             <p class="ax-hint"><kbd>Espacio</kbd> mantenido = ⚡ Turbo (puntos ×1,5).</p>
                             <div class="ax-chips" id="sn-effects"></div>
                         </div>
-                        <div class="ax-card" id="sn-legend-card">
-                            <h3>🍽️ Frutas y poderes</h3>
+                        <details class="ax-card sn-legend-card" id="sn-legend-card">
+                            <summary><h3>🍽️ Frutas y poderes</h3></summary>
                             <div class="sn-legend" id="sn-legend"></div>
-                        </div>
+                        </details>
                     </aside>
                 </div>
                 <div class="ax-touch sn-touch" id="sn-touch">
@@ -770,6 +770,7 @@
 
             Kit.touchButtons(this.$('#sn-touch'), (a) => this.act(a, true), (a) => this.act(a, false));
             Kit.swipe(this.stage, (d) => { if (d !== 'tap') this.turn(d); });
+            this.unsubTouch = Kit.touchLayout(this.root.querySelector('.ax-game'), this.$('#sn-touch'), this.stage, 'snake.dpad');
             const hopBtn = this.$('#sn-btn-hop');
             hopBtn.addEventListener('click', () => this.hop());
             this.overlay.addEventListener('click', (e) => {
@@ -1154,6 +1155,7 @@
         }
 
         destroy() {
+            if (this.unsubTouch) this.unsubTouch();
             if (this.run) this.run.stop();
             this.destroyed = true;
             this.loop.destroy();

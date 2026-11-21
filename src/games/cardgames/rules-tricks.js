@@ -20,7 +20,13 @@
      pasarlas, se cuentan las «buenas» (gana quien pasa de 50 buenas).
      Los puntos se ven en vivo. La primera mano (idas) se juega
      entera; si nadie pasa de 100 se juegan «vueltas», en las que
-     gana al instante la primera pareja que sobrepasa el límite.
+     hay que declarar «¡Fuera!» tras ganar una baza (los bots lo
+     hacen solos). Para salir hacen falta 30 puntos de cartas (sin
+     cantes); si las dos parejas los tienen, deciden las últimas.
+     Se juega a cotos: 3 partidas ganan el coto.
+   Brisca: con 4 jugadores, por parejas; partido al mejor de 3
+     manos; los puntos no se ven durante la mano salvo con el ajuste
+     «marcador visible».
    ============================================================ */
 (function () {
     'use strict';
@@ -40,11 +46,18 @@
     };
     const SUITW = { o: 'oros', c: 'copas', e: 'espadas', b: 'bastos' };
 
+    const setting = (k) => { try { return Nexus.services.settings.get(k); } catch (_) { return undefined; } };
+
     function make(cfg) {
         const strength = (c) => 10 - cfg.order.indexOf(rankOf(c));
         const pts = (c) => cfg.pts[rankOf(c)] || 0;
-        const side = (st, s) => (cfg.teams ? s % 2 : s);
-        const sides = (n) => (cfg.teams ? 2 : n);
+        // Brisca a 4: por parejas (compañero enfrente), como el Guiñote pero sin asistir ni cantes
+        const teamsOf = (n) => cfg.teams || n === 4;
+        const side = (st, s) => (teamsOf(st.n) ? s % 2 : s);
+        const sides = (n) => (teamsOf(n) ? 2 : n);
+        const CARDS_MIN = 30;           // Guiñote: mínimo de puntos de cartas para salir
+        const COTO = 3;                 // Guiñote: partidas que ganan el coto
+        const BRISCA_BEST = 2;          // Brisca: manos ganadas para llevarse el partido (al mejor de 3)
 
         /** Carta (y asiento) que gana ahora mismo la baza. */
         function winning(trick, trump) {
@@ -70,6 +83,7 @@
             st.trick = []; st.lastTrick = null; st.trickWinner = null; st.lastWinner = null;
             st.pts = new Array(sides(st.n)).fill(0);
             st.cantePts = new Array(sides(st.n)).fill(0);
+            st.canFuera = null;
             st.sung = {};
             st.tricks = new Array(sides(st.n)).fill(0);
             st.turnSeat = (st.dealer + 1) % st.n;
@@ -77,9 +91,13 @@
             log(st, `Mano ${st.handNo}: triunfo de ${SUITW[st.trump]} (${K.cardName(st.muestra)}).`);
         }
 
-        function setup(n, names) {
+        function setup(n, names, kinds) {
             const st = { game: cfg.id, n, names: names || null, dealer: Math.floor(Math.random() * n), handNo: 1, log: [], pause: 0, over: null,
-                totals: new Array(sides(n)).fill(0), stats: Array.from({ length: n }, () => ({ cantes: 0, sang40: false, swaps: 0, tricks: 0 })) };
+                kinds: kinds || Array.from({ length: n }, (_, i) => (i ? 'bot' : 'me')),
+                totals: new Array(sides(n)).fill(0), cardTotals: new Array(sides(n)).fill(0), games: new Array(sides(n)).fill(0), gameNo: 1,
+                showScore: cfg.id !== 'brisca' || !!setting('brisca.showScore'),
+                partnerCante: cfg.id === 'guinote' && !!setting('guinote.partnerCante'),
+                stats: Array.from({ length: n }, () => ({ cantes: 0, sang40: false, swaps: 0, tricks: 0 })) };
             deal(st);
             return st;
         }
@@ -88,19 +106,47 @@
         const live = (st) => st.totals.map((t, i) => t + st.pts[i] + st.cantePts[i]);
         const MALAS = 50;
 
-        /** En vueltas, la primera pareja que pasa del límite gana en ese mismo momento. */
+        /** Puntos de cartas (sin cantes) de la partida: hacen falta 30 para salir. */
+        const cardsOf = (st, sd) => st.cardTotals[sd] + st.pts[sd];
+        const canOut = (st, sd) => live(st)[sd] >= cfg.target && cardsOf(st, sd) >= CARDS_MIN;
+        const allBots = (st, sd) => { for (let s = 0; s < st.n; s++) if (side(st, s) === sd && st.kinds[s] !== 'bot') return false; return true; };
+
+        /** Vueltas: tras ganar una baza (o cantar) la pareja puede declarar «¡Fuera!». Las parejas de bots lo hacen solas;
+         *  si en la pareja hay alguien, se le ofrece el botón (declarar con la cuenta mal hace perder). */
         function checkVueltas(st, sd) {
             if (!cfg.target || st.handNo < 2 || st.over) return false;
-            const sc = live(st);
-            if (sc[sd] < cfg.target) return false;
-            finishGame(st, sd, sc, `Gana la pareja ${sd === 0 ? 'A' : 'B'}: pasa de ${MALAS} buenas (${sc[sd] - MALAS} buenas) en las vueltas`);
-            return true;
+            if (allBots(st, sd)) {
+                if (!canOut(st, sd)) return false;
+                declareOut(st, sd, null);
+                return true;
+            }
+            st.canFuera = sd;
+            return false;
         }
+        function declareOut(st, sd, seat) {
+            const sc = live(st);
+            if (canOut(st, sd)) {
+                finishGame(st, sd, sc, `${seat !== null ? `¡Fuera! ${who(st, seat)}: ` : ''}gana la pareja ${sd === 0 ? 'A' : 'B'} con ${sc[sd] - MALAS} buenas (${cardsOf(st, sd)} de cartas) en las vueltas`);
+            } else {
+                const why = sc[sd] < cfg.target ? `no pasaba de ${MALAS} buenas (${mbt(sc[sd])})` : `sólo tenía ${cardsOf(st, sd)} de cartas (hacen falta ${CARDS_MIN})`;
+                finishGame(st, 1 - sd, sc, `¡Fuera! mal declarado por ${who(st, seat)}: ${why}. Gana la pareja ${sd === 0 ? 'B' : 'A'}`);
+            }
+        }
+        const mbt = (t) => (t > MALAS ? `${t - MALAS} buenas` : `${t} malas`);
+        /** Fin de una partida. En el Guiñote se juega a cotos: hasta que una pareja gana COTO partidas se reparte otra. */
         function finishGame(st, win, sc, text) {
-            st.phase = 'over'; st.turnSeat = null; st.pause = 0;
+            st.turnSeat = null; st.canFuera = null;
+            st.games[win]++;
+            if (cfg.id === 'guinote' && st.games[win] < COTO) {
+                log(st, `${text}. Partidas: A ${st.games[0]} – B ${st.games[1]} (el coto es a ${COTO}).`);
+                st.lastGame = { win, scores: sc.slice(), text, games: st.games.slice() };
+                st.phase = 'gameEnd'; st.pause = 4500;
+                return;
+            }
+            st.phase = 'over'; st.pause = 0;
             const seats = []; for (let s = 0; s < st.n; s++) if (side(st, s) === win) seats.push(s);
-            st.over = { winners: seats, draw: false, scores: sc.slice(), text };
-            log(st, text + '.');
+            st.over = { winners: seats, draw: false, scores: sc.slice(), games: st.games.slice(), text: cfg.id === 'guinote' ? `${text}. ¡Coto para la pareja ${win === 0 ? 'A' : 'B'}! (${st.games[0]} – ${st.games[1]})` : text };
+            log(st, st.over.text + '.');
         }
 
         const inArrastre = (st) => cfg.arrastre && st.deck.length === 0 && !st.muestra;
@@ -110,7 +156,7 @@
             if (st.phase !== 'play' || st.turnSeat !== seat) return [];
             if (!st.trick.length || !inArrastre(st)) return hand.slice();
             const led = suitOf(st.trick[0].c), cur = winning(st.trick, st.trump);
-            const partner = cfg.teams && side(st, cur.s) === side(st, seat);
+            const partner = teamsOf(st.n) && side(st, cur.s) === side(st, seat);
             const same = hand.filter(c => suitOf(c) === led);
             if (same.length) {
                 if (partner) return same;
@@ -135,9 +181,13 @@
             return need && st.hands[seat].includes(c) ? c : null;
         }
 
-        /** Palos que puede cantar (Rey + Sota en la mano) tras ganar la baza anterior. */
+        /** Palos que puede cantar (Rey + Sota en la mano) tras ganar la baza anterior. Con «canta la pareja», también el
+         *  compañero de quien la ganó, antes de que éste salga. */
         function canteSuits(st, seat) {
-            if (!cfg.cantes || st.phase !== 'play' || st.turnSeat !== seat || st.trick.length || st.lastWinner !== seat || !st.hands[seat].length) return [];
+            if (!cfg.cantes || st.phase !== 'play' || st.trick.length || !st.hands[seat].length || st.lastWinner === null || st.lastWinner === undefined) return [];
+            const own = st.turnSeat === seat && st.lastWinner === seat;
+            const mate = st.partnerCante && st.turnSeat === st.lastWinner && side(st, seat) === side(st, st.lastWinner) && seat !== st.lastWinner;
+            if (!own && !mate) return [];
             if (st.cantedThisTrick) return [];
             const h = st.hands[seat], sd = side(st, seat);
             return K.SUITS.filter(s => h.includes(s + 12) && h.includes(s + 10) && !st.sung[sd + s])
@@ -149,12 +199,15 @@
             if (a.type === 'play') return legalCards(st, seat).includes(a.card);
             if (a.type === 'swap') return !!swapCard(st, seat);
             if (a.type === 'cante') return canteSuits(st, seat).includes(a.suit);
+            if (a.type === 'fuera') return st.phase === 'play' && st.canFuera !== null && st.canFuera === side(st, seat) && (st.kinds[seat] !== 'bot' || canOut(st, st.canFuera));
             return false;
         }
 
         const who = (st, seat) => (st.names ? st.names[seat] : `Jugador ${seat + 1}`);
 
         function apply(st, seat, a) {
+            if (a.type === 'fuera') { declareOut(st, side(st, seat), seat); return; }
+            if (a.type === 'play') st.canFuera = null;          // el «¡Fuera!» se declara antes de seguir jugando
             if (a.type === 'swap') {
                 const c = swapCard(st, seat);
                 K.removeCard(st.hands[seat], c);
@@ -187,6 +240,14 @@
 
         function step(st) {
             st.pause = 0;
+            if (st.phase === 'gameEnd') {
+                // Nueva partida del coto: se pone a cero el marcador de malas y buenas
+                st.totals = st.totals.map(() => 0); st.cardTotals = st.cardTotals.map(() => 0);
+                st.handNo = 1; st.gameNo++; st.dealer = (st.dealer + 1) % st.n; st.arrastreLogged = false; st.lastGame = null;
+                log(st, `Partida ${st.gameNo} del coto.`);
+                deal(st);
+                return;
+            }
             if (st.phase === 'trickEnd') {
                 const w = st.trickWinner, sd = side(st, w);
                 const p = st.trick.reduce((s, t) => s + pts(t.c), 0);
@@ -213,28 +274,39 @@
             const S = sides(st.n);
             const hand = st.pts.map((p, i) => p + st.cantePts[i]);
             if (!cfg.target) {
-                // Brisca: una mano, gana quien pasa de 60
-                st.phase = 'over'; st.turnSeat = null;
+                // Brisca: gana la mano quien pasa de 60; el partido es al mejor de 3 manos (un empate no cuenta)
                 const best = Math.max(...st.pts);
                 const draw_ = st.pts.filter(p => p === best).length > 1;
-                const winners = draw_ ? [] : [st.pts.indexOf(best)];
-                st.over = { winners, draw: draw_, scores: st.pts.slice(), text: draw_ ? `Empate a ${best} puntos` : `${who(st, winners[0])} gana con ${best} puntos` };
-                log(st, st.over.text + '.');
+                const ws = draw_ ? -1 : st.pts.indexOf(best);
+                const label = (sd) => (teamsOf(st.n) ? `la pareja ${sd === 0 ? 'A' : 'B'}` : who(st, sd));
+                if (ws >= 0) st.games[ws]++;
+                st.lastHand = { pts: st.pts.slice(), win: ws, games: st.games.slice() };
+                st.turnSeat = null;
+                if (ws >= 0 && st.games[ws] >= BRISCA_BEST) {
+                    st.phase = 'over';
+                    const winners = []; for (let s = 0; s < st.n; s++) if (side(st, s) === ws) winners.push(s);
+                    st.over = { winners, draw: false, scores: st.pts.slice(), games: st.games.slice(), text: `${label(ws)} gana el partido ${st.games[ws]}–${st.games[1 - ws]} (última mano: ${best} puntos)` };
+                    log(st, st.over.text + '.');
+                } else {
+                    log(st, `${draw_ ? `Mano ${st.handNo}: empate a ${best}` : `Mano ${st.handNo} para ${label(ws)} con ${best} puntos`}. Partido: ${st.games.join(' – ')} (al mejor de 3).`);
+                    st.phase = 'handEnd'; st.pause = 3800;
+                }
                 return;
             }
             const sc = live(st);
-            st.lastHand = { pts: st.pts.slice(), cantes: st.cantePts.slice(), hand, before: st.totals.slice() };
-            const over = [0, 1].filter(i => sc[i] >= cfg.target);
+            st.lastHand = { pts: st.pts.slice(), cantes: st.cantePts.slice(), hand, before: st.totals.slice(), cards: [0, 1].map(i => cardsOf(st, i)) };
+            // Para salir hay que pasar de 50 buenas y tener 30 de cartas; si las dos parejas lo cumplen, deciden las últimas
+            const over = [0, 1].filter(i => canOut(st, i));
             if (over.length) {
-                // Al acabar las idas: si las dos pasan, gana la que más tiene y, a igualdad, la que hizo las últimas
-                const win = over.length === 1 ? over[0] : (sc[0] === sc[1] ? st.lastSide : (sc[0] > sc[1] ? 0 : 1));
-                finishGame(st, win, sc, `Gana la pareja ${win === 0 ? 'A' : 'B'} con ${sc[win] - MALAS} buenas (${sc[win]} a ${sc[1 - win]})`);
+                const win = over.length === 1 ? over[0] : st.lastSide;
+                finishGame(st, win, sc, `Gana la pareja ${win === 0 ? 'A' : 'B'} con ${sc[win] - MALAS} buenas y ${cardsOf(st, win)} de cartas (${sc[win]} a ${sc[1 - win]})${over.length === 2 ? ', por hacer las últimas' : ''}`);
             } else {
-                for (let i = 0; i < S; i++) st.totals[i] = sc[i];
+                for (let i = 0; i < S; i++) { st.totals[i] = sc[i]; st.cardTotals[i] += st.pts[i]; }
                 st.pts = st.pts.map(() => 0); st.cantePts = st.cantePts.map(() => 0);
                 st.phase = 'handEnd'; st.turnSeat = null; st.pause = 4200;
                 const d = (t) => (t > MALAS ? `${t - MALAS} buenas` : `${t} malas`);
-                log(st, `Fin de la mano: A ${d(st.totals[0])}, B ${d(st.totals[1])}. Nadie pasa de 50 buenas: ¡de vueltas!`);
+                const short = [0, 1].filter(i => sc[i] >= cfg.target);
+                log(st, `Fin de la mano: A ${d(st.totals[0])}, B ${d(st.totals[1])}. ${short.length ? `La pareja ${short.map(i => (i === 0 ? 'A' : 'B')).join(' y ')} no llega a ${CARDS_MIN} de cartas` : 'Nadie pasa de 50 buenas'}: ¡de vueltas!`);
             }
         }
 
@@ -244,14 +316,18 @@
             const sw = swapCard(st, seat);
             if (sw) buttons.push({ label: `🔄 Cambiar ${K.cardName(sw)} por la muestra`, action: { type: 'swap' } });
             for (const s of canteSuits(st, seat)) buttons.push({ label: `🎵 Cantar las ${s === st.trump ? 40 : 20} (${SUITW[s]})`, action: { type: 'cante', suit: s }, kind: 'primary' });
+            if (validate(st, seat, { type: 'fuera' })) buttons.push({ label: '✋ ¡Fuera!', action: { type: 'fuera' }, kind: 'primary', title: 'Declara que tu pareja pasa de 50 buenas con 30 de cartas (si te equivocas, perdéis)' });
+            const hide = !st.showScore && st.phase !== 'over';
             return {
-                game: cfg.id, n: st.n, me: seat, teams: cfg.teams, phase: st.phase, turn: st.turnSeat, handNo: st.handNo,
+                game: cfg.id, n: st.n, me: seat, phase: st.phase, turn: st.turnSeat, handNo: st.handNo,
                 hand: K.sortHand(st.hands[seat], st.trump), legal, buttons,
                 trump: st.trump, muestra: st.muestra, deck: st.deck.length + (st.muestra ? 1 : 0),
                 trick: st.trick.slice(), trickWinner: st.trickWinner, lastTrick: st.lastTrick,
                 players: st.hands.map((h, i) => ({ count: h.length, side: side(st, i) })),
-                pts: st.pts.slice(), cantes: st.cantePts.slice(), totals: st.totals.slice(), target: cfg.target, tricks: st.tricks.slice(),
-                score: cfg.target ? live(st) : null, malas: MALAS, vueltas: st.handNo > 1,
+                pts: hide ? null : st.pts.slice(), cantes: st.cantePts.slice(), totals: st.totals.slice(), target: cfg.target, tricks: st.tricks.slice(),
+                score: cfg.target ? live(st) : null, malas: MALAS, vueltas: st.handNo > 1, games: st.games.slice(), gameNo: st.gameNo, coto: COTO,
+                cards: cfg.target ? [0, 1].map(i => cardsOf(st, i)) : null, cardsMin: CARDS_MIN, lastGame: st.lastGame || null, hiddenScore: hide,
+                teams: teamsOf(st.n), canFuera: st.canFuera,
                 lastCante: st.lastCante || null, lastHand: st.lastHand || null, arrastre: inArrastre(st),
                 log: st.log.slice(), over: st.over, stats: st.stats[seat], mySide: side(st, seat)
             };
@@ -259,7 +335,9 @@
 
         // ── Bot ─────────────────────────────────────────────
         function bot(st, seat) {
-            const cs = canteSuits(st, seat);
+            // Un bot de una pareja mixta declara el «¡Fuera!» si la cuenta es buena (nunca se equivoca)
+            if (st.canFuera === side(st, seat) && canOut(st, st.canFuera)) return { type: 'fuera' };
+            const cs = canteSuits(st, seat).filter(() => st.lastWinner === seat);
             if (cs.length) return { type: 'cante', suit: cs[0] };
             if (swapCard(st, seat)) return { type: 'swap' };
             const legal = legalCards(st, seat), trump = st.trump;
@@ -272,7 +350,7 @@
             const cur = winning(st.trick, trump);
             const trickPts = st.trick.reduce((s, t) => s + pts(t.c), 0);
             const lastToPlay = st.trick.length === st.n - 1;
-            const partner = cfg.teams && side(st, cur.s) === side(st, seat);
+            const partner = teamsOf(st.n) && side(st, cur.s) === side(st, seat);
             if (partner) {
                 // Si mi compañero gana y es seguro, cargo puntos sin gastar triunfos
                 const safe = lastToPlay || suitOf(cur.c) === trump || strength(cur.c) >= 9;

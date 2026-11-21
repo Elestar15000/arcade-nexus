@@ -17,7 +17,7 @@
     const { esc, clamp, formatNumber } = Nexus.util;
     const Kit = Nexus.games.kit;
 
-    // ── Laberintos (19 × 21) ────────────────────────────────
+    // ── Laberintos ─────────────────────────────────────────
     // # pared · . pastilla · o píldora de poder · ' ' vacío · P inicio · G casa de fantasmas · - puerta
     const MAZE_A = [
         '###################',
@@ -48,13 +48,92 @@
     MAZE_B[6] = '###..###.#.###..###';
     MAZE_B[12] = '###..###.#.###..###';
     MAZE_B[14] = '#.#..###.#.###..#.#';
-    const MAZES = [MAZE_A, MAZE_B];
+    // Tercer diseño realmente distinto (pasillos en zigzag arriba y abajo)
+    const MAZE_C = [
+        '###################',
+        '#.....#.....#.....#',
+        '#o###.#.###.#.###o#',
+        '#.....#..#..#.....#',
+        '#.###...###...###.#',
+        '#...#.#.....#.#...#',
+        '###.#.#.###.#.#.###',
+        '###.#.........#.###',
+        '###.#.##-##.#.#.###',
+        '    . .#GGG#. .    ',
+        '###.#.#####.#.#.###',
+        '###.#.......#.#.###',
+        '###.#.#####.#.#.###',
+        '#....#...#...#....#',
+        '#.##...#.#.#...##.#',
+        '#o.#.#.#.P.#.#.#.o#',
+        '##.#.#.......#.#.##',
+        '#....###.#.###....#',
+        '#.##.....#.....##.#',
+        '#....#.......#....#',
+        '###################'
+    ];
+    // Laberinto original de 28 × 31 (modo Clásico)
+    const MAZE_CLASSIC = [
+        '############################',
+        '#............##............#',
+        '#.####.#####.##.#####.####.#',
+        '#o####.#####.##.#####.####o#',
+        '#.####.#####.##.#####.####.#',
+        '#..........................#',
+        '#.####.##.########.##.####.#',
+        '#.####.##.########.##.####.#',
+        '#......##....##....##......#',
+        '######.##### ## #####.######',
+        '######.##### ## #####.######',
+        '######.##          ##.######',
+        '######.## ###--### ##.######',
+        '######.## #GGGGGG# ##.######',
+        '      .   #GGGGGG#   .      ',
+        '######.## #GGGGGG# ##.######',
+        '######.## ######## ##.######',
+        '######.##          ##.######',
+        '######.## ######## ##.######',
+        '######.## ######## ##.######',
+        '#............##............#',
+        '#.####.#####.##.#####.####.#',
+        '#.####.#####.##.#####.####.#',
+        '#o..##.......P .......##..o#',
+        '###.##.##.########.##.##.###',
+        '###.##.##.########.##.##.###',
+        '#......##....##....##......#',
+        '#.##########.##.##########.#',
+        '#.##########.##.##########.#',
+        '#..........................#',
+        '############################'
+    ];
+    const small = (id, rows) => ({ id, rows, exit: { x: 9, y: 7 }, home: { x: 9, y: 9 }, slots: [{ x: 8, y: 9 }, { x: 10, y: 9 }, { x: 9, y: 9 }], tunnel: 9, fruit: { x: 9, y: 11 }, ready: 10.5 });
+    const MAZES = [small('a', MAZE_A), small('b', MAZE_B), small('c', MAZE_C)];
+    const CLASSIC_MAZE = { id: 'classic', rows: MAZE_CLASSIC, exit: { x: 13, y: 11 }, home: { x: 13, y: 14 }, slots: [{ x: 11, y: 14 }, { x: 16, y: 14 }, { x: 13, y: 14 }], tunnel: 14, fruit: { x: 13, y: 17 }, ready: 17.5 };
     const THEMES = ['#3b82f6', '#a855f7', '#10b981', '#f43f5e', '#f59e0b'];
 
-    const W = 19, H = 21, T = 24;
-    const EXIT = { x: 9, y: 7 };       // casilla justo encima de la puerta
-    const HOME = { x: 9, y: 9 };       // centro de la casa
-    const SLOTS = [{ x: 8, y: 9 }, { x: 10, y: 9 }, { x: 9, y: 9 }];
+    // Dimensiones del laberinto actual (cambian con él)
+    let W = 19, H = 21;
+    let EXIT = { x: 9, y: 7 };         // casilla justo encima de la puerta
+    let HOME = { x: 9, y: 9 };         // centro de la casa
+    let SLOTS = [{ x: 8, y: 9 }, { x: 10, y: 9 }, { x: 9, y: 9 }];
+    const T = 24;
+
+    // ── Tablas del Pac-Man original (modo Clásico) ─────────
+    const MAX_SPEED = 9.47;            // casillas/s al 100 %
+    /** [Pac-Man, Pac-Man con fantasmas asustados, fantasma, fantasma asustado, fantasma en el túnel] (fracción de la máxima) */
+    const SPEEDS = (lv) => lv <= 1 ? [0.80, 0.90, 0.75, 0.50, 0.40] : lv <= 4 ? [0.90, 0.95, 0.85, 0.55, 0.45] : lv <= 20 ? [1, 1, 0.95, 0.60, 0.50] : [0.90, 0.90, 0.95, 0.95, 0.50];
+    const FRIGHT = [6, 5, 4, 3, 2, 5, 2, 2, 1, 5, 2, 1, 1, 3, 1, 1, 0, 1, 0];       // segundos por nivel (luego 0: sólo se giran)
+    const FRUITS = [
+        { from: 1, emoji: '🍒', name: 'Cereza', pts: 100 }, { from: 2, emoji: '🍓', name: 'Fresa', pts: 300 },
+        { from: 3, emoji: '🍊', name: 'Naranja', pts: 500 }, { from: 5, emoji: '🍎', name: 'Manzana', pts: 700 },
+        { from: 7, emoji: '🍈', name: 'Melón', pts: 1000 }, { from: 9, emoji: '🚀', name: 'Galaxian', pts: 2000 },
+        { from: 11, emoji: '🔔', name: 'Campana', pts: 3000 }, { from: 13, emoji: '🔑', name: 'Llave', pts: 5000 }
+    ];
+    const fruitFor = (lv) => FRUITS.filter(f => f.from <= lv).pop();
+    /** Contador de pastillas para salir de casa (Pinky, Inky, Clyde) por nivel; el temporizador es el respaldo. */
+    const DOT_LIMIT = (lv) => lv <= 1 ? [0, 30, 60] : lv === 2 ? [0, 0, 50] : [0, 0, 0];
+    Nexus.ui.icons.preload(FRUITS.map(f => f.emoji), '#fde047');
+
     const DIRS = { up: { x: 0, y: -1 }, left: { x: -1, y: 0 }, down: { x: 0, y: 1 }, right: { x: 1, y: 0 } };
     const DIR_LIST = [DIRS.up, DIRS.left, DIRS.down, DIRS.right];   // orden de desempate clásico
 
@@ -148,7 +227,7 @@
                         <div class="ax-overlay" id="pm-overlay"></div>
                     </div>
                     <aside class="ax-side">
-                        <div class="ax-card">
+                        <div class="ax-card" id="pm-powers-card">
                             <h3>⚡ Poderes <span class="pm-keys">Espacio · 1 · 2</span></h3>
                             <div class="pm-slots" id="pm-slots"></div>
                             <div class="ax-chips" id="pm-effects"></div>
@@ -164,6 +243,7 @@
                                 <div class="ax-row"><span>Fantasmas comidos</span><b id="pm-eaten">0</b></div>
                                 <div class="ax-row"><span>Poderes usados</span><b id="pm-used">0</b></div>
                                 <div class="ax-row"><span>Mejor (modo)</span><b id="pm-best">0</b></div>
+                                <div class="ax-row" id="pm-fruit-row"><span>Frutas</span><b id="pm-fruits">–</b></div>
                             </div>
                         </div>
                     </aside>
@@ -189,9 +269,11 @@
 
         // ── Estado ──────────────────────────────────────────
         initRun() {
+            if (this.$) this.syncModeUi();
             this.score = 0; this.lives = this.mode.lives; this.level = 1;
             this.nextLife = EXTRA_LIFE;
             this.slots = [null, null];
+            this.eatenFruits = [];
             this.stats = { eaten: 0, maxChain: 0, powersUsed: 0, kinds: {}, pellets: 0, shieldSaves: 0, flawless: 0, level: 1, items: 0 };
             this.time = 0;
         }
@@ -211,12 +293,21 @@
             return ORDER.slice(0, Math.min(ORDER.length, 1 + level));
         }
 
+        /** Rincón de dispersión de cada fantasma, escalado al laberinto actual (los de la tabla son de 19 × 21). */
+        corner(id) { const c = GHOSTS[id].corner; return { x: Math.round(c[0] / 18 * (W - 1)), y: Math.round(c[1] / 20 * (H - 1)) }; }
+        classic() { return this.mode.id === 'classic'; }
+
         loadLevel(level, quiet) {
             this.level = level;
             this.stats.level = Math.max(this.stats.level, level);
-            this.mazeIdx = (level - 1) % MAZES.length;
-            this.theme = THEMES[(level - 1) % THEMES.length];
-            const rows = MAZES[this.mazeIdx];
+            // Clásico: el laberinto original de 28 × 31; Nexus y Horda alternan tres diseños distintos
+            this.maze = this.classic() ? CLASSIC_MAZE : MAZES[(level - 1) % MAZES.length];
+            this.mazeIdx = this.maze.id;
+            const rows = this.maze.rows;
+            W = rows[0].length; H = rows.length; EXIT = this.maze.exit; HOME = this.maze.home; SLOTS = this.maze.slots;
+            if (this.fit && (this.fit.lw !== W * T || this.fit.lh !== H * T)) { this.fit.lw = W * T; this.fit.lh = H * T; this.fit.resize(); }
+            this.theme = this.classic() ? '#2121de' : THEMES[(level - 1) % THEMES.length];
+            this.dotsEaten = 0; this.fruit = null; this.fruitsShown = 0; this.dotTimer = 0;
             this.cells = rows.map(r => r.split(''));
             this.pelletsLeft = 0;
             for (const r of this.cells) for (const c of r) if (c === '.' || c === 'o') this.pelletsLeft++;
@@ -236,12 +327,16 @@
             if (!quiet && level > 1 && fresh.length && this.mode.id === 'nexus') this.toast(`⚠️ Nuevo enemigo: ${GHOSTS[fresh[0]].name}`);
             this.state = quiet ? 'menu' : 'ready';
             this.readyT = 2.2;
+            // Pantalla breve de «Nivel N» con la fruta del nivel
+            if (!quiet && level > 1) this.banner = { t: 1.6, text: `NIVEL ${level}`, sub: this.classic() ? `${fruitFor(level).emoji} ${fruitFor(level).name} · ${fruitFor(level).pts} pts` : '' };
             this.updateAll();
         }
 
         resetActors(full) {
             // Pac-Man
-            let start = { x: 9, y: 15 };
+            const start = { x: 9, y: 15 };
+            const P = this.maze ? this.maze.rows.findIndex(r => r.includes('P')) : -1;
+            if (P >= 0) { start.y = P; start.x = this.maze.rows[P].indexOf('P'); }
             this.pac = { tx: start.x, ty: start.y, dx: 0, dy: 0, p: 0, want: null, face: DIRS.left, mouth: 0,
                 turbo: 0, magnet: 0, phase: 0, shield: 0, invuln: 0, dead: 0 };
             this.hist = [];
@@ -249,11 +344,13 @@
             // Fantasmas
             const gap = Math.max(0.9, 2.4 - this.level * 0.12);
             this.ghosts = this.roster.map((id, i) => {
-                const g = { id, i, tx: 9, ty: 7, dx: -1, dy: 0, p: 0, state: 'normal', fright: 0, stun: 0, slot: SLOTS[(i - 1) % 3], release: 0,
+                const g = { id, i, tx: EXIT.x, ty: EXIT.y, dx: -1, dy: 0, p: 0, state: 'normal', fright: 0, stun: 0, slot: SLOTS[(i - 1) % 3], release: 0,
                     tp: 6 + Math.random() * 3, tele: 0, dest: null, cycle: Math.random() * 6, wob: Math.random() * 6 };
                 if (i > 0) {
                     g.state = 'house'; g.tx = g.slot.x; g.ty = g.slot.y; g.dx = 0; g.dy = 0;
                     g.release = 1.2 + (i - 1) * gap;
+                    // Clásico: sale por el contador de pastillas (el tiempo es el respaldo)
+                    if (this.classic() && i <= 3) { g.dots = DOT_LIMIT(this.level)[i - 1]; g.release = g.dots > 0 ? Infinity : 0.4 + (i - 1) * 0.6; }
                 }
                 return g;
             });
@@ -289,7 +386,7 @@
         }
 
         renderWalls(rows, color) {
-            const key = this.mazeIdx + color;
+            const key = this.mazeIdx + color + W;
             this._wallCache = this._wallCache || {};
             if (this._wallCache[key]) return this._wallCache[key];
             const S = 3, off = document.createElement('canvas');
@@ -366,7 +463,11 @@
             this.pickItem(e.tx, e.ty);
         }
         pacSpeed() {
-            let s = 7.3;
+            const scared = this.ghosts && this.ghosts.some(g => g.fright > 0);
+            let s;
+            if (this.classic()) { const t = SPEEDS(this.level); s = MAX_SPEED * (scared ? t[1] : t[0]); }
+            else s = scared ? 8.1 : 7.3;           // con fantasmas asustados Pac-Man acelera (también en Nexus y Horda)
+            if (this.pac.slow > 0) s *= 0.87;      // se frena un poco al comer pastillas
             if (this.pac.turbo > 0) s *= 1.45;
             return s;
         }
@@ -377,12 +478,20 @@
             this.cells[y][wrapX(x)] = ' ';
             this.pelletsLeft--;
             this.stats.pellets++;
+            this.pac.slow = 0.12;
+            this.dotsEaten++; this.dotTimer = 0;
+            this.houseDot();
+            // Fruta: aparece a las 70 y 170 pastillas (Clásico) durante unos 9,5 s
+            if (this.classic() && (this.dotsEaten === 70 || this.dotsEaten === 170)) {
+                const fr = fruitFor(this.level);
+                this.fruit = { ...fr, x: this.maze.fruit.x, y: this.maze.fruit.y, life: 9 + Math.random() };
+            }
             if (c === '.') { this.addScore(10); this.chompN = (this.chompN || 0) + 1; if (this.chompN % 2) Nexus.audio.play('axChomp', this.chompN); }
             else {
                 this.addScore(50);
                 this.chain = 0;
                 Nexus.audio.play('axPower');
-                const dur = Math.max(2, 7 - 0.6 * (this.level - 1)) * (this.mode.id === 'horde' ? 0.8 : 1);
+                const dur = this.classic() ? (FRIGHT[this.level - 1] !== undefined ? FRIGHT[this.level - 1] : 0) : Math.max(2, 7 - 0.6 * (this.level - 1)) * (this.mode.id === 'horde' ? 0.8 : 1);
                 for (const g of this.ghosts) {
                     if (g.id === 'brute' || g.state === 'eyes') continue;
                     g.fright = dur;
@@ -485,25 +594,40 @@
         pacTile() { const p = this.pacPos(); return { x: Math.round(p.x), y: Math.round(p.y) }; }
 
         ghostBase() {
+            if (this.classic()) return MAX_SPEED * SPEEDS(this.level)[2];
             return Math.min(8.2, 6.5 + 0.18 * (this.level - 1)) * (this.mode.ghostMul || 1);
         }
         ghostSpeed(g) {
             if (g.stun > 0) return 0;
             if (g.state === 'eyes') return 14;
             if (g.state === 'leaving') return 5.2;
-            if (g.fright > 0) return 3.7;
+            const tunnel = g.ty === this.maze.tunnel && (g.tx < 4 || g.tx > W - 5);
+            if (this.classic()) {
+                const t = SPEEDS(this.level);
+                if (tunnel) return MAX_SPEED * t[4];
+                if (g.fright > 0) return MAX_SPEED * t[3];
+            } else if (g.fright > 0) return 3.7;
             let s = this.ghostBase();
             if (g.id === 'brute') s *= 0.86;
             if (g.id === 'blinky') { if (this.pelletsLeft < 12) s *= 1.14; else if (this.pelletsLeft < 28) s *= 1.07; }
-            if (g.ty === 9 && (g.tx < 4 || g.tx > 14)) s *= 0.55;      // túnel
+            if (tunnel) s *= 0.55;
             return s;
+        }
+
+        /** Contador de pastillas de la casa (Clásico): cada pastilla cuenta para el primer fantasma que espera. */
+        houseDot() {
+            if (!this.classic() || !this.ghosts) return;
+            const g = this.ghosts.find(x => x.state === 'house' && x.dots !== undefined && x.release === Infinity);
+            if (!g) return;
+            g.dots--;
+            if (g.dots <= 0) g.release = 0;
         }
 
         targetFor(g) {
             const pt = this.pacTile(), pac = this.pac;
             const face = (pac.dx || pac.dy) ? { x: pac.dx, y: pac.dy } : pac.face;
             const scatter = this.scatterNow();
-            if (scatter) return { x: GHOSTS[g.id].corner[0], y: GHOSTS[g.id].corner[1] };
+            if (scatter) return this.corner(g.id);
             switch (g.id) {
                 case 'pinky': return { x: pt.x + face.x * 4, y: pt.y + face.y * 4 };
                 case 'inky': {
@@ -514,7 +638,7 @@
                 }
                 case 'clyde': {
                     const gp = this.pos(g);
-                    return Math.hypot(gp.x - pt.x, gp.y - pt.y) > 8 ? pt : { x: GHOSTS.clyde.corner[0], y: GHOSTS.clyde.corner[1] };
+                    return Math.hypot(gp.x - pt.x, gp.y - pt.y) > 8 ? pt : this.corner('clyde');
                 }
                 case 'shadow': {
                     const gp = this.pos(g);
@@ -581,6 +705,8 @@
             if (g.stun > 0) g.stun = Math.max(0, g.stun - dt);
             if (g.fright > 0 && g.state !== 'eyes') { g.fright = Math.max(0, g.fright - dt); }
             if (g.state === 'house') {
+                // Respaldo del contador: 4 s sin comer pastillas sueltan al siguiente fantasma de la cola
+                if (this.classic() && g.dots !== undefined && g.release === Infinity && this.dotTimer >= 4 && this.ghosts.find(x => x.state === 'house' && x.dots !== undefined && x.release === Infinity) === g) { g.release = 0; this.dotTimer = 0; }
                 g.release -= dt;
                 if (g.release <= 0) { g.state = 'leaving'; g.dx = 0; g.dy = 0; g.p = 0; }
                 return;
@@ -634,6 +760,7 @@
             if (this.ring) { this.ring.t += dt; if (this.ring.t > 0.6) this.ring = null; }
             if (this.toastT > 0 && (this.toastT -= dt) <= 0) this.$('#pm-toast').classList.remove('show');
 
+            if (this.banner && (this.banner.t -= dt) <= 0) this.banner = null;
             if (this.state === 'ready') {
                 this.readyT -= dt;
                 if (this.readyT <= 0) this.state = 'playing';
@@ -653,7 +780,19 @@
 
             this.time += dt;
             const pac = this.pac;
-            for (const k of ['turbo', 'magnet', 'phase', 'shield', 'invuln']) if (pac[k] > 0) pac[k] = Math.max(0, pac[k] - dt);
+            for (const k of ['turbo', 'magnet', 'phase', 'shield', 'invuln', 'slow']) if (pac[k] > 0) pac[k] = Math.max(0, pac[k] - dt);
+            this.dotTimer += dt;
+            if (this.fruit) {
+                this.fruit.life -= dt;
+                const pp = this.pacPos();
+                if (Math.hypot(pp.x - this.fruit.x, pp.y - this.fruit.y) < 0.6) {
+                    const fr = this.fruit; this.fruit = null;
+                    this.addScore(fr.pts); this.fruitsShown++;
+                    this.eatenFruits = (this.eatenFruits || []).concat(fr.emoji).slice(-7);
+                    this.floaters.push({ text: String(fr.pts), color: '#fde047', x: fr.x * T + T / 2, y: fr.y * T + T / 2, life: 1.2 });
+                    Nexus.audio.play('axPickup'); this.updateSide();
+                } else if (this.fruit.life <= 0) this.fruit = null;
+            }
             this._ft = (this._ft || 0) + dt;
             if (this._ft > 0.2) { this._ft = 0; this.updateEffects(); }
 
@@ -750,7 +889,7 @@
         levelClear() {
             this.state = 'clear';
             this.clearT = 1.7;
-            this.addScore(500 * this.level);
+            if (!this.classic()) this.addScore(500 * this.level);   // el original no da bonus por limpiar el laberinto
             if (!this.lostLife) { this.stats.flawless++; this.pop('✨ Nivel perfecto', '#fde047'); }
             Nexus.audio.play('win');
         }
@@ -777,6 +916,7 @@
             };
             document.addEventListener('keydown', this.onKeyDown);
             Kit.swipe(this.stage, (d) => { if (d !== 'tap') this.setDir(d); });
+            this.unsubTouch = Kit.touchLayout(this.root.querySelector('.ax-game'), this.$('#pm-touch'), this.stage, 'pacman.dpad');
             Kit.touchButtons(this.$('#pm-touch'), (a) => {
                 if (a === 'p0') this.usePower(0); else if (a === 'p1') this.usePower(1); else this.setDir(a);
             });
@@ -815,7 +955,15 @@
         }
         resume() { if (this.state !== 'paused') return; this.state = 'playing'; this.overlay.hidden = true; }
 
+        /** En Clásico no hay poderes: se ocultan sus ranuras (antes salían vacías «—»). */
+        syncModeUi() {
+            const none = !this.mode.items;
+            const card = this.$('#pm-powers-card'); if (card) card.hidden = none;
+            ['#pm-t0', '#pm-t1'].forEach(s => { const b = this.$(s); if (b) b.hidden = none; });
+        }
+
         showMenu() {
+            this.syncModeUi();
             this.overlay.hidden = false;
             const gs = Nexus.services.progress.stats('pacman');
             const ms = gs.byMode[this.mode.id];
@@ -920,6 +1068,12 @@
                 ctx.strokeStyle = '#facc15'; ctx.lineWidth = 1.5; ctx.stroke();
                 Nexus.ui.icons.draw(ctx, POWERS[it.kind].icon, x, y, 14, '#fde047');
             }
+            // Fruta del nivel (Clásico)
+            if (this.fruit && !(this.fruit.life < 2 && Math.floor(this.t * 8) % 2)) {
+                const x = (this.fruit.x + 0.5) * T, y = (this.fruit.y + 0.5) * T;
+                ctx.font = `${T * 0.9}px system-ui, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(this.fruit.emoji, x, y + 1);
+            }
 
             // Telegrafía del Saltarín
             for (const g of this.ghosts) if (g.dest && g.tele > 0) {
@@ -954,8 +1108,17 @@
 
             if (this.state === 'ready') {
                 ctx.font = '800 20px Orbitron, system-ui, sans-serif';
-                ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText('¡LISTO!', CW / 2, 10.5 * T + 2);
-                ctx.fillStyle = '#facc15'; ctx.fillText('¡LISTO!', CW / 2, 10.5 * T + 2);
+                const ry = ((this.maze && this.maze.ready) || 10.5) * T + 2;
+                ctx.lineWidth = 4; ctx.strokeStyle = '#000'; ctx.strokeText('¡LISTO!', CW / 2, ry);
+                ctx.fillStyle = '#facc15'; ctx.fillText('¡LISTO!', CW / 2, ry);
+                if (this.banner) {
+                    ctx.save(); ctx.globalAlpha = Math.min(1, this.banner.t * 2);
+                    ctx.fillStyle = 'rgba(5,5,14,.78)'; ctx.fillRect(0, CH / 2 - 52, CW, 104);
+                    ctx.font = '800 34px Orbitron, system-ui, sans-serif'; ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(this.banner.text, CW / 2, CH / 2 - (this.banner.sub ? 14 : 0));
+                    if (this.banner.sub) { ctx.font = '600 16px Inter, system-ui, sans-serif'; ctx.fillStyle = '#fde047'; ctx.fillText(this.banner.sub, CW / 2, CH / 2 + 22); }
+                    ctx.restore();
+                }
             }
         }
 
@@ -1051,6 +1214,9 @@
             set('pm-left', `${this.pelletsLeft} / ${this.pelletsTotal}`);
             set('pm-eaten', this.stats.eaten);
             set('pm-used', this.stats.powersUsed);
+            // Últimas frutas comidas (como en el marcador del original)
+            const fr = this.$('#pm-fruit-row'); if (fr) fr.hidden = !this.classic();
+            set('pm-fruits', (this.eatenFruits || []).join(' ') || '–');
         }
         updateSlots() {
             const el = this.$('#pm-slots');
@@ -1058,7 +1224,7 @@
             el.innerHTML = this.slots.map((k, i) => k
                 ? `<button type="button" class="pm-slot on" data-slot="${i}" title="${esc(POWERS[k].desc)}"><span class="pm-slot-icon">${POWERS[k].icon}</span><span class="pm-slot-name">${esc(POWERS[k].name)}</span><kbd>${i === 0 ? 'Espacio' : '2'}</kbd></button>`
                 : `<button type="button" class="pm-slot" data-slot="${i}" disabled><span class="pm-slot-icon">·</span><span class="pm-slot-name">Vacía</span><kbd>${i === 0 ? 'Espacio' : '2'}</kbd></button>`).join('');
-            this.slots.forEach((k, i) => { const b = this.$('#pm-t' + i); if (b) b.textContent = k ? POWERS[k].icon : '—'; });
+            this.slots.forEach((k, i) => { const b = this.$('#pm-t' + i); if (b) { b.textContent = k ? POWERS[k].icon : '·'; b.classList.toggle('empty', !k); } });
         }
         updateEffects() {
             const pac = this.pac, chips = [];
@@ -1091,6 +1257,7 @@
         }
 
         destroy() {
+            if (this.unsubTouch) this.unsubTouch();
             if (this.run) this.run.stop();
             this.destroyed = true;
             this.loop.destroy();

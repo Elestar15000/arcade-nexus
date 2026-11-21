@@ -45,7 +45,7 @@ try:
         check(A.locator('a.game-card[href="#/game/pong"]').count() == 1, 'Pong disponible en la biblioteca')
         check(A.locator('[data-soon]').count() == 0, 'ya no quedan juegos "próximamente"')
         open_pong(A)
-        check(A.locator('.pg-choice').count() == 2, 'menú: contra la máquina / online')
+        check(A.locator('.pg-choice').count() == 3, 'menú: contra la máquina / 2 jugadores / online')
         A.click('[data-do=go-cpu]'); A.wait_for_timeout(200)
         check(A.locator('.ax-mode').count() == 4, 'CPU: 4 niveles')
         A.click('.ax-mode[data-mode=hard]'); A.click('[data-do=start]'); A.wait_for_timeout(200)
@@ -59,7 +59,7 @@ try:
         check(A.evaluate('__pong.sim.pads[0].armed') is True, 'CPU: Espacio arma el Turbo con la barra llena')
         A.keyboard.press('p'); check(A.evaluate('__pong.state') == 'paused', 'CPU: P pausa'); A.keyboard.press('p')
         # Remate turbo directo que acaba la partida 7-0
-        A.evaluate("""(() => { const G = __pong, s = G.sim; s.score = [6, 0]; s.phase = 'live'; s.st[0].maxDef = 0;
+        A.evaluate("""(() => { const G = __pong, s = G.sim; s.score = [6, 0]; s.target = 7; s.phase = 'live'; s.st[0].maxDef = 0;
             s.maxRally = 16; s.maxSpd = 1400;
             s.ball.x = 600; s.ball.y = 270; s.ball.vx = 3000; s.ball.vy = 0; s.ball.turbo = true; s.lastHit = 0;
             s.pads[1].y = 60; return 1; })()""")
@@ -113,7 +113,7 @@ try:
         B.keyboard.press('Space'); B.wait_for_timeout(400)
         check(A.evaluate('__pong.sim.pads[1].armed') is True, 'el Turbo del invitado se arma en el anfitrión')
         # Gana el invitado 7-5
-        A.evaluate("""(() => { const s = __pong.sim; s.score = [5, 6]; s.phase = 'live';
+        A.evaluate("""(() => { const s = __pong.sim; s.score = [5, 6]; s.target = 7; s.phase = 'live';
             s.ball.x = 300; s.ball.y = 270; s.ball.vx = -3000; s.ball.vy = 0; s.ball.turbo = false; s.pads[0].y = 480; return 1; })()""")
         B.wait_for_selector('.modal-overlay.active', timeout=6000); A.wait_for_selector('.modal-overlay.active', timeout=6000)
         check('VICTORIA' in B.inner_text('.modal-overlay.active') and 'DERROTA' in A.inner_text('.modal-overlay.active'), 'fin online: victoria del invitado, derrota del anfitrión')
@@ -182,8 +182,21 @@ try:
         open_pong(M); M.click('[data-do=go-cpu]'); M.click('[data-do=start]'); M.wait_for_timeout(300)
         check(M.locator('#pg-touch').is_visible(), 'móvil: controles táctiles visibles')
         box = M.locator('#pg-stage').bounding_box()
-        M.touchscreen.tap(box['x'] + box['width'] / 2, box['y'] + box['height'] * 0.9); M.wait_for_timeout(500)
+        check(M.evaluate('__pong.vertical') is True, 'móvil vertical: la pista se gira (palas abajo y arriba)')
+        check(M.evaluate("getComputedStyle(document.querySelector('#pg-touch [data-act=up]')).display") == 'none', 'móvil vertical: sin botones ↑/↓, se arrastra la pala')
+        M.touchscreen.tap(box['x'] + box['width'] * 0.9, box['y'] + box['height'] * 0.85); M.wait_for_timeout(500)
         check(M.evaluate('__pong.sim.pads[0].y') > 330, 'móvil: tocar la pista mueve la pala')
+        M.screenshot(path=str(SHOTS / 'pong_vertical.png'))
+        # 2 jugadores en el mismo dispositivo
+        A = player(b, 'Lola', errs); open_pong(A); A.click('[data-do=go-local]'); A.wait_for_timeout(200)
+        check(A.evaluate('__pong.kind') == 'local' and A.evaluate('__pong.state') == 'playing', '2 jugadores: empieza la partida local')
+        A.keyboard.down('ArrowDown'); A.keyboard.down('w'); A.wait_for_timeout(600); A.keyboard.up('ArrowDown'); A.keyboard.up('w')
+        ys = A.evaluate('__pong.sim.pads.map(p => p.y)')
+        check(ys[0] < 250 and ys[1] > 290, f'2 jugadores: W mueve la izquierda y ↓ la derecha ({ys})')
+        played = A.evaluate("Nexus.services.progress.stats('pong').played")
+        A.evaluate("(() => { __pong.sim.score = [6, 2]; __pong.sim.winner = 0; __pong.sim.phase = 'over'; return 1; })()"); A.wait_for_selector('.modal-overlay.active', timeout=4000)
+        check('JUGADOR 1' in A.inner_text('.modal-overlay.active') and A.evaluate("Nexus.services.progress.stats('pong').played") == played, '2 jugadores: gana el jugador 1 y no cuenta para las estadísticas')
+        A.evaluate('Nexus.ui.modal.closeAll()')
         M.screenshot(path=str(SHOTS / 'pong_mobile.png'))
         M.evaluate('__pong.pause()')
         open_pong(M); M.click('[data-do=go-online]'); M.wait_for_timeout(1200)

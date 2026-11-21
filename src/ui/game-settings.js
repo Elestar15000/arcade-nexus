@@ -19,11 +19,15 @@
             sw('wordle.colorblind', 'Alto contraste (daltonismo)', 'Naranja y azul en lugar de verde y amarillo')
         ],
         tetris: [sw('tetris.ghost', 'Pieza fantasma', 'Muestra dónde caerá la pieza')],
-        snake: [sw('snake.grid', 'Mostrar cuadrícula', 'Ayuda a calcular distancias')],
+        snake: [sw('snake.grid', 'Mostrar cuadrícula', 'Ayuda a calcular distancias'), sw('snake.dpad', 'Cruceta en pantalla', 'En móvil, además de deslizar sobre el tablero')],
+        pacman: [sw('pacman.dpad', 'Cruceta en pantalla', 'En móvil, además de deslizar sobre el tablero')],
         pong: [
+            { type: 'choice', key: 'pong.target', title: 'Puntos para ganar', desc: 'Siempre con 2 de ventaja', options: [{ value: '7', label: '7' }, { value: '11', label: '11' }, { value: '21', label: '21' }] },
             sw('pong.shake', 'Sacudida de pantalla', 'En golpes fuertes, remates y puntos'),
             sw('pong.publicRooms', 'Salas públicas por defecto', 'Las salas que crees aparecerán en el buscador de partidas')
         ],
+        brisca: [sw('brisca.showScore', 'Marcador visible', 'Ver los puntos durante la mano (en la mesa real se cuentan de memoria)')],
+        guinote: [sw('guinote.partnerCante', 'Canta la pareja', 'También puede cantar el compañero de quien gana la baza')],
         chess: [sw('chess.showLegal', 'Marcar jugadas legales', 'Al elegir una pieza se señalan sus casillas de destino'), PUBLIC_ROOMS],
         battleship: [PUBLIC_ROOMS]
     };

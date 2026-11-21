@@ -519,6 +519,7 @@
         renderPowers() {
             if (!this.powersContainer) return;
             this.powersContainer.innerHTML = '';
+            this.syncPowerMode();
 
             for (const [id, power] of Object.entries(this.powers)) {
                 const btn = document.createElement('button');
@@ -526,9 +527,12 @@
                 if (power.charges <= 0) btn.classList.add('disabled');
                 if (this.activePower === id) btn.classList.add('active');
                 btn.dataset.power = id;
+                btn.title = `${power.name} · ${power.charges} / ${power.maxCharges}`;
+                btn.setAttribute('aria-pressed', String(this.activePower === id));
 
                 btn.innerHTML = `
                     <span class="power-icon">${power.icon}</span>
+                    <span class="power-badge" aria-hidden="true">${power.charges}</span>
                     <div class="power-info">
                         <span class="power-name">${power.name}</span>
                         <span class="power-charges">${power.charges > 0 ? `${power.charges} / ${power.maxCharges}` : 'Agotado'}</span>
@@ -568,12 +572,24 @@
             this.activePower = powerId;
             this.playSound('powerActivate');
             this.renderPowers();
+            const hint = { shield: 'Escudo armado: toca una casilla tapada; si es mina, no explota', scanner: 'Escáner: toca una casilla para revelar su zona 3×3', emp: 'EMP: toca un número destapado para marcar sus minas' }[powerId];
+            if (hint) Nexus.ui.toast(hint, { icon: this.powers[powerId].icon });
 
         }
 
         deactivatePower() {
             this.activePower = null;
             this.renderPowers();
+        }
+
+        /** Marca el tablero con el poder que se va a usar (cursor y realce visibles) y el estado del modo bandera. */
+        syncPowerMode() {
+            if (!this.boardEl) return;
+            ['shield', 'scanner', 'emp'].forEach(id => this.boardEl.classList.toggle('pw-' + id, this.activePower === id));
+            const flag = this.byId('btn-flag-mode'), pill = this.root.querySelector('.stat-mines');
+            if (flag) { flag.classList.toggle('active', !!this.flagMode); flag.setAttribute('aria-pressed', String(!!this.flagMode)); }
+            if (pill) { pill.classList.toggle('active', !!this.flagMode); pill.setAttribute('aria-pressed', String(!!this.flagMode)); }
+            this.boardEl.classList.toggle('flag-mode', !!this.flagMode);
         }
 
         usePower(powerId, row, col) {
@@ -719,9 +735,11 @@
 
         useEMP(row, col) {
             if (this.powers.emp.charges <= 0) return;
-            if (!this.revealed[row][col]) return;
             const value = this.board[row][col];
-            if (value <= 0) return;
+            if (!this.revealed[row][col] || value <= 0) {
+                Nexus.ui.toast('El EMP se usa sobre un número ya destapado', { icon: '⚡' });
+                return;
+            }
 
             // Find adjacent mines
             let minesFound = 0;
@@ -744,6 +762,9 @@
                 this.powersUsed++;
                 this.playSound('powerUse');
                 this.spawnPowerUse(row, col, '#fdcb6e');
+            } else {
+                Nexus.ui.toast('No quedan minas sin marcar alrededor: el EMP no se gasta', { icon: '⚡' });
+                return;   // sigue armado para elegir otro número
             }
 
             this.deactivatePower();
@@ -880,6 +901,23 @@
                     this.boardEl.appendChild(cell);
                 }
             }
+            this.rotated = false;
+            this.orientBoard();
+            this.syncPowerMode();
+        }
+
+        /** En móvil vertical los tableros apaisados (16×30, 20×30) se muestran girados: 30 filas de 16/20 casillas.
+         *  Sólo cambia el orden visual: cada casilla conserva su fila/columna lógica en data-row/data-col. */
+        orientBoard() {
+            if (!this.boardEl) return;
+            const want = window.innerWidth <= 700 && window.innerHeight > window.innerWidth && this.cols > this.rows;
+            if (want !== !!this.rotated) {
+                const key = (el) => { const r = +el.dataset.row, c = +el.dataset.col; return want ? c * this.rows + r : r * this.cols + c; };
+                [...this.boardEl.children].sort((a, b) => key(a) - key(b)).forEach(el => this.boardEl.appendChild(el));
+                this.rotated = want;
+                this.boardEl.classList.toggle('rotated', want);
+            }
+            this.boardEl.style.setProperty('--cols', want ? this.rows : this.cols);
         }
 
         updateDisplays() {
@@ -900,8 +938,9 @@
             if (!this.fxCanvas) return;
             const wrapper = this.fxCanvas.parentElement;
             if (wrapper) {
-                this.fxCanvas.width = wrapper.offsetWidth;
-                this.fxCanvas.height = wrapper.offsetHeight;
+                // Con el tablero ampliado el contenedor se desplaza: el lienzo cubre todo el contenido
+                this.fxCanvas.width = Math.max(wrapper.offsetWidth, wrapper.scrollWidth);
+                this.fxCanvas.height = Math.max(wrapper.offsetHeight, wrapper.scrollHeight);
             }
         }
 
@@ -963,12 +1002,13 @@
             this.unsubLayout = Nexus.bus.on('layout:change', this.onLayout);
 
             // Botón modo bandera (táctil)
+            const toggleFlag = () => { this.flagMode = !this.flagMode; this.syncPowerMode(); Nexus.audio.play('click'); };
             const fm = this.byId('btn-flag-mode');
-            if (fm) fm.addEventListener('click', () => {
-                this.flagMode = !this.flagMode;
-                fm.classList.toggle('active', this.flagMode);
-                fm.setAttribute('aria-pressed', String(this.flagMode));
-            });
+            if (fm) fm.addEventListener('click', toggleFlag);
+            const pill = this.root.querySelector('.stat-mines');
+            if (pill) pill.addEventListener('click', toggleFlag);
+            const zb = this.byId('btn-zoom');
+            if (zb) zb.addEventListener('click', () => { this.zoomed = !this.zoomed; this.fitBoard(); });
 
             // Pulsación larga = bandera (pantallas táctiles)
             if (this.boardEl) {
@@ -1184,7 +1224,7 @@
                         <div class="game-header-stats">
                             <div class="pill stat-score"><span aria-hidden="true">💎</span><span class="pill-value" id="display-score">0</span></div>
                             <div class="pill stat-timer"><span aria-hidden="true">⏱️</span><span class="pill-value" id="display-timer">00:00</span></div>
-                            <div class="pill stat-mines"><span aria-hidden="true">🚩</span><span class="pill-value" id="display-mines">0</span></div>
+                            <button type="button" class="pill stat-mines" aria-pressed="false" title="Minas restantes · toca para el modo bandera"><span aria-hidden="true">🚩</span><span class="pill-value" id="display-mines">0</span></button>
                         </div>
                     </header>
 
@@ -1212,7 +1252,8 @@
                                 <button class="diff-btn" data-diff="nightmare"><span class="diff-emoji">💀</span><span class="diff-name">Pesadilla</span><span class="diff-detail">20×30 · 145💣</span></button>
                             </div>
 
-                            <div class="board-wrapper">
+                            <button type="button" class="ms-zoom" id="btn-zoom" hidden aria-pressed="false">🔍 Acercar</button>
+                            <div class="board-wrapper" id="board-wrapper">
                                 <div class="board" id="board" role="grid" aria-label="Campo de minas"></div>
                                 <canvas id="fx-canvas"></canvas>
                             </div>
@@ -1259,16 +1300,30 @@
         /** Ajusta el tamaño de celda al espacio disponible (ancho y alto). */
         fitBoard() {
             if (this.destroyed || !this.boardEl) return;
-            const area = this.root.querySelector('.board-area');
+            // En móvil .board-area es «display: contents» (sin caja): se mide el cuerpo del juego
+            const area = window.innerWidth <= 700 ? this.root.querySelector('.game-body') : this.root.querySelector('.board-area');
             if (!area || !area.clientWidth) return;
             const cfg = this.difficulties[this.currentDifficulty];
-            const availW = area.clientWidth - 24 - 32;
-            const availH = window.innerHeight - 64 - 60 - 220;
-            const byW = Math.floor((availW - (this.cols - 1) * 2) / this.cols);
-            const byH = Math.floor((availH - (this.rows - 1) * 2) / this.rows);
-            const size = Nexus.util.clamp(Math.min(byW, byH, cfg.cellSize), 18, cfg.cellSize);
+            this.orientBoard();
+            const small = window.innerWidth <= 700;
+            const dc = this.rotated ? this.rows : this.cols, dr = this.rotated ? this.cols : this.rows;
+            const availW = area.clientWidth - (small ? 32 : 24 + 32);
+            // En móvil se deja crecer en alto (la página se desplaza); en escritorio cabe entero
+            const availH = small ? Infinity : window.innerHeight - 64 - 60 - 220;
+            const byW = Math.floor((availW - (dc - 1) * 2) / dc);
+            const byH = Math.floor((availH - (dr - 1) * 2) / dr);
+            const fit = Math.min(byW, byH, cfg.cellSize);
+            // Casillas de menos de 30 px cuestan de tocar: lupa para acercar a 32 px y arrastrar el tablero
+            const needZoom = small && fit < 30;
+            if (!needZoom) this.zoomed = false;
+            else if (this.zoomFor !== this.currentDifficulty) this.zoomed = fit < 24;   // muy pequeño: empieza acercado
+            this.zoomFor = this.currentDifficulty;
+            const size = needZoom && this.zoomed ? 32 : Nexus.util.clamp(fit, 14, cfg.cellSize);
             this.cellSize = size;
             this.boardEl.style.setProperty('--cell-size', size + 'px');
+            const wrap = this.byId('board-wrapper'), zb = this.byId('btn-zoom');
+            if (wrap) wrap.classList.toggle('zoomed', needZoom && this.zoomed);
+            if (zb) { zb.hidden = !needZoom; zb.setAttribute('aria-pressed', String(!!this.zoomed)); zb.textContent = this.zoomed ? '🔎 Ver todo' : '🔍 Acercar'; }
             this.resizeFxCanvas();
         }
 

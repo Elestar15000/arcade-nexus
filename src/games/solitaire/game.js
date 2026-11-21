@@ -73,14 +73,15 @@
     const won = (st) => SUITS.every(s => st.found[s].length === 13);
     const canAutoFinish = (st) => !st.stock.length && !st.waste.length && st.tab.every(col => col.every(x => x.up));
     /** Mejor destino para una carta/pila tocada: fundación, luego una columna con carta, luego una vacía. */
-    function bestTarget(st, src) {
+    function bestTarget(st, src, preferTab) {
         const cs = cardsOf(st, src); if (!cs.length) return null;
-        if (cs.length === 1 && src.from !== 'found' && canFound(st, cs[0])) return { to: 'found' };
+        if (!preferTab && cs.length === 1 && src.from !== 'found' && canFound(st, cs[0])) return { to: 'found' };
         const cols = [...Array(7).keys()].filter(c => canMove(st, src, { to: 'tab', col: c }));
         const full = cols.find(c => st.tab[c].length);
         if (full !== undefined) return { to: 'tab', col: full };
         // A una columna vacía sólo si sirve de algo (no mover un rey que ya está al fondo)
         if (cols.length && !(src.from === 'tab' && src.idx === 0)) return { to: 'tab', col: cols[0] };
+        if (preferTab && cs.length === 1 && src.from !== 'found' && canFound(st, cs[0])) return { to: 'found' };
         return null;
     }
     /** Pista: un movimiento útil (o robar). */
@@ -211,7 +212,7 @@
                     'En las 7 columnas se apilan cartas <b>de una en una hacia abajo y alternando color</b> (un 7 negro sobre un 8 rojo). Puedes mover una pila entera ordenada.',
                     'En un hueco vacío sólo cabe un <b>Rey</b> (o una pila que empiece por Rey). Al destapar una carta boca abajo, se da la vuelta sola.',
                     'Toca el <b>mazo</b> para robar (1 o 3 cartas según el modo). Cuando se acaba, tócalo otra vez para darle la vuelta al descarte.',
-                    '<b>Toca</b> una carta para mandarla sola a su mejor sitio, o <b>arrástrala</b> donde quieras. <b>Ctrl+Z</b> deshace, <b>H</b> da una pista y <b>Espacio</b> roba.',
+                    '<b>Toca</b> una carta para mandarla a su mejor sitio del tablero (si no hay, a la fundación); <b>doble toque</b> la sube a la fundación; o <b>arrástrala</b> donde quieras. <b>Ctrl+Z</b> deshace, <b>H</b> da una pista y <b>Espacio</b> roba.',
                     'Puntos: +5 descarte→columna, +10 a la fundación, +5 al destapar, −15 al bajar de la fundación y −100 al dar la vuelta al mazo (en robar 1). Al ganar, bonus por rapidez.'],
                 timer: true
             });
@@ -410,10 +411,25 @@
             const d = this.drag; if (!d || e.pointerId !== d.id) return;
             this.drag = null;
             this.$$('.sol-drop').forEach(x => x.classList.remove('sol-drop'));
-            if (!d.on) {         // un toque: a su mejor sitio
-                const dst = bestTarget(this.st, d.src);
-                if (dst) this.tryMove(d.src, dst);
-                else { Nexus.audio.play('error'); d.el.classList.remove('shake'); void d.el.offsetWidth; d.el.classList.add('shake'); }
+            if (!d.on) {
+                // Un toque: a su mejor sitio en el tablero; doble toque: a la fundación (antes un toque la mandaba siempre arriba)
+                const key = JSON.stringify(d.src), now = performance.now();
+                if (this.tapWait && this.tapWait.key === key && now - this.tapWait.t < 330) {
+                    clearTimeout(this.tapWait.timer); this.tapWait = null;
+                    const cs = cardsOf(this.st, d.src);
+                    if (cs.length === 1 && d.src.from !== 'found' && canFound(this.st, cs[0])) { this.tryMove(d.src, { to: 'found' }); return; }
+                }
+                const tab = bestTarget(this.st, d.src, true), cs = cardsOf(this.st, d.src);
+                const found = cs.length === 1 && d.src.from !== 'found' && canFound(this.st, cs[0]);
+                const fail = () => { Nexus.audio.play('error'); d.el.classList.remove('shake'); void d.el.offsetWidth; d.el.classList.add('shake'); };
+                if (tab && tab.to === 'tab' && found) {
+                    // Puede ir a los dos sitios: se espera un instante por si es un doble toque
+                    const src = d.src;
+                    if (this.tapWait) clearTimeout(this.tapWait.timer);
+                    this.tapWait = { key, t: now, timer: setTimeout(() => { this.tapWait = null; if (!this.destroyed && this.state === 'playing') this.tryMove(src, tab); }, 330) };
+                    return;
+                }
+                if (tab) this.tryMove(d.src, tab); else fail();
                 return;
             }
             d.ghost.remove(); this.hideDragged(d.src, false);
@@ -465,8 +481,15 @@
             // Columnas: separación más corta si la columna es larga
             st.tab.forEach((col, c) => {
                 const el = this.$(`[data-col="${c}"]`);
-                const ups = col.filter(x => x.up).length;
-                const upGap = ups > 12 ? 0.22 : ups > 8 ? 0.27 : 0.34, downGap = 0.14;
+                const ups = col.filter(x => x.up).length, downs = col.length - ups;
+                let upGap = ups > 12 ? 0.22 : ups > 8 ? 0.27 : 0.34, downGap = 0.14;
+                // Se comprime el solape para que la columna quepa en el alto visible (en móvil se alargaba bajo la pantalla)
+                const cw = parseFloat(getComputedStyle(this.$('#sol')).getPropertyValue('--cw')) || 60;
+                const room = (window.innerHeight - el.getBoundingClientRect().top - 16) / cw - 1.45;
+                if (room > 0 && ups > 1 && downs * downGap + (ups - 1) * upGap > room) {
+                    downGap = Math.max(0.07, Math.min(downGap, room * 0.25 / Math.max(1, downs)));
+                    upGap = Math.max(0.17, (room - downs * downGap) / (ups - 1));
+                }
                 let y = 0;
                 el.innerHTML = col.map((x, i) => {
                     const html = this.cardHtml(x.c, x.up, { attrs: `data-idx="${i}"`, cls: (h && h.src && h.src.from === 'tab' && h.src.col === c && i >= h.src.idx ? 'hint' : ''), style: `top:calc(var(--cw) * ${y.toFixed(3)})` });

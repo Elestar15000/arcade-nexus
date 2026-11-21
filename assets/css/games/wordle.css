@@ -79,3 +79,9 @@
 .tile[data-state="known"] { background: color-mix(in srgb, var(--w-correct) 38%, var(--w-absent)); color: rgba(255, 255, 255, .8); }
 @media (max-width: 520px) { .wp-phrase { gap: 6px 12px; } .wp-word { gap: 3px; } }
 .wordle-board[hidden], .wordle .chip-btn[hidden] { display: none; }
+
+/* Móvil: casillas más grandes y tablero centrado en el hueco libre sobre el teclado (auditoría F4) */
+@media (max-width: 520px) {
+    .wordle { --tile: clamp(40px, min(15vw, 7.4vh), 62px); }
+    .wordle-board { margin-block: auto; }
+}

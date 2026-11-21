@@ -31,24 +31,40 @@
     // ── Brisca ──────────────────────────────────────────────
     const brisca = {
         id: 'brisca', name: 'Brisca', title: 'BRISCA', emoji: '🂡', accent: '#f59e0b', rules: R.brisca,
-        seats: { min: 2, max: 2, default: 2 }, teams: false,
-        tagline: 'El clásico de baraja española, mano a mano.',
-        cpuText: 'Tú contra un bot', seatsText: 'Mesa de 2: tú contra otra persona.',
+        seats: { min: 2, max: 4, default: 2 }, teams: false,
+        tagline: 'El clásico de baraja española: mano a mano o por parejas, al mejor de 3.',
+        cpuText: 'Mano a mano o 2 contra 2 con bots', seatsText: 'Mesa de 2 (mano a mano) o de 4 (por parejas: tu compañero enfrente).',
         help: [...trickHelpCommon,
             'Orden: As, Tres, Rey, Caballo, Sota, 7, 6, 5, 4, 2. Valen: As 11, Tres 10, Rey 4, Caballo 3, Sota 2 (120 en total).',
             'Aquí no hay obligación de asistir: puedes echar la carta que quieras.',
             'Si tienes el 7 de triunfo (o el 2 si la muestra es baja) puedes cambiarlo por la muestra cuando sales, hasta el último robo: mientras la muestra siga en la mesa, aunque ya no quede mazo encima.',
-            'Gana quien pase de 60 puntos; a 60 es empate.'],
-        center: trickCenter,
-        seatBadge: (v, i) => `${v.tricks[v.players[i].side]} bazas`,
-        scoreHtml: (v, g) => `<div class="cg-score2">${[v.me, 1 - v.me].map(i => `
-            <div class="cg-sc ${i === v.me ? 'mine' : ''}"><span>${Nexus.ui.avatar.html(g.pub[i].avatar)} ${esc(g.pub[i].name)}</span><b>${v.pts[i]}</b><small>${v.tricks[i]} bazas</small></div>`).join('')}</div>
-            <div class="cg-trump-line">${suitSvg(v.trump)} Triunfo: <b>${SUITW[v.trump]}</b> · mazo ${v.deck}</div>
-            <div class="cg-bar"><i style="width:${Math.min(100, v.pts[v.me] / 1.2)}%"></i><em style="left:50%"></em></div><small class="cg-note">Gana quien pase de 60 de 120.</small>`,
-        pill: (v) => `${v.pts[v.me]} – ${v.pts[1 - v.me]}`,
-        result: (v) => ({ won: iWon(v), draw: v.over.draw, score: v.pts[v.me] * 10, extra: { pts: v.pts[v.me] },
-            stats: [{ label: 'Tus puntos', value: v.pts[v.me] }, { label: 'Rival', value: v.pts[1 - v.me] }, { label: 'Bazas', value: v.tricks[v.me] }] })
+            'Gana la mano quien pase de 60 puntos (a 60 es empate y no cuenta). El partido es <b>al mejor de 3 manos</b>.',
+            'Con 4 jugadores se juega <b>por parejas</b>: tu compañero se sienta enfrente y sumáis las bazas de los dos (sin obligación de asistir ni cantes).',
+            'Como en la mesa, <b>los puntos no se ven</b> durante la mano: hay que contarlos. Con ⚙️ «Marcador visible» se muestran (para aprender).'],
+        center: (v, g) => trickCenter(v, g) + briscaSummary(v, g),
+        seatBadge: (v, i) => (v.teams ? `Pareja ${i % 2 === 0 ? 'A' : 'B'}${i !== v.me && i % 2 === v.me % 2 ? ' · compañero' : ''}` : `${v.tricks[v.players[i].side]} bazas`),
+        scoreHtml: (v, g) => {
+            const mine = v.players[v.me].side, sidesL = v.teams ? [mine, 1 - mine] : [v.me, 1 - v.me];
+            const name = (sd) => (v.teams ? `Pareja ${sd === 0 ? 'A' : 'B'}${sd === mine ? ' (tú)' : ''}` : `${Nexus.ui.avatar.html(g.pub[sd].avatar)} ${esc(g.pub[sd].name)}`);
+            return `<div class="cg-score2">${sidesL.map(sd => `
+            <div class="cg-sc ${sd === mine ? 'mine' : ''}"><span>${name(sd)}</span><b>${v.pts ? v.pts[sd] : '¿?'}</b><small>${v.tricks[sd]} bazas · ${v.games[sd]} ${v.games[sd] === 1 ? 'mano' : 'manos'}</small></div>`).join('')}</div>
+            <div class="cg-trump-line">${suitSvg(v.trump)} Triunfo: <b>${SUITW[v.trump]}</b> · mazo ${v.deck} · mano ${v.handNo} (al mejor de 3)</div>
+            ${v.pts ? `<div class="cg-bar"><i style="width:${Math.min(100, v.pts[mine] / 1.2)}%"></i><em style="left:50%"></em></div>` : ''}
+            <small class="cg-note">${v.hiddenScore ? 'Los puntos no se ven: cuenta tus bazas. Gana la mano quien pase de 60.' : 'Gana la mano quien pase de 60 de 120.'}</small>`;
+        },
+        pill: (v) => { const mine = v.players[v.me].side; return `🏆 ${v.games[mine]}–${v.games[1 - mine]}${v.pts ? ` · ${v.pts[mine]}–${v.pts[1 - mine]}` : ''}`; },
+        result: (v) => { const mine = v.players[v.me].side; return ({ won: iWon(v), draw: v.over.draw, score: (v.pts ? v.pts[mine] : 0) * 10 + v.games[mine] * 300, extra: { pts: v.pts ? v.pts[mine] : 0, games: v.games[mine] },
+            stats: [{ label: 'Manos', value: `${v.games[mine]} – ${v.games[1 - mine]}` }, { label: 'Última mano', value: v.pts ? `${v.pts[mine]} – ${v.pts[1 - mine]}` : '–' }, { label: 'Bazas', value: v.tricks[mine] }] }); }
     };
+
+    function briscaSummary(v, g) {
+        if (v.phase !== 'handEnd' || !v.lastHand) return '';
+        const h = v.lastHand, mine = v.players[v.me].side;
+        const name = (sd) => (v.teams ? `Pareja ${sd === 0 ? 'A' : 'B'}` : esc(g.pub[sd].name));
+        return `<div class="cg-summary"><h4>Fin de la mano ${v.handNo}</h4>
+            <p>${h.win < 0 ? 'Empate a 60: la mano no cuenta.' : `${name(h.win)} gana la mano con <b>${h.pts[h.win]}</b> puntos.`}</p>
+            <p>Partido (al mejor de 3): <b>${h.games[mine]} – ${h.games[1 - mine]}</b></p></div>`;
+    }
 
     // ── Guiñote ─────────────────────────────────────────────
     /** Malas y buenas: los 50 primeros puntos son malas; pasadas, se cuentan las buenas (gana quien pasa de 50 buenas). */
@@ -57,12 +73,15 @@
     const mbBar = (t, M = 50) => `<span class="gu-bar" title="${esc(mbText(t))}">
         <i class="gu-m" style="width:${Math.min(t, M) / (2 * M) * 100}%"></i><i class="gu-b" style="width:${Math.max(0, Math.min(t - M, M)) / (2 * M) * 100}%"></i><em></em></span>`;
     function guinoteSummary(v) {
+        if (v.phase === 'gameEnd' && v.lastGame) return `<div class="cg-summary"><h4>Fin de la partida ${v.gameNo}</h4><p>${esc(v.lastGame.text)}.</p>
+            <p>Coto (a ${v.coto} partidas): <b>Pareja A ${v.games[0]} – ${v.games[1]} Pareja B</b></p></div>`;
         if (v.phase !== 'handEnd' || !v.lastHand) return '';
         const h = v.lastHand;
         return `<div class="cg-summary"><h4>Fin de la mano ${v.handNo}${v.handNo === 1 ? ' (idas)' : ''}</h4>
             <table><tr><th></th><th>Antes</th><th>Bazas</th><th>Cantes</th><th>Ahora</th></tr>
             ${[0, 1].map(i => `<tr class="${i === v.mySide ? 'mine' : ''}"><td>Pareja ${i === 0 ? 'A' : 'B'}${i === v.mySide ? ' (tú)' : ''}</td><td>${mbText(h.before[i])}</td><td>+${h.pts[i]}</td><td>+${h.cantes[i]}</td><td><b class="gu-${mb(v.score[i]).k}">${mbText(v.score[i])}</b></td></tr>`).join('')}
-            </table><p>Nadie pasa de 50 buenas: <b>¡de vueltas!</b> Ahora gana al instante la primera pareja que las sobrepase.</p></div>`;
+            </table><p>Cartas (hacen falta ${v.cardsMin} para salir): A ${h.cards[0]} · B ${h.cards[1]}</p>
+            <p>Nadie sale: <b>¡de vueltas!</b> Tras ganar una baza, declara <b>«¡Fuera!»</b> si tu pareja pasa de 50 buenas con ${v.cardsMin} de cartas.</p></div>`;
     }
     const guinote = {
         id: 'guinote', name: 'Guiñote', title: 'GUIÑOTE', emoji: '🃏', accent: '#ef4444', rules: R.guinote,
@@ -76,7 +95,10 @@
             'Quien gana una baza puede cambiar el 7 de triunfo por la muestra mientras quede mazo, si la muestra vale puntos (As, Tres o figura).',
             '<b>Arrastre</b>: acabado el mazo hay que asistir al palo y montar si se puede; si no tienes, fallar con un triunfo que gane. Si tu compañero va ganando, basta con asistir.',
             '<b>Malas y buenas</b>: se juega a 101. Los primeros 50 puntos son <b>malas</b>; al pasarlas empiezan a contar las <b>buenas</b>. Gana la pareja que pase de 50 buenas. El marcador se actualiza en cada baza y cada cante.',
-            'La primera mano (idas) se juega entera. Si nadie pasa de 50 buenas, se juegan <b>vueltas</b>: en cuanto una pareja las sobrepasa, gana al instante.',
+            'Para salir hacen falta también <b>30 puntos de cartas</b> (sin contar cantes). Si al acabar las idas las dos parejas cumplen, gana la que hizo las últimas.',
+            'La primera mano (idas) se juega entera. Si nadie sale, se juegan <b>vueltas</b>: tras ganar una baza hay que declarar <b>«¡Fuera!»</b> (botón). Si la cuenta está mal, perdéis la partida. Los bots declaran solos.',
+            'Los cantes suman al momento (variante habitual en las partidas rápidas): en las vueltas un cante puede permitir salir.',
+            'Se juega a <b>cotos</b>: la primera pareja que gana 3 partidas se lleva el coto. Con ⚙️ «Canta la pareja», también puede cantar el compañero de quien gana la baza.',
             'Puedes <b>ordenar tu mano</b> arrastrando las cartas o con los botones «Por palo» y «Por valor».'],
         center: (v, g) => trickCenter(v, g) + guinoteSummary(v),
         seatBadge: (v, i) => `Pareja ${i % 2 === 0 ? 'A' : 'B'}${i !== v.me && i % 2 === v.me % 2 ? ' · compañero' : ''}`,
@@ -87,8 +109,9 @@
             <small>${[0, 1, 2, 3].filter(i => i % 2 === sd).map(i => esc(g.pub[i].name)).join(' y ')}</small>
             <small>Esta mano: ${v.pts[sd]} + ${v.cantes[sd]} cantes · ${v.tricks[sd]} bazas</small></div>`; }).join('')}</div>
             <div class="cg-trump-line">${suitSvg(v.trump)} Triunfo: <b>${SUITW[v.trump]}</b> · mazo ${v.deck}</div>
-            <div class="gu-phase ${v.vueltas ? 'vueltas' : ''}">${v.vueltas ? `🔁 <b>Vueltas</b> (mano ${v.handNo}): gana al instante la primera pareja que pase de ${v.malas} buenas.` : `▶️ <b>Idas</b>: se juega la mano entera; gana quien pase de ${v.malas} buenas.`}</div>`,
-        pill: (v) => { const a = mb(v.score[v.mySide]), b = mb(v.score[1 - v.mySide]); return `${a.n}${a.k === 'buenas' ? 'B' : 'M'} – ${b.n}${b.k === 'buenas' ? 'B' : 'M'}`; },
+            <div class="gu-phase ${v.vueltas ? 'vueltas' : ''}">${v.vueltas ? `🔁 <b>Vueltas</b> (mano ${v.handNo}): tras ganar una baza, «¡Fuera!» si pasáis de ${v.malas} buenas con ${v.cardsMin} de cartas.` : `▶️ <b>Idas</b>: se juega la mano entera; sale quien pase de ${v.malas} buenas con ${v.cardsMin} de cartas.`}</div>
+            <div class="gu-coto">🏆 Coto (a ${v.coto}): <b>A ${v.games[0]} – ${v.games[1]} B</b> · partida ${v.gameNo} · cartas: A ${v.cards[0]} · B ${v.cards[1]}</div>`,
+        pill: (v) => { const a = mb(v.score[v.mySide]), b = mb(v.score[1 - v.mySide]); return `${a.n} ${a.k} – ${b.n} ${b.k}`; },
         result: (v) => ({ won: iWon(v), draw: false, score: v.score[v.mySide] * 5, extra: { team: v.score[v.mySide] },
             updateExtra: (x) => { x.cantes = (x.cantes || 0) + (v.stats.cantes || 0); },
             html: `<p class="gu-final">${[v.mySide, 1 - v.mySide].map(sd => `${sd === v.mySide ? 'Tu pareja' : 'Rivales'}: <b>${mbText(v.score[sd])}</b>`).join(' · ')}</p>`,

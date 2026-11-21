@@ -92,3 +92,15 @@
     .pp-def { font-size: 1.02rem; min-height: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .pp-l[data-cur] { animation: none; } }
+
+/* Auditoría F4 */
+.pp-cal { display: inline-grid; place-items: center; width: 1.35em; height: 1.35em; border-radius: 4px; border: 1.5px solid currentColor; border-top-width: 4px;
+    font: 800 .72em/1 var(--font-title); vertical-align: -0.2em; margin-right: 2px; }
+@media (max-width: 720px) {
+    .pasapalabra.pp-playing { --ring: min(78vw, 40vh); }
+    .pasapalabra.pp-playing.pp-typing { --ring: min(58vw, 26vh); }
+    .pasapalabra.pp-playing .pp-toolbar { display: none; }
+    .pasapalabra.pp-playing .pp-main { gap: 10px; }
+    .pasapalabra.pp-playing .pp-side { position: sticky; bottom: 0; z-index: 3; width: 100%; }
+    .pasapalabra.pp-playing .pp-play { box-shadow: 0 -10px 30px rgba(0, 0, 0, .45); }
+}

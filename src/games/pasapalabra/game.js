@@ -163,7 +163,10 @@
                     <div class="pp-body">
                         <div class="pp-toolbar">
                             <div class="segmented" role="radiogroup" aria-label="Modo de juego" data-el="modes">
-                                ${MODE_ORDER.map(m => `<button type="button" role="radio" data-mode="${m}">${DIFF[m].emoji} ${DIFF[m].label}</button>`).join('')}
+                                ${MODE_ORDER.map(m => `<button type="button" role="radio" data-mode="${m}">${m === 'daily'
+                                    // Icono propio con el día de hoy (el del sistema dibuja «17 de julio» y parecía la fecha del rosco)
+                                    ? `<span class="pp-cal" aria-hidden="true">${new Date().getDate()}</span>`
+                                    : DIFF[m].emoji} ${DIFF[m].label}</button>`).join('')}
                             </div>
                             <button type="button" class="btn btn-ghost btn-sm" data-el="new">🔄 Nuevo rosco</button>
                             <button type="button" class="icon-btn" data-el="help" aria-label="Cómo se juega" title="Cómo se juega">?</button>
@@ -178,6 +181,16 @@
         }
 
         bind() {
+            // Con el teclado del móvil abierto el rosco se encoge aún más para que la definición siga a la vista
+            this.root.addEventListener('focusin', (e) => {
+                if (!e.target.matches('[data-el="form"] input')) return;
+                const g = this.root.querySelector('.pasapalabra'); if (g) g.classList.add('pp-typing');
+                if (window.matchMedia('(pointer: coarse)').matches) setTimeout(() => { const c = this.root.querySelector('.pp-play'); if (c) c.scrollIntoView({ block: 'end', behavior: 'smooth' }); }, 250);
+            });
+            this.root.addEventListener('focusout', (e) => {
+                if (!e.target.matches('[data-el="form"] input')) return;
+                const g = this.root.querySelector('.pasapalabra'); if (g) g.classList.remove('pp-typing');
+            });
             this.root.addEventListener('click', (e) => {
                 const b = e.target.closest('[data-mode],[data-act],[data-el="new"],[data-el="help"]');
                 if (!b || !this.root.contains(b)) return;
@@ -462,6 +475,8 @@
         // ── Pintado ─────────────────────────────────────────
         render() {
             this.drawToolbar(); this.drawRing(); this.drawPanel(); this.drawCounters();
+            // En móvil, durante la partida: rosco pequeño y la definición con la respuesta fija abajo (sobre el teclado)
+            const g = this.root.querySelector('.pasapalabra'); if (g) g.classList.toggle('pp-playing', this.st.status === 'playing');
             const input = this.root.querySelector('[data-el="form"] input');
             if (input && window.matchMedia && matchMedia('(pointer: fine)').matches) input.focus({ preventScroll: true });   // en táctil no se abre el teclado solo
         }

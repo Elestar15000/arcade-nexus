@@ -327,6 +327,7 @@
                     <div class="bs-arena">
                         <section class="bs-side bs-enemy-side" id="bs-enemy-side">
                             <h3 class="bs-title"><span>🎯 Aguas enemigas</span><span class="bs-fleet" id="bs-enemy-fleet"></span></h3>
+                            <button type="button" class="bs-minimap" id="bs-minimap" aria-label="Tu flota (toca para verla)" title="Tu flota"></button>
                             ${board('bs-enemy', 'Tablero rival')}
                         </section>
                         <section class="bs-side bs-mine-side" id="bs-mine-side">
@@ -395,6 +396,7 @@
                 else if (a === 'menu') this.openMenu();
             });
             this.overlay.addEventListener('click', (e) => this.onOverlay(e));
+            this.$('#bs-minimap').addEventListener('click', () => this.$('#bs-mine-side').scrollIntoView({ behavior: 'smooth', block: 'start' }));
             this.onKey = (e) => {
                 if (this.destroyed || document.querySelector('.modal-overlay.active')) return;
                 if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
@@ -462,7 +464,7 @@
             this.lastPeerShot = 0; this.shotSeq = 0; this.pendingShot = -1; this.awaiting = false;
             this.peerReveal = null; this.peerCommit = null; this.onReveal = null; this.showFoe = false;
             this.placing = []; this.selLen = 3; this.resetSel(); this.vertical = false; this.hover = -1;
-            this.mine = null; this.view = new View(this.variant); this.foe = null; this.foeView = null;
+            this.mine = null; this.lastFoeShot = -1; this.view = new View(this.variant); this.foe = null; this.foeView = null;
             this.stats = { shots: 0, hits: 0, streak: 0, maxStreak: 0 };
             this.foeStats = { shots: 0, hits: 0 };
             this.log = [];
@@ -535,7 +537,7 @@
             this.later(() => {
                 if (this.phase !== 'battle' || this.myTurn) return;
                 const i = aiPick(this.foeView, this.level.id);
-                const res = this.mine.receive(i);
+                const res = this.mine.receive(i); this.lastFoeShot = i;
                 if (!res) { this.myTurn = true; return; }
                 this.receivedShot(i, res);
                 if (res.over) return;
@@ -601,7 +603,7 @@
                 if (this.phase !== 'battle' || this.myTurn || !Number.isInteger(m.i)) return;
                 if (m.n <= (this.lastPeerShot || 0)) return;
                 this.lastPeerShot = m.n;
-                const res = this.mine.receive(m.i);
+                const res = this.mine.receive(m.i); this.lastFoeShot = m.i;
                 if (!res) return;
                 this.lobby.send(Object.assign({ t: 'res', i: m.i, n: m.n }, res));
                 this.receivedShot(m.i, res);
@@ -846,6 +848,25 @@
             }
             this.mineEl.querySelector('.bs-marks').innerHTML = marks.join('');
             this.mineEl.classList.toggle('active-turn', this.phase === 'battle' && !this.myTurn);
+            this.renderMinimap();
+        }
+
+        /** Mini-mapa de tu flota junto al tablero enemigo (móvil): se ven los disparos rivales sin desplazarse. */
+        renderMinimap() {
+            const el = this.$('#bs-minimap'); if (!el) return;
+            const on = this.phase === 'battle' && !!this.mine;
+            el.hidden = !on; if (!on) return;
+            const ship = new Set(); this.mine.ships.forEach(sh => (sh.cells || []).forEach(c => ship.add(c)));
+            let last = -1, html = '';
+            for (let i = 0; i < CELLS; i++) {
+                const s = this.mine.shots[i];
+                const k = s === MISS ? 'm' : s === SUNK ? 'x' : s ? 'h' : ship.has(i) ? 's' : '';
+                html += `<i${k ? ` class="${k}"` : ''}></i>`;
+            }
+            if (this.lastFoeShot !== undefined) last = this.lastFoeShot;
+            el.innerHTML = html;
+            if (last >= 0 && el.children[last]) el.children[last].classList.add('last');
+            el.classList.toggle('foe-turn', !this.myTurn);
         }
 
         renderEnemy() {

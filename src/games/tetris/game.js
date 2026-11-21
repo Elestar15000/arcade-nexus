@@ -70,7 +70,9 @@
         { id: 'fusion',  emoji: '🔮', label: 'Fusión',  desc: 'Bloques de poder, energía y habilidades. Sin fin.', powerChance: 0.20 },
         { id: 'cascade', emoji: '🌊', label: 'Cascada', desc: 'Tras limpiar, cada bloque cae solo: encadena reacciones.', powerChance: 0.16, cascade: true },
         { id: 'chaos',   emoji: '🌪️', label: 'Caos',    desc: 'Cada 18 piezas ocurre un evento: marea, espejo, prisa…', powerChance: 0.28, events: true },
-        { id: 'sprint',  emoji: '🏁', label: 'Sprint',  desc: `Limpia ${SPRINT_LINES} líneas lo más rápido posible.`, powerChance: 0.16, sprint: true }
+        // Sprint puro (40 líneas sin poderes, como el de la guía) y Sprint Fusión aparte, cada uno con su récord
+        { id: 'sprint40', emoji: '🏁', label: 'Sprint',  desc: `${SPRINT_LINES} líneas lo más rápido posible, sin poderes: tiempos comparables.`, powerChance: 0, plain: true, sprint: true },
+        { id: 'sprint',  emoji: '🏎️', label: 'Sprint Fusión', desc: `${SPRINT_LINES} líneas con bloques de poder y energía.`, powerChance: 0.16, sprint: true }
     ];
 
     const EVENTS = [
@@ -81,7 +83,7 @@
         { id: 'rain',  icon: '🎁', name: 'Lluvia', text: 'Las próximas 5 piezas traen un poder' }
     ];
 
-    const LINES_PER_LEVEL = 5;
+    const LINES_PER_LEVEL = 10;   // como la guía (antes 5: el Normal se volvía injugable a las 45 líneas)
     const DAS = 0.16, ARR = 0.04, LOCK_DELAY = 0.5, MAX_RESETS = 15;
     const ENERGY_REWIND = 35, ENERGY_PURGE = 100;
 
@@ -140,6 +142,10 @@
                             <canvas id="tt-canvas" aria-label="Tablero de Tetris Fusion"></canvas>
                             <div class="ax-toast" id="tt-toast" role="status"></div>
                         </div>
+                        <div class="tt-mcol" aria-hidden="true">
+                            <small>Reserva</small><canvas id="tt-hold-m" width="120" height="96"></canvas>
+                            <small>Siguen</small><canvas id="tt-next-m" width="120" height="300"></canvas>
+                        </div>
                         <div class="ax-overlay" id="tt-overlay"></div>
                     </div>
                     <aside class="ax-side">
@@ -174,7 +180,8 @@
                     <button type="button" data-act="right" aria-label="Derecha">▶</button>
                     <button type="button" data-act="down" aria-label="Bajar">▼</button>
                     <button type="button" data-act="drop" aria-label="Caída directa">⏬</button>
-                    <button type="button" data-act="cw" aria-label="Girar">⟳</button>
+                    <button type="button" data-act="ccw" aria-label="Girar a la izquierda">⟲</button>
+                    <button type="button" data-act="cw" aria-label="Girar a la derecha">⟳</button>
                     <button type="button" data-act="hold" aria-label="Reserva">📥</button>
                     <button type="button" data-act="rewind" aria-label="Rebobinar">⏪</button>
                     <button type="button" data-act="purge" aria-label="Purga">🧹</button>
@@ -188,6 +195,8 @@
             this.ctx = this.fit.ctx;
             this.holdCtx = this.$('#tt-hold').getContext('2d');
             this.nextCtx = this.$('#tt-next').getContext('2d');
+            this.holdMCtx = this.$('#tt-hold-m').getContext('2d');
+            this.nextMCtx = this.$('#tt-next-m').getContext('2d');
         }
 
         // ── Estado de partida ───────────────────────────────
@@ -302,10 +311,12 @@
             const from = p.rot, to = (from + dir + 4) % 4;
             const table = p.type === 'I' ? KICKS_I : KICKS_JLSTZ;
             const kicks = table[`${from}>${to}`] || [[0, 0]];
-            for (const [kx, ky] of kicks) {
+            for (let ki = 0; ki < kicks.length; ki++) {
+                const [kx, ky] = kicks[ki];
                 if (!this.collides(p, 0, 0, to, p.x + kx, p.y - ky)) {
                     p.x += kx; p.y -= ky; p.rot = to;
                     this.lastRot = true;
+                    this.lastKick = ki;          // el 5.º kick (desplazamiento 1×2) convierte un Mini en T-Spin completo
                     Nexus.audio.play('axRot');
                     this.afterMove();
                     return;
@@ -354,7 +365,7 @@
                 // La cola y la bolsa de 7 también: tras rebobinar, la secuencia es la que se veía
                 queue: this.queue.map(clonePiece), bag: this.bag.slice()
             };
-            const tspin = p.type === 'T' && this.lastRot && this.isTSpin(p);
+            const tspin = p.type === 'T' && this.lastRot ? this.isTSpin(p) : false;   // false | 'mini' | 'full'
             let allHidden = true;
             for (const [y, x, r, c] of this.cellsOf(p)) {
                 if (y >= HIDDEN) allHidden = false;
@@ -369,14 +380,16 @@
             this.resolve(0, tspin);
         }
 
+        /** Regla de las esquinas (guía): 3 de 4 esquinas ocupadas = T-Spin; si las dos frontales (hacia donde apunta la T)
+         *  lo están es completo, si no es Mini (salvo que el giro usara el último kick, que cuenta como completo). */
         isTSpin(p) {
-            const corners = [[0, 0], [0, 2], [2, 0], [2, 2]];
-            let n = 0;
-            for (const [r, c] of corners) {
-                const y = p.y + r, x = p.x + c;
-                if (x < 0 || x >= COLS || y >= ROWS || (y >= 0 && this.board[y][x])) n++;
-            }
-            return n >= 3;
+            const occ = ([r, c]) => { const y = p.y + r, x = p.x + c; return x < 0 || x >= COLS || y >= ROWS || (y >= 0 && !!this.board[y][x]); };
+            const C = { tl: [0, 0], tr: [0, 2], bl: [2, 0], br: [2, 2] };
+            const n = Object.values(C).filter(occ).length;
+            if (n < 3) return false;
+            const front = [[C.tl, C.tr], [C.tr, C.br], [C.bl, C.br], [C.tl, C.bl]][p.rot] || [C.tl, C.tr];
+            const frontN = front.filter(occ).length;
+            return frontN === 2 || this.lastKick === 4 ? 'full' : 'mini';
         }
 
         fullRows() {
@@ -391,7 +404,8 @@
             if (!full.length) {
                 if (chain === 0) {
                     this.combo = -1;
-                    if (tspin) { this.addScore(400 * this.level); this.pop('T-SPIN', '#a855f7'); }
+                    if (tspin === 'full') { this.addScore(400 * this.level); this.pop('T-SPIN', '#a855f7'); }
+                    else if (tspin === 'mini') { this.addScore(100 * this.level); this.pop('T-SPIN MINI', '#a855f7'); }
                 }
                 this.endResolve();
                 return;
@@ -437,7 +451,9 @@
             // Puntuación
             const qualifies = n === 4 || (tspin && n > 0);
             const wasB2B = this.b2b;
-            let base = tspin ? [0, 800, 1200, 1600, 1600][n] : [0, 100, 300, 500, 800][n];
+            // Tabla de la guía: T-Spin 800/1200/1600, Mini 200/400, normales 100/300/500/800
+            let base = tspin === 'full' ? [0, 800, 1200, 1600, 1600][n] : tspin === 'mini' ? [0, 200, 400, 400, 400][n] : [0, 100, 300, 500, 800][n];
+            this.lastClear = { n, b2b: wasB2B && qualifies };
             if (qualifies && wasB2B) base = Math.round(base * 1.5);
             this.b2b = qualifies ? true : (n > 0 ? false : this.b2b);
             let mult = 1 + 0.5 * chain;
@@ -454,7 +470,7 @@
             if (freeze) { this.fx.freeze = freeze; this.pop('❄️ Congelado', '#7dd3fc'); }
             if (star) { this.star = Math.min(6, this.star + star); this.pop('⭐ ×2 · ' + this.star, '#fde047'); }
             // Texto flotante
-            const label = tspin ? `T-SPIN ${['', 'SINGLE', 'DOUBLE', 'TRIPLE'][n] || ''}` : ['', 'SINGLE', 'DOUBLE', 'TRIPLE', 'TETRIS'][n];
+            const label = tspin ? `T-SPIN${tspin === 'mini' ? ' MINI' : ''} ${['', 'SINGLE', 'DOUBLE', 'TRIPLE'][n] || ''}` : ['', 'SINGLE', 'DOUBLE', 'TRIPLE', 'TETRIS'][n];
             this.pop(`${label}${wasB2B && qualifies ? ' · B2B' : ''}${chain ? ` · CADENA ×${chain + 1}` : ''}`, tspin || n === 4 ? '#fbbf24' : '#fff');
             if (this.combo > 0 && chain === 0) this.floatText(`COMBO ×${this.combo}`, '#f472b6');
 
@@ -494,10 +510,14 @@
             this.state = 'playing';
             // ¿Tablero vacío?
             if (this.board.every(row => row.every(c => !c)) && this.piecesLocked > 0) {
+                // Tabla oficial de Perfect Clear según las líneas de la jugada (Tetris B2B: 3200)
+                const lc = this.lastClear || { n: 4, b2b: false };
+                const pc = lc.n === 4 && lc.b2b ? 3200 : [0, 800, 1200, 1800, 2000][lc.n] || 2000;
                 this.stats.perfect++;
-                this.addScore(2000 * this.level);
-                this.pop('✨ TABLERO LIMPIO +2000', '#34d399');
+                this.addScore(pc * this.level);
+                this.pop(`✨ TABLERO LIMPIO +${pc * this.level}`, '#34d399');
             }
+            this.lastClear = null;
             if (this.mode.events && this.piecesLocked > 0 && this.piecesLocked % 18 === 0) this.triggerEvent();
             this.spawn();
             this.updatePills(); this.updateSide();
@@ -574,8 +594,8 @@
 
         // ── Bucle ───────────────────────────────────────────
         gravityInterval() {
-            // Curva progresiva rápida: 0,75 s en el nivel 1, ~0,26 s en el 5, ~0,05 s en el 10 (cada 5 líneas)
-            let g = 0.75 * Math.pow(0.76 - (this.level - 1) * 0.008, this.level - 1);
+            // Curva oficial de la guía: (0,8 − (N−1)·0,007)^(N−1) s por fila → 1 s en el nivel 1, ~0,36 s en el 5, ~0,064 s en el 10
+            let g = Math.pow(0.8 - (this.level - 1) * 0.007, this.level - 1);
             g = Math.max(g, 0.016);
             if (this.fx.rush > 0) g /= 2;
             if (this.fx.calm > 0) g *= 2;
@@ -654,6 +674,7 @@
             document.addEventListener('keyup', this.onKeyUp);
 
             Kit.touchButtons(this.$('#tt-touch'), (a) => this.act(a, true), (a) => this.act(a, false));
+            this.bindGestures();
             this.$('#tt-btn-rewind').addEventListener('click', () => this.rewind());
             this.$('#tt-btn-purge').addEventListener('click', () => this.purge());
             this.overlay.addEventListener('click', (e) => {
@@ -667,6 +688,51 @@
                 else if (d === 'restart') this.newGame();
                 else if (d === 'menu') { this.state = 'menu'; this.showMenu(); }
             });
+        }
+
+        /** Gestos sobre el tablero (táctil): arrastrar = mover/bajar, toque = girar, deslizar rápido abajo = caída directa,
+         *  deslizar rápido arriba = reserva. Un toque en el tercio izquierdo gira al revés. */
+        bindGestures() {
+            const el = this.stage;
+            let g = null;
+            el.addEventListener('pointerdown', (e) => {
+                if (e.pointerType === 'mouse' || this.state !== 'playing') return;
+                g = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t0: performance.now(), moved: false, steps: 0, down: 0 };
+                try { el.setPointerCapture(e.pointerId); } catch (_) { /* puntero sintético o ya liberado */ }
+            });
+            el.addEventListener('pointermove', (e) => {
+                if (!g || e.pointerId !== g.id || this.state !== 'playing') return;
+                const cell = el.clientWidth / COLS;
+                const dx = e.clientX - g.x0, dy = e.clientY - g.y0;
+                if (Math.abs(dx) > 8 || Math.abs(dy) > 8) g.moved = true;
+                // Horizontal: una columna por cada ancho de casilla arrastrado
+                const want = Math.trunc(dx / cell);
+                while (g.steps !== want) {
+                    const d = want > g.steps ? 1 : -1;
+                    this.move(this.fx.mirror > 0 ? -d : d, 0);
+                    g.steps += d;
+                }
+                // Vertical lento: baja casilla a casilla (bajada suave)
+                if (Math.abs(dy) > Math.abs(dx)) {
+                    const wantD = Math.max(0, Math.trunc(dy / cell));
+                    while (g.down < wantD) { if (!this.move(0, 1)) break; g.down++; this.score += 1; }
+                }
+            });
+            const end = (e) => {
+                if (!g || e.pointerId !== g.id) return;
+                const dt = performance.now() - g.t0, dx = e.clientX - g.x0, dy = e.clientY - g.y0, cell = el.clientWidth / COLS;
+                const vy = dy / Math.max(1, dt);
+                if (this.state === 'playing') {
+                    if (!g.moved && dt < 300) {
+                        const r = el.getBoundingClientRect();
+                        this.rotate(e.clientX - r.left < r.width / 3 ? -1 : 1);
+                    } else if (dy > cell * 2 && vy > 0.9 && Math.abs(dy) > Math.abs(dx) * 1.5) this.hardDrop();
+                    else if (dy < -cell * 2 && vy < -0.7 && Math.abs(dy) > Math.abs(dx) * 1.5) this.doHold();
+                }
+                g = null;
+            };
+            el.addEventListener('pointerup', end);
+            el.addEventListener('pointercancel', () => { g = null; });
         }
 
         handleKey(k, down, repeat) {
@@ -745,15 +811,16 @@
             const best = ms ? (this.mode.sprint && ms.bestTime !== null ? `Mejor: <b>${Nexus.util.formatTime(ms.bestTime)}</b>` : `Mejor: <b>${formatNumber(ms.bestScore)}</b> pts`) : 'Aún sin récord';
             this.overlay.innerHTML = `<div class="ax-panel">
                 <h2 class="ax-big">TETRIS FUSION</h2>
-                <p class="ax-sub">${this.mode.plain ? 'El Tetris clásico: sube de nivel cada 5 líneas y cada nivel cae más rápido' : 'Tetris moderno con bloques de poder, energía y habilidades'}</p>
+                <p class="ax-sub">${esc(this.mode.desc)}</p>
                 ${Kit.modeCards(MODES, this.mode.id)}
                 <details class="ax-help"><summary>📖 Cómo se juega</summary><ul>
                     <li><kbd>←</kbd><kbd>→</kbd> mover · <kbd>↑</kbd>/<kbd>X</kbd> girar · <kbd>Z</kbd> girar al revés · <kbd>↓</kbd> bajar · <kbd>Espacio</kbd> caída directa · <kbd>C</kbd> reserva · <kbd>P</kbd> pausa.</li>
                     <li><b>Bloques de poder</b>: un cuadro de la pieza trae 💥 Bomba (área 5×5), ⚡ Rayo (columna entera), ❄️ Hielo (congela la caída 6 s) o ⭐ Estrella (×2 en 3 limpiezas). Se activan <i>al limpiar su línea</i> y pueden encadenarse. Los ves venir en «Siguientes».</li>
                     <li><b>Energía</b>: cada línea la carga. <kbd>Q</kbd> ⏪ Rebobinar (${ENERGY_REWIND}) deshace la última pieza y su puntuación; <kbd>E</kbd> 🧹 Purga (${ENERGY_PURGE}) borra las 3 filas de abajo.</li>
-                    <li><b>Normal</b>: sin bloques de poder ni energía. En todos los modos se sube de nivel cada ${LINES_PER_LEVEL} líneas y la caída se acelera rápido.</li>
+                    <li><b>Normal</b> y <b>Sprint</b>: sin bloques de poder ni energía. En todos los modos se sube de nivel cada ${LINES_PER_LEVEL} líneas con la curva de caída de la guía.</li>
+                    <li>T-Spin: 3 de las 4 esquinas de la T ocupadas tras un giro. Si las dos de delante lo están es completo (400/800/1.200/1.600); si no, <b>Mini</b> (100/200/400).</li>
                     <li><b>Cascada</b>: tras limpiar, los bloques caen individualmente y cada reacción en cadena suma +50 % de puntos. <b>Caos</b>: cada 18 piezas, un evento aleatorio.</li>
-                    <li>T-Spin y Tetris dan back-to-back ×1,5. Limpiar todo el tablero suma 2.000.</li>
+                    <li>T-Spin y Tetris dan back-to-back ×1,5. Limpiar todo el tablero suma 800/1.200/1.800/2.000 según las líneas (3.200 con un Tetris B2B), por el nivel.</li>
                 </ul></details>
                 <div class="ax-best">${best}</div>
                 <div class="ax-play-row"><button class="btn btn-primary btn-glow" data-do="start" type="button">▶ Jugar · ${esc(this.mode.label)}</button></div>
@@ -937,8 +1004,15 @@
                 }));
             });
         }
-        drawHold() { this.drawMini(this.holdCtx, [this.hold], 30, 0, 120, 160); }
-        drawNext() { this.drawMini(this.nextCtx, this.queue.slice(0, 4), 24, 0, 108, 160); this.drawHold(); }
+        drawHold() {
+            this.drawMini(this.holdCtx, [this.hold], 30, 0, 120, 160);
+            if (this.holdMCtx) this.drawMini(this.holdMCtx, [this.hold], 24, 0, 96, 120);   // columna de móvil
+        }
+        drawNext() {
+            this.drawMini(this.nextCtx, this.queue.slice(0, 4), 24, 0, 108, 160);
+            if (this.nextMCtx) this.drawMini(this.nextMCtx, this.queue.slice(0, 3), 22, 0, 100, 120);
+            this.drawHold();
+        }
 
         // ── Panel / píldoras ────────────────────────────────
         updatePills() {
@@ -1007,9 +1081,9 @@
     const tt = (c) => c.stats('tetris');
     A.register([
         { id: 'tt_sprint', game: 'tetris', name: 'Línea de meta', desc: 'Completa un Sprint de 40 líneas.', icon: '🏁', rarity: 'common',
-            test: (c) => (tt(c).byMode.sprint || {}).wins > 0 },
+            test: (c) => ((tt(c).byMode.sprint || {}).wins || 0) + ((tt(c).byMode.sprint40 || {}).wins || 0) > 0 },
         { id: 'tt_sprint_fast', game: 'tetris', name: 'Velocista', desc: 'Completa un Sprint en menos de 2 min 30 s.', icon: '⚡', rarity: 'epic',
-            test: (c) => { const e = ev(c); return !!e && e.mode === 'sprint' && e.won && e.time < 150; } },
+            test: (c) => { const e = ev(c); return !!e && (e.mode === 'sprint' || e.mode === 'sprint40') && e.won && e.time < 150; } },
         { id: 'tt_tetris', game: 'tetris', name: '¡Tetris!', desc: 'Limpia 4 líneas a la vez.', icon: '🧱', rarity: 'common',
             test: (c) => { const e = ev(c); return !!e && e.extra.maxLines >= 4; } },
         { id: 'tt_tspin', game: 'tetris', name: 'Giro maestro', desc: 'Haz un T-Spin con limpieza de líneas.', icon: '🌀', rarity: 'rare',

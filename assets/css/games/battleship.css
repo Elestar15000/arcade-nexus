@@ -173,3 +173,24 @@
 .bs-clock-low { color: #fca5a5; border-color: #ef4444 !important; animation: bs-clock-pulse .5s ease-in-out infinite alternate; }
 @keyframes bs-clock-pulse { to { filter: brightness(1.4); } }
 @media (prefers-reduced-motion: reduce) { .bs-clock-low { animation: none; } }
+
+/* Mini-mapa de tu flota (móvil) y rótulos más legibles (auditoría F4) */
+.bs-minimap { display: none; }
+.bs-lab { color: var(--text-dim, #cbd5e1); font-size: clamp(10px, 1.6vw, 13px); }
+@media (max-width: 700px) {
+    .bs-enemy-side { position: relative; }
+    .bs-minimap:not([hidden]) { display: grid; grid-template-columns: repeat(10, 1fr); gap: 1px; position: absolute; top: 0; right: 0; width: 70px; padding: 3px; z-index: 3;
+        background: rgba(8, 20, 40, .92); border: 1px solid rgba(125, 211, 252, .45); border-radius: 8px; cursor: pointer; box-shadow: 0 6px 18px rgba(0, 0, 0, .45); }
+    .bs-minimap.foe-turn { border-color: #f87171; box-shadow: 0 0 0 2px rgba(248, 113, 113, .35), 0 6px 18px rgba(0, 0, 0, .45); }
+    .bs-minimap i { aspect-ratio: 1; background: rgba(56, 189, 248, .14); border-radius: 1px; }
+    .bs-minimap i.s { background: #94a3b8; }
+    .bs-minimap i.m { background: rgba(255, 255, 255, .45); border-radius: 50%; transform: scale(.55); }
+    .bs-minimap i.h { background: #f97316; }
+    .bs-minimap i.x { background: #ef4444; }
+    .bs-minimap i.last { outline: 2px solid #fde047; outline-offset: 0; animation: bs-mini-last 1s ease-out 2; }
+    .bs-enemy-side .bs-title { padding-right: 80px; }
+    .bs-enemy-side:has(.bs-minimap:not([hidden])) .bs-title { min-height: 74px; align-items: flex-start; }
+    .bs-enemy-side .bs-title .bs-fleet { display: none; }
+}
+@keyframes bs-mini-last { from { box-shadow: 0 0 0 4px rgba(253, 224, 71, .8); } to { box-shadow: 0 0 0 0 rgba(253, 224, 71, 0); } }
+@media (prefers-reduced-motion: reduce) { .bs-minimap i.last { animation: none; } }

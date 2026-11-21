@@ -442,3 +442,44 @@
     .minesweeper .panel-left .panel-section:last-child .panel-heading { display: none; }
     .minesweeper .panel-left .panel-section:last-child { flex-basis: 100%; }
 }
+
+/* ── Auditoría F4: móvil e indicaciones ─────────────────────────── */
+.minesweeper button.pill.stat-mines { font: inherit; color: inherit; cursor: pointer; }
+.minesweeper .stat-mines.active { border-color: #ff6b6b; box-shadow: 0 0 0 2px rgba(255,107,107,.35); background: rgba(255,107,107,.14); }
+.minesweeper .power-badge { display: none; }
+.minesweeper .ms-zoom { align-self: center; margin: 0 0 8px; padding: 6px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg-surface); color: inherit; font: 600 .85em/1.2 inherit; cursor: pointer; }
+.minesweeper .ms-zoom[hidden] { display: none; }
+/* Poder armado: cursor y realce del tablero */
+.minesweeper .board.pw-shield, .minesweeper .board.pw-scanner, .minesweeper .board.pw-emp { cursor: crosshair; border-radius: 10px; }
+.minesweeper .board.pw-shield { box-shadow: 0 0 0 3px #74b9ff, 0 0 22px rgba(116,185,255,.45); }
+.minesweeper .board.pw-scanner { box-shadow: 0 0 0 3px #55efc4, 0 0 22px rgba(85,239,196,.4); }
+.minesweeper .board.pw-emp { box-shadow: 0 0 0 3px #fdcb6e, 0 0 22px rgba(253,203,110,.4); }
+.minesweeper .board.pw-shield .cell:not(.revealed):hover { outline: 2px solid #74b9ff; }
+.minesweeper .board.flag-mode { box-shadow: 0 0 0 3px rgba(255,107,107,.75); border-radius: 10px; }
+/* Tablero ampliado: se arrastra dentro de su marco */
+.minesweeper .board-wrapper.zoomed { justify-content: flex-start; align-items: flex-start; overflow: auto; max-height: 60vh; touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
+
+@media (max-width: 700px) {
+    /* El área del tablero se «disuelve» para ordenar: dificultad, tablero, poderes, acciones, récords */
+    .minesweeper .board-area { display: contents; }
+    .minesweeper .difficulty-selector { order: 1; margin: 10px 8px 6px; }
+    .minesweeper .ms-zoom { order: 2; }
+    .minesweeper .board-wrapper { order: 3; margin: 0 8px; padding: 6px; flex-shrink: 0; }
+    .minesweeper .difficulty-selector, .minesweeper .panel, .minesweeper .board-actions, .minesweeper .ms-zoom { flex-shrink: 0; }
+    .minesweeper .panel-left { order: 4; border-bottom: none; border-top: none; flex-wrap: nowrap; align-items: center; gap: 8px; padding: 8px; }
+    .minesweeper .board-actions { order: 5; margin: 4px 8px 12px; }
+    .minesweeper .panel-right { order: 6; }
+    .minesweeper .panel-left .panel-section:first-child { flex: 1 1 auto; }
+    .minesweeper .panel-left .panel-section:last-child { flex: 0 0 auto; flex-basis: auto; }
+    .minesweeper #powers-container { flex-wrap: nowrap; gap: 6px; }
+    .minesweeper .power-btn { flex: 1 1 0; min-width: 0; padding: 8px 4px; justify-content: center; position: relative; }
+    .minesweeper .power-btn .power-info { display: none; }
+    .minesweeper .power-btn .power-icon { margin: 0; }
+    .minesweeper .power-badge { display: grid; place-items: center; position: absolute; top: -5px; right: -3px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 99px;
+        background: var(--accent-primary, #6c5ce7); color: #fff; font-size: .68rem; font-weight: 800; }
+    .minesweeper .power-btn.disabled .power-badge { background: #555; }
+    .minesweeper .combo-display { padding: 6px 10px; gap: 6px; }
+    .minesweeper .combo-multiplier { font-size: 1.15em; min-width: 38px; }
+    .minesweeper .combo-bar-wrap { width: 46px; flex: none; }
+    .minesweeper #btn-flag-mode { display: none; }   /* el contador 🚩 de la cabecera es el interruptor */
+}

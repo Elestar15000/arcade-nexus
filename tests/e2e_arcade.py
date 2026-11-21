@@ -45,12 +45,12 @@ with sync_playwright() as p:
 
     # Tetris
     page.goto(f'file://{ROOT}/index.html#/game/tetris'); page.wait_for_timeout(500)
-    check(page.locator('.ax-mode').count() == 5, 'Tetris: 5 modos (con Normal)')
+    check(page.locator('.ax-mode').count() == 6, 'Tetris: 6 modos (con Normal y Sprint puro)')
     check(page.evaluate('__tetris.mode.id') == 'normal', 'Tetris: abre en modo Normal')
     page.click('[data-do=start]'); page.wait_for_timeout(300)
     check(page.locator('#tt-energy-card').is_hidden() and all(it is None or it.get('pw') is None for it in page.evaluate('__tetris.queue')), 'Tetris Normal: sin energía ni bloques de poder')
     speeds = page.evaluate("[1, 5, 10].map(l => { const o = __tetris.level; __tetris.level = l; const g = __tetris.gravityInterval(); __tetris.level = o; return g; })")
-    check(speeds[0] <= 0.75 and speeds[1] < 0.3 and speeds[2] < 0.07, f'Tetris: velocidad progresiva rápida {[round(x, 3) for x in speeds]}')
+    check(abs(speeds[0] - 1) < 0.01 and 0.3 < speeds[1] < 0.4 and 0.05 < speeds[2] < 0.08, f'Tetris: curva de caída de la guía {[round(x, 3) for x in speeds]}')
     for k in ['ArrowLeft', 'ArrowUp', 'Space', 'c']: page.keyboard.press(k); page.wait_for_timeout(80)
     check(page.evaluate('__tetris.piecesLocked') >= 1, 'Tetris: la caída directa fija una pieza')
     page.evaluate("__tetris.score = 25000; __tetris.gameOver(false, 'Prueba')"); page.wait_for_timeout(1000)

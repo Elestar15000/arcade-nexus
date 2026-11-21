@@ -25,7 +25,8 @@
     const PAD_W = 16, PAD_H = 104, PAD_X = [44, W - 44 - PAD_W];
     const R = 10;
     const BASE = 440, MAX = 1500, ACCEL = 1.05, TURBO_MUL = 1.55, METER_GAIN = 25;
-    const WIN = 7;
+    /** Puntos para ganar (ajuste pong.target: 7, 11 o 21) con 2 de ventaja, como el Pong original. */
+    const target = () => { const v = +Nexus.services.settings.get('pong.target'); return [7, 11, 21].includes(v) ? v : 11; };
     const KEY_SPEED = 660, PTR_SPEED = 1600;
     const Y_MIN = WALL + PAD_H / 2, Y_MAX = H - WALL - PAD_H / 2;
     const B_MIN = WALL + R, B_MAX = H - WALL - R;
@@ -73,14 +74,17 @@
             this.destroyed = false;
             this.timers = new Set();
             this.level = LEVELS[1];
-            this.kind = 'cpu';           // cpu | online
+            this.kind = 'cpu';           // cpu | online | local (2 jugadores en el mismo dispositivo)
             this.state = 'menu';         // menu | playing | paused | over
             this.view = 'home';
             this.net = null;             // { role, conn, peer, ready:[h,g], code, isPublic }
             this.lobby = null;           // { hub, browser, rooms }
             this.t = 0;
             this.keys = { up: false, down: false };
+            this.keys2 = { up: false, down: false };   // pala derecha en el modo local
             this.ptrY = null; this.ctrl = 'keys';
+            this.ptrs = new Map();                      // local: dedo → { side, y }
+            this.vertical = false;
             this.armSeq = 0; this.lastArm = 0;
             this.particles = []; this.rings = []; this.floaters = []; this.trail = [];
             this.shake = 0; this.hitStop = 0; this.flash = null; this.ballPop = 0; this.scorePop = [0, 0];
@@ -89,7 +93,7 @@
             this.build();
             this.sim = this.newSim(true);
             this.bind();
-            this.loop = Kit.loop((dt) => this.update(dt), () => this.draw(), () => { if (this.state === 'playing' && this.kind === 'cpu') this.pause(); });
+            this.loop = Kit.loop((dt) => this.update(dt), () => this.draw(), () => { if (this.state === 'playing' && (this.kind === 'cpu' || this.kind === 'local')) this.pause(); });
             this.loop.start();
             this.unsubProgress = Nexus.bus.on('progress:update', () => this.updateSide(true));
             const m = location.hash.match(/^#\/game\/pong\/([A-Za-z0-9]{5})$/);
@@ -164,7 +168,15 @@
             this.canvas = this.$('#pg-canvas');
             this.stage = this.$('#pg-stage');
             this.overlay = this.$('#pg-overlay');
-            this.fit = Kit.canvas(this.canvas, this.$('#pg-wrap'), this.stage, W, H);
+            // En móvil vertical la pista se gira: palas abajo (tú) y arriba (rival)
+            this.fit = Kit.canvas(this.canvas, this.$('#pg-wrap'), this.stage, W, H, (api) => {
+                const v = window.innerWidth <= 700 && window.innerHeight > window.innerWidth;
+                if (v === this.vertical) return;
+                this.vertical = v;
+                api.lw = v ? H : W; api.lh = v ? W : H;
+                if (this.root.firstElementChild) this.root.firstElementChild.classList.toggle('pg-vertical', v);
+                api.resize();
+            });
             this.ctx = this.fit.ctx;
             // Patrón de líneas de barrido (CRT)
             const pc = document.createElement('canvas'); pc.width = 2; pc.height = 4;
@@ -182,6 +194,7 @@
                 serveTo: Math.random() < 0.5 ? 0 : 1,
                 rally: 0, hits: 0, maxRally: 0, maxSpd: BASE, lastHit: -1, winner: -1, time: 0,
                 st: [newSideStats(), newSideStats()],
+                target: target(),
                 demo: !!demo
             };
         }
@@ -240,7 +253,7 @@
             let real = b.spd, turbo = false;
             if (p.armed) {
                 turbo = true; p.armed = false; p.meter = 0;
-                real = Math.min(MAX * 1.25, b.spd * TURBO_MUL);
+                real = Math.min(MAX, b.spd * TURBO_MUL);   // el remate no pasa de la velocidad máxima (antes ×1,25: imposible de devolver)
                 s.st[i].turbos++;
             } else p.meter = Math.min(100, p.meter + METER_GAIN);
             const dir = i === 0 ? 1 : -1, ang = off * 1.0;
@@ -262,20 +275,27 @@
             for (let i = 0; i < 2; i++) s.st[i].maxDef = Math.max(s.st[i].maxDef, s.score[1 - i] - s.score[i]);
             this.events.push({ k: 'goal', i: scorer, y: b.y, turbo: b.turbo && s.lastHit === scorer });
             b.x = W / 2; b.y = H / 2; b.vx = 0; b.vy = 0; b.turbo = false;
-            if (s.score[scorer] >= WIN && !s.demo) { s.phase = 'over'; s.winner = scorer; this.events.push({ k: 'over' }); }
-            else if (s.score[scorer] >= WIN) { this.sim = this.newSim(true); }
+            const tgt = s.target || target();
+            const done = s.score[scorer] >= tgt && s.score[scorer] - s.score[1 - scorer] >= 2;
+            if (done && !s.demo) { s.phase = 'over'; s.winner = scorer; this.events.push({ k: 'over' }); }
+            else if (s.demo && s.score[scorer] >= 7) { this.sim = this.newSim(true); }
             else { s.phase = 'point'; s.timer = 1.3; s.serveTo = 1 - scorer; }
         }
 
         // ── Control de palas ────────────────────────────────
         controlLocal(p, dt) {
             const prev = p.y;
-            if (this.ctrl === 'pointer' && this.ptrY !== null) {
-                const d = this.ptrY - p.y, mx = PTR_SPEED * dt;
+            // Modo local: la pala 0 se lleva con W/S o su mitad de pantalla; la 1 con ↑/↓ o la otra mitad
+            const side = this.kind === 'local' ? this.sim.pads.indexOf(p) : 0;
+            const keys = side === 1 ? this.keys2 : this.keys;
+            let ptr = this.ctrl === 'pointer' ? this.ptrY : null;
+            if (this.kind === 'local') { ptr = null; for (const q of this.ptrs.values()) if (q.side === side) ptr = q.y; }
+            if (ptr !== null && ptr !== undefined && (this.kind === 'local' || this.ctrl === 'pointer')) {
+                const d = ptr - p.y, mx = PTR_SPEED * dt;
                 p.y += clamp(d, -mx, mx);
                 p.kv = 0;
             } else {
-                const dir = (this.keys.down ? 1 : 0) - (this.keys.up ? 1 : 0);
+                const dir = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
                 p.kv = Kit.approach(p.kv || 0, dir * KEY_SPEED, dt * 16);
                 p.y += p.kv * dt;
             }
@@ -317,6 +337,8 @@
             const s = this.sim;
 
             if (this.state === 'menu' || (this.state === 'over' && s.demo)) {
+                // La exhibición de fondo queda quieta con «reducir movimiento» y en móvil (ahorra batería)
+                if (this.staticDemo()) { this.updateTrail(dt); return; }
                 this.aiMove(0, DEMO_LEVEL, dt); this.aiMove(1, DEMO_LEVEL, dt);
                 this.simStep(dt);
                 this.consumeEvents(true);
@@ -324,10 +346,15 @@
                 if (this.kind === 'online' && this.net && this.net.role === 'guest') {
                     this.guestUpdate(dt);
                 } else {
-                    if (this.hitStop > 0) { this.hitStop -= dt; this.controlLocal(s.pads[0], dt); }
+                    if (this.hitStop > 0) { this.hitStop -= dt; this.controlLocal(s.pads[0], dt); if (this.kind === 'local') this.controlLocal(s.pads[1], dt); }
                     else {
                         this.controlLocal(s.pads[0], dt);
                         if (this.kind === 'cpu') this.aiMove(1, this.level, dt);
+                        else if (this.kind === 'local') {
+                            this.controlLocal(s.pads[1], dt);
+                            // En local el Turbo se arma solo al llenarse (no hay teclas libres para los dos)
+                            s.pads.forEach(p => { if (p.meter >= 100 && !p.armed) { p.armed = true; Nexus.audio.play('powerActivate'); } });
+                        }
                         this.simStep(dt);
                     }
                     this.consumeEvents(false);
@@ -391,6 +418,7 @@
             }
         }
 
+        staticDemo() { return !!Nexus.services.settings.get('reduceMotion') || window.matchMedia('(pointer: coarse)').matches; }
         calm() { return !!Nexus.services.settings.get('reduceMotion') || !Nexus.services.settings.get('pong.shake'); }
 
         sparks(x, y, color, n, speed, dir) {
@@ -447,11 +475,32 @@
             document.addEventListener('keydown', this.onKeyDown);
             document.addEventListener('keyup', this.onKeyUp);
 
-            const toY = (e) => { const r = this.canvas.getBoundingClientRect(); return clamp(((e.clientY - r.top) / r.height) * H, 0, H); };
+            // Posición del dedo/ratón en coordenadas de la pista (con la pista girada, el eje es el horizontal)
+            const toY = (e) => {
+                const r = this.canvas.getBoundingClientRect();
+                return this.vertical ? clamp(((e.clientX - r.left) / r.width) * H, 0, H) : clamp(((e.clientY - r.top) / r.height) * H, 0, H);
+            };
+            const sideOf = (e) => {
+                const r = this.canvas.getBoundingClientRect();
+                const flip = this.mirrored();
+                const s = this.vertical ? (e.clientY - r.top > r.height / 2 ? 0 : 1) : (e.clientX - r.left < r.width / 2 ? 0 : 1);
+                return flip ? 1 - s : s;
+            };
+            const track = (e) => {
+                if (this.kind === 'local') { const q = this.ptrs.get(e.pointerId); if (q) q.y = toY(e); return; }
+                this.ptrY = toY(e); this.ctrl = 'pointer';
+            };
             this.stage.addEventListener('pointermove', (e) => {
-                if (e.pointerType === 'mouse' || e.buttons || e.pointerType === 'touch') { this.ptrY = toY(e); this.ctrl = 'pointer'; }
+                if (e.pointerType === 'mouse' || e.buttons || e.pointerType === 'touch') track(e);
             });
-            this.stage.addEventListener('pointerdown', (e) => { this.ptrY = toY(e); this.ctrl = 'pointer'; });
+            this.stage.addEventListener('pointerdown', (e) => {
+                if (this.kind === 'local') { this.ptrs.set(e.pointerId, { side: sideOf(e), y: toY(e) }); return; }
+                track(e);
+            });
+            const drop = (e) => this.ptrs.delete(e.pointerId);
+            this.stage.addEventListener('pointerup', drop);
+            this.stage.addEventListener('pointercancel', drop);
+            this.stage.addEventListener('pointerleave', (e) => { if (e.pointerType !== 'mouse') drop(e); });
 
             Kit.touchButtons(this.$('#pg-touch'), (a) => {
                 if (a === 'turbo') this.arm();
@@ -469,10 +518,15 @@
 
         handleKey(k, down, repeat) {
             const map = { ArrowUp: 'up', ArrowDown: 'down', w: 'up', s: 'down', W: 'up', S: 'down' };
-            if (map[k]) { this.keys[map[k]] = down; if (down) this.ctrl = 'keys'; return this.state === 'playing' || this.state === 'paused'; }
+            if (map[k]) {
+                // En local: W/S para la pala izquierda y ↑/↓ para la derecha
+                const keys = this.kind === 'local' && k.startsWith('Arrow') ? this.keys2 : this.keys;
+                keys[map[k]] = down; if (down) this.ctrl = 'keys';
+                return this.state === 'playing' || this.state === 'paused';
+            }
             if (!down) return false;
             if (k === 'p' || k === 'P' || k === 'Escape') {
-                if (this.kind === 'cpu') {
+                if (this.kind === 'cpu' || this.kind === 'local') {
                     if (this.state === 'playing') this.pause(); else if (this.state === 'paused') this.resume();
                     return true;
                 }
@@ -509,11 +563,12 @@
             Nexus.audio.play('click');
             switch (d) {
                 case 'go-cpu': this.kind = 'cpu'; this.showCpu(); this.updateSide(true); break;
+                case 'go-local': this.startLocal(); break;
                 case 'go-online': this.showOnline(); break;
                 case 'home': this.leaveOnline(); this.showHome(); break;
-                case 'start': case 'restart': this.startCpu(); break;
+                case 'start': case 'restart': if (this.kind === 'local') this.startLocal(); else this.startCpu(); break;
                 case 'resume': this.resume(); break;
-                case 'menu': this.state = 'menu'; this.sim = this.newSim(true); this.showCpu(); break;
+                case 'menu': this.state = 'menu'; this.sim = this.newSim(true); if (this.kind === 'local') { this.kind = 'cpu'; this.showHome(); } else this.showCpu(); this.updateSide(true); break;
                 case 'create': this.createRoom(); break;
                 case 'join': this.joinRoom(b.dataset.code); break;
                 case 'join-code': { const i = this.$('#pg-code'); this.joinRoom(i ? i.value : ''); break; }
@@ -541,17 +596,25 @@
             this.updateSide(true);
         }
 
+        /** Dos jugadores en el mismo dispositivo: W/S contra ↑/↓, o cada mitad de la pantalla táctil. */
+        startLocal() {
+            this.startCpu();
+            this.kind = 'local';
+            this.ptrs.clear(); this.keys2.up = this.keys2.down = false;
+            this.updateSide(true);
+        }
+
         pause() {
-            if (this.state !== 'playing' || this.kind !== 'cpu') return;
+            if (this.state !== 'playing' || (this.kind !== 'cpu' && this.kind !== 'local')) return;
             this.state = 'paused';
-            this.keys.up = this.keys.down = false;
+            this.keys.up = this.keys.down = false; this.keys2.up = this.keys2.down = false; this.ptrs.clear();
             this.overlay.hidden = false;
             this.overlay.innerHTML = `<div class="ax-panel">
                 <h2 class="ax-big">PAUSA</h2>
                 <div class="ax-play-row">
                     <button class="btn btn-primary" data-do="resume" type="button">▶ Continuar</button>
                     <button class="btn btn-ghost" data-do="restart" type="button">🔄 Reiniciar</button>
-                    <button class="btn btn-ghost" data-do="menu" type="button">☰ Niveles</button>
+                    <button class="btn btn-ghost" data-do="menu" type="button">☰ ${this.kind === 'local' ? 'Menú' : 'Niveles'}</button>
                 </div></div>`;
         }
         resume() {
@@ -568,12 +631,17 @@
             this.overlay.hidden = false;
             this.overlay.innerHTML = `<div class="ax-panel pg-panel">
                 <div class="pg-logo"><span class="pg-logo-a">PONG</span><span class="pg-logo-b">TURBO</span></div>
-                <p class="ax-sub">La bola acelera con cada golpe. Carga el ⚡ Turbo y remata. Gana quien llegue a ${WIN}.</p>
+                <p class="ax-sub">La bola acelera con cada golpe. Carga el ⚡ Turbo y remata. Gana quien llegue a ${target()} con 2 de ventaja (⚙️ para jugar a 7, 11 o 21).</p>
                 <div class="pg-choices">
                     <button type="button" class="pg-choice" data-do="go-cpu">
                         <span class="pg-choice-emoji">🤖</span>
                         <strong>Contra la máquina</strong>
                         <small>4 niveles: Fácil, Normal, Difícil y Maestro</small>
+                    </button>
+                    <button type="button" class="pg-choice local" data-do="go-local">
+                        <span class="pg-choice-emoji">👥</span>
+                        <strong>2 jugadores</strong>
+                        <small>En este dispositivo: W/S contra ↑/↓, o una mitad de la pantalla cada uno</small>
                     </button>
                     <button type="button" class="pg-choice online" data-do="go-online">
                         <span class="pg-choice-emoji">🌐</span>
@@ -834,7 +902,7 @@
                 <h2 class="ax-big">SALA ${esc(n.code)}</h2>
                 <p class="ax-sub">${mode === 'p2p' ? '⚡ Conexión directa entre navegadores' : '📡 Conexión retransmitida (algo más de latencia)'}${conn.rtt != null ? ` · ${Math.round(conn.rtt)} ms` : ''}</p>
                 <div class="pg-seats">${card(mine, true, ready[me])}<span class="pg-vs-badge">VS</span>${card(peer, false, ready[1 - me])}</div>
-                <p class="ax-hint">La partida empieza cuando los dos estéis listos. Primero en llegar a ${WIN} gana.</p>
+                <p class="ax-hint">La partida empieza cuando los dos estéis listos. Gana quien llegue a ${target()} con 2 puntos de ventaja (lo fija el anfitrión).</p>
                 <div class="ax-play-row">
                     <button class="btn ${ready[me] ? 'btn-ghost' : 'btn-primary btn-glow'}" data-do="ready" type="button">${ready[me] ? '✋ No estoy listo' : '✅ ¡Listo!'}</button>
                     <button class="btn btn-ghost" data-do="cancel-room" type="button">🚪 Salir de la sala</button>
@@ -1061,6 +1129,7 @@
             this.state = 'over';
             this.keys.up = this.keys.down = false;
             if (!d || !Array.isArray(d.score) || !Array.isArray(d.st)) return;
+            if (this.kind === 'local') { this.finishLocal(d, quiet); return; }
             const me = this.meIdx(), won = d.winner === me;
             const my = d.score[me] | 0, opp = d.score[1 - me] | 0;
             const online = this.kind === 'online';
@@ -1113,6 +1182,29 @@
                 });
             };
             this.later(open, 900);
+        }
+
+        /** Fin de una partida local: no cuenta para estadísticas ni logros (no hay forma de saber quién eres). */
+        finishLocal(d, quiet) {
+            this.ptrs.clear();
+            if (quiet) return;
+            Nexus.audio.play('win');
+            const w = d.winner === 0 ? 1 : 2;
+            const stats = [
+                { label: 'Marcador', value: `${d.score[0]} – ${d.score[1]}` },
+                { label: 'Peloteo máx.', value: String(d.maxRally | 0) },
+                { label: 'Tiempo', value: Nexus.util.formatTime(d.time || 0) }
+            ];
+            this.later(() => {
+                if (this.destroyed) return;
+                this.resultModal = Nexus.ui.modal.resultModal({
+                    emoji: '🏆', kind: 'win', title: `¡GANA EL JUGADOR ${w}!`, subtitle: `${this.vertical ? (w === 1 ? 'Abajo' : 'Arriba') : (w === 1 ? 'Izquierda' : 'Derecha')} · las partidas a dos no cuentan para las estadísticas`, stats,
+                    actions: [
+                        { label: '🔄 Revancha', kind: 'primary', onClick: () => this.later(() => this.startLocal(), 50) },
+                        { label: '☰ Menú', kind: 'ghost', onClick: () => this.later(() => { this.state = 'menu'; this.kind = 'cpu'; this.sim = this.newSim(true); this.showHome(); this.updateSide(true); }, 50) }
+                    ]
+                });
+            }, 900);
         }
 
         // ── Utilidades de interfaz ──────────────────────────
@@ -1176,8 +1268,10 @@
             const peer = online && this.net.peer;
             const isOnline = this.kind === 'online';
             { const fv = isOnline ? (peer ? peer.avatar : '❔') : '🤖', fe = this.$('#pg-foe-av'); if (fe && fe.dataset.raw !== fv) { fe.dataset.raw = fv; fe.innerHTML = Nexus.ui.avatar.html(fv); } }
-            set('pg-foe-name', isOnline ? (peer ? peer.name : 'Rival') : 'CPU');
-            set('pg-mode', this.kind === 'online' ? '🌐 Online' : `${this.level.emoji} ${this.level.label}`);
+            set('pg-foe-name', isOnline ? (peer ? peer.name : 'Rival') : this.kind === 'local' ? 'Jugador 2' : 'CPU');
+            if (this.kind === 'local') set('pg-me-name', 'Jugador 1');
+            set('pg-mode', this.kind === 'online' ? '🌐 Online' : this.kind === 'local' ? '👥 2 jugadores' : `${this.level.emoji} ${this.level.label}`);
+            this.root.firstElementChild.classList.toggle('pg-local', this.kind === 'local');
             const ms = Nexus.services.progress.stats('pong').byMode[this.kind === 'online' ? 'online' : this.level.id];
             set('pg-wins', ms ? ms.wins : 0);
             this.$('#pg-net-card').hidden = !online;
@@ -1199,6 +1293,8 @@
         draw() {
             const ctx = this.ctx, s = this.sim, t = this.t;
             ctx.save();
+            // Pista girada (móvil vertical): (x, y) de la simulación → (y, W − x) en pantalla; tu pala queda abajo
+            if (this.vertical) ctx.transform(0, -1, 1, 0, 0, W);
             if (this.shake > 0 && !this.calm()) ctx.translate((Math.random() - 0.5) * this.shake * 10, (Math.random() - 0.5) * this.shake * 10);
 
             // Fondo
@@ -1228,6 +1324,7 @@
                 const pop = this.scorePop[side];
                 ctx.save();
                 ctx.translate(x, H / 2); ctx.scale(1 + pop * 0.25, 1 + pop * 0.25);
+                if (this.vertical) ctx.rotate(Math.PI / 2);   // el texto se lee derecho con la pista girada
                 ctx.font = '800 230px Outfit, system-ui, sans-serif';
                 ctx.fillStyle = Kit.rgba(c, (live ? 0.08 : 0.05) + pop * 0.25);
                 ctx.fillText(String(v), 0, 8);
@@ -1294,7 +1391,8 @@
                 ctx.font = `800 ${f.size}px Outfit, system-ui, sans-serif`;
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.shadowColor = f.color; ctx.shadowBlur = 18;
-                Nexus.ui.icons.fillRich(ctx, f.text, f.x, f.y, { color: '#fff' });
+                ctx.translate(f.x, f.y); if (this.vertical) ctx.rotate(Math.PI / 2);
+                Nexus.ui.icons.fillRich(ctx, f.text, 0, 0, { color: '#fff' });
                 ctx.restore();
             }
 
@@ -1306,13 +1404,14 @@
                 ctx.font = '800 120px Outfit, system-ui, sans-serif';
                 ctx.globalAlpha = 0.35 + fr * 0.65;
                 ctx.translate(W / 2, H / 2); ctx.scale(0.8 + fr * 0.5, 0.8 + fr * 0.5);
+                if (this.vertical) ctx.rotate(Math.PI / 2);
                 ctx.shadowColor = '#a78bfa'; ctx.shadowBlur = 30;
                 ctx.fillStyle = '#fff'; ctx.fillText(c > 0 ? String(c) : '¡YA!', 0, 0);
                 ctx.restore();
             }
 
             // Velocímetro
-            if (live && s.phase === 'live' && this.state === 'playing') {
+            if (live && s.phase === 'live' && this.state === 'playing' && !this.vertical) {   // girada: ya está en la cabecera
                 const ratio = Math.hypot(s.ball.vx, s.ball.vy) / BASE;
                 const w = 150, x = W / 2 - w / 2, y = H - WALL - 18;
                 ctx.save();

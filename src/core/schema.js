@@ -28,7 +28,12 @@
         'wordle.colorblind': false,
         'tetris.ghost': true,
         'snake.grid': true,
-        'pong.shake': true,            // sacudida de pantalla en golpes y puntos
+        'snake.dpad': false,           // cruceta táctil (si no, solo deslizar)
+        'pacman.dpad': false,
+        'pong.shake': true,
+        'pong.target': '11',
+        'brisca.showScore': false,     // Brisca: marcador visible durante la mano (para aprender)
+        'guinote.partnerCante': false, // Guiñote: también puede cantar el compañero de quien gana la baza           // puntos para ganar (7, 11 o 21; con 2 de ventaja)            // sacudida de pantalla en golpes y puntos
         'pong.publicRooms': true,      // las salas nuevas aparecen en el buscador
         'online.publicRooms': true,    // ídem para Ajedrez y Hundir la flota
         'chess.showLegal': true,       // marcar las jugadas legales

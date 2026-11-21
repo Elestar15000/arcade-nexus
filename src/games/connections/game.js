@@ -6,6 +6,24 @@
 (function () {
     'use strict';
 
+    /** Separación silábica aproximada del español (V-CV, VC-CV salvo grupos inseparables) para cortar palabras largas. */
+    function syllables(word) {
+        const V = /[aeiouáéíóúü]/i, KEEP = /^(bl|br|cl|cr|dr|fl|fr|gl|gr|kl|pl|pr|tr|ch|ll|rr|qu)$/i;
+        const s = [...word], cut = [];
+        for (let i = 1; i < s.length - 1; i++) {
+            const a = s[i - 1], b = s[i], c = s[i + 1];
+            if (!V.test(b) && V.test(c) && V.test(a)) cut.push(i);                          // V-CV
+            else if (!V.test(b) && !V.test(c) && V.test(a) && i + 2 < s.length && V.test(s[i + 2]) && !KEEP.test(b + c)) cut.push(i + 1);   // VC-CV
+            else if (!V.test(b) && !V.test(c) && V.test(a) && KEEP.test(b + c)) cut.push(i);  // V-CCV con grupo inseparable
+            else if (V.test(a) && !V.test(b) && !V.test(c) && i + 2 < s.length && !V.test(s[i + 2]) && i + 3 < s.length && V.test(s[i + 3]))
+                cut.push(KEEP.test(c + s[i + 2]) ? i + 1 : i + 2);                              // VC-CCV / VCC-CV
+        }
+        const out = []; let p = 0;
+        [...new Set(cut)].sort((x, y) => x - y).forEach(k => { if (k - p >= 2 && s.length - k >= 2) { out.push(s.slice(p, k).join('')); p = k; } });
+        out.push(s.slice(p).join(''));
+        return out;
+    }
+
     const { esc, formatTime, formatNumber } = Nexus.util;
     const COLORS = ['amarillo', 'verde', 'azul', 'morado'];
     const SQ = ['🟨', '🟩', '🟦', '🟪'];
@@ -156,7 +174,8 @@
         render() {
             if (!this.groups) return;
             this.$('#cx-solved').innerHTML = this.solved.map(i => { const g = this.groups[i]; return `<div class="cx-row c-${COLORS[g.lv]}"><b>${esc(g.name)}</b><span>${g.words.map(esc).join(', ')}</span></div>`; }).join('');
-            this.$('#cx-grid').innerHTML = this.order.map(w => `<button type="button" class="cx-tile ${this.sel.includes(w) ? 'sel' : ''} ${w.length > 9 ? 'long' : ''}" data-w="${esc(w)}">${esc(w)}</button>`).join('');
+            // Palabras largas: letra más pequeña y cortes por sílabas (guion suave) en lugar de partir en cualquier letra
+            this.$('#cx-grid').innerHTML = this.order.map(w => `<button type="button" class="cx-tile ${this.sel.includes(w) ? 'sel' : ''} ${w.length > 12 ? 'long xlong' : w.length > 9 ? 'long' : ''}" data-w="${esc(w)}" aria-label="${esc(w)}">${w.length > 8 ? syllables(w).map(esc).join('&shy;') : esc(w)}</button>`).join('');
             const left = this.mode.lives - this.misses;
             this.$('#cx-lives').innerHTML = `Fallos restantes: ${'<i class="on"></i>'.repeat(Math.max(0, left))}${'<i></i>'.repeat(Math.max(0, this.misses))}`;
             this.$('[data-c="submit"]').disabled = this.sel.length !== 4;

@@ -66,3 +66,26 @@
     .ax-modes { grid-template-columns: 1fr; }
 }
 .ax-card[hidden], .ax-touch button[hidden] { display: none; }
+
+/* ── Controles táctiles flotantes sobre el tablero (auditoría F4) ── */
+.ax-touch.ax-float { position: absolute; inset: auto 0 0 0; padding: 0 10px 10px; pointer-events: none; justify-content: space-between; align-items: flex-end; z-index: 4; background: none; }
+.ax-touch.ax-float > * { pointer-events: auto; }
+.ax-touch.ax-float > button { min-width: 46px; min-height: 46px; font-size: 1.15em; border-radius: 50%; background: color-mix(in srgb, var(--bg-card) 70%, transparent); backdrop-filter: blur(3px); margin-left: auto; }
+.ax-touch.ax-float > button + button { margin-left: 8px; }
+.ax-touch.ax-float .ax-pad { display: none; opacity: .55; }
+.ax-touch.ax-float .ax-pad button { background: color-mix(in srgb, var(--bg-card) 55%, transparent); }
+.ax-dpad-on .ax-touch.ax-float .ax-pad { display: grid; }
+.ax-touch.ax-float:has(.ax-pad) { flex-wrap: nowrap; }
+.ax-touch.ax-float > button.empty { opacity: .4; }
+.sn-legend-card > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; }
+.sn-legend-card > summary::-webkit-details-marker { display: none; }
+.sn-legend-card > summary::after { content: '▾'; color: var(--text-muted); transition: transform .2s; }
+.sn-legend-card[open] > summary::after { transform: rotate(180deg); }
+.sn-legend-card > summary h3 { margin: 0; }
+.sn-legend-card[open] > summary { margin-bottom: 10px; }
+/* Menú de modos compacto en móvil: sólo el modo elegido muestra su descripción */
+@media (max-width: 600px) {
+    .ax-modes { gap: 6px; }
+    .ax-mode { padding: 8px 10px; }
+    .ax-mode:not(.on) .ax-mode-text small { display: none; }
+}

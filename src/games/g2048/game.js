@@ -87,10 +87,10 @@
         }
         layout() {
             return {
-                main: `<div class="g2-top"><div class="g2-box"><small>Puntos</small><b id="g2-score">0</b></div><div class="g2-box"><small id="g2-sublbl">Récord</small><b id="g2-rec">0</b></div>
-                        <button type="button" class="btn btn-ghost" id="g2-undo">↶ Deshacer <span id="g2-undo-n"></span></button></div>
+                main: `<div class="g2-zone" id="g2-zone"><div class="g2-top"><div class="g2-box"><small>Puntos</small><b id="g2-score">0</b></div><div class="g2-box"><small id="g2-sublbl">Récord</small><b id="g2-rec">0</b></div></div>
                     <div class="g2-wrap"><div class="g2-board" id="g2-board"><div class="g2-bg" id="g2-bg"></div><div class="g2-tiles" id="g2-tiles"></div></div></div>
-                    <p class="ax-hint g2-tip">Desliza en el tablero o usa las flechas del teclado.</p>`,
+                    <div class="g2-bottom"><button type="button" class="btn btn-ghost" id="g2-undo">↶ Deshacer <span id="g2-undo-n"></span></button></div>
+                    <p class="ax-hint g2-tip">Desliza en cualquier parte de esta zona o usa las flechas del teclado.</p></div>`,
                 side: `<div class="ax-card"><h3>Partida</h3><div class="ax-rows">
                     <div class="ax-row"><span>Modo</span><b data-s="mode">–</b></div>
                     <div class="ax-row"><span>Movimientos</span><b data-s="moves">0</b></div>
@@ -106,14 +106,15 @@
                 else if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); this.undo(); }
             };
             document.addEventListener('keydown', this.onKey);
-            Kit.swipe(this.$('#g2-board'), (d) => { if (d !== 'tap' && this.state === 'playing') this.move(d); }, { threshold: 26, chain: false });
+            // Deshacer queda bajo el tablero (el pulgar no lo roza al deslizar) y el gesto vale en toda la zona de juego
+            Kit.swipe(this.$('#g2-zone'), (d) => { if (d !== 'tap' && this.state === 'playing') this.move(d); }, { threshold: 26, chain: false });
             this.$('#g2-undo').addEventListener('click', () => this.undo());
         }
         onDestroy() { document.removeEventListener('keydown', this.onKey); }
 
         newGame(mode, r) {
             this.n = mode.n; this.seed = Math.floor(r() * 2 ** 31); this.spawns = 0;
-            this.tiles = []; this.score = 0; this.moves = 0; this.idc = 1; this.reached = false; this.undos = mode.undo; this.hist = [];
+            this.tiles = []; this.score = 0; this.moves = 0; this.idc = 1; this.reached = false; this.winRecorded = false; this.undos = mode.undo; this.hist = [];
             this.add(); this.add();
             this.buildBg();
         }
@@ -123,8 +124,8 @@
             const t = spawn(this.tiles, this.n, r, this.idc++);
             if (t) this.tiles.push(t);
         }
-        serialize() { return { n: this.n, seed: this.seed, sp: this.spawns, t: this.tiles.map(({ id, v, r, c }) => ({ id, v, r, c })), sc: this.score, m: this.moves, id: this.idc, re: this.reached, u: this.undos }; }
-        restore(d) { this.n = d.n; this.seed = d.seed; this.spawns = d.sp; this.tiles = d.t; this.score = d.sc; this.moves = d.m; this.idc = d.id; this.reached = d.re; this.undos = d.u; this.hist = []; this.buildBg(); this.dom = null; }
+        serialize() { return { n: this.n, seed: this.seed, sp: this.spawns, t: this.tiles.map(({ id, v, r, c }) => ({ id, v, r, c })), sc: this.score, m: this.moves, id: this.idc, re: this.reached, u: this.undos, wr: !!this.winRecorded }; }
+        restore(d) { this.n = d.n; this.seed = d.seed; this.spawns = d.sp; this.tiles = d.t; this.score = d.sc; this.moves = d.m; this.idc = d.id; this.reached = d.re; this.undos = d.u; this.winRecorded = !!d.wr; this.hist = []; this.buildBg(); this.dom = null; }
 
         buildBg() {
             this.$('#g2-board').style.setProperty('--n', this.n);
@@ -144,7 +145,14 @@
             const max = Math.max(...this.tiles.map(t => t.v));
             if (this.mode.target && !this.reached && max >= this.mode.target) {
                 this.reached = true; Nexus.audio.play('achievement');
-                this.toast(`¡${this.mode.target}! Puedes seguir para mejorar tu puntuación`, 3200);
+                // La victoria se registra al llegar (antes sólo al terminar: quien cerraba la pestaña no la tenía)
+                if (!this.winRecorded) {
+                    this.winRecorded = true;
+                    Nexus.services.progress.recordGame({ game: 'g2048', mode: this.mode.id, won: true, score: this.score, time: this.elapsed,
+                        xp: Math.round(30 + this.score / 60), extra: { maxTile: max, n: this.n, reachedTarget: true },
+                        updateExtra: (x) => { x.maxTile = Math.max(x.maxTile || 0, max); } });
+                }
+                this.toast(`🏆 ¡${this.mode.target}! Victoria registrada. Sigue en modo infinito para subir la puntuación`, 3600);
             }
             if (this.mode.moves && this.moves >= this.mode.moves) { this.end('moves'); return; }
             if (!canMove(this.tiles, this.n)) this.end('stuck');
@@ -167,12 +175,13 @@
         }
         end(why) {
             const max = Math.max(...this.tiles.map(t => t.v));
-            const won = !!this.mode.target && max >= this.mode.target;
-            const endless = !this.mode.target;
+            // Si la victoria ya se registró al llegar al objetivo, el final cuenta como partida infinita (puntuación), no como otra victoria
+            const won = !!this.mode.target && max >= this.mode.target && !this.winRecorded;
+            const endless = !this.mode.target || !!this.winRecorded;
             this.finish({
                 won, endless, score: this.score, label: `${formatNumber(this.score)} pts`,
-                emoji: won ? '🏆' : endless ? '🎯' : '🧱',
-                title: why === 'time' ? '¡TIEMPO!' : why === 'moves' ? 'FIN DEL RETO' : won ? `¡${max}!` : 'SIN MOVIMIENTOS',
+                emoji: won || this.winRecorded ? '🏆' : endless ? '🎯' : '🧱',
+                title: why === 'time' ? '¡TIEMPO!' : why === 'moves' ? 'FIN DEL RETO' : won || this.winRecorded ? `¡${max}!` : 'SIN MOVIMIENTOS',
                 stats: [{ label: 'Puntos', value: formatNumber(this.score) }, { label: 'Mejor ficha', value: String(max) }, { label: 'Movimientos', value: String(this.moves) }],
                 extra: { maxTile: max, n: this.n },
                 updateExtra: (x) => { x.maxTile = Math.max(x.maxTile || 0, max); }
