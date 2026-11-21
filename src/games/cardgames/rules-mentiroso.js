@@ -47,10 +47,13 @@
             phase: 'turn', log: [], pause: 0, over: null, round: 1,
             stats: Array.from({ length: n }, () => ({ calls: 0, goodCalls: 0, lies: 0, caught: 0, picked: 0, bluffWin: false })) };
         const d = K.shuffle(K.deck40());
+        // Mano a mano: 12 cartas a cada uno y 16 fuera de juego (boca abajo). Con 20 por cabeza y cada acusación
+        // devolviendo el montón entero, las partidas a dos se alargaban muchísimo.
+        if (n === 2) { st.aside = d.splice(0, 16).length; }
         let i = 0; while (d.length) { st.hands[i].push(d.pop()); i = next(st, i); }
         for (let s = 0; s < n; s++) dropQuads(st, s);
         st.turnSeat = Math.floor(Math.random() * n);
-        log(st, `Se reparten todas las cartas. Abre ${who(st, st.turnSeat)}.`);
+        log(st, n === 2 ? `Mano a mano: 12 cartas cada uno y 16 fuera de juego. Abre ${who(st, st.turnSeat)}.` : `Se reparten todas las cartas. Abre ${who(st, st.turnSeat)}.`);
         return st;
     }
 

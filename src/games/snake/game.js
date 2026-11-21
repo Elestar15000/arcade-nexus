@@ -244,7 +244,40 @@
         }
         ensureApples() {
             const n = this.foods.filter(f => f.type === 'apple').length;
-            for (let i = n; i < this.mode.apples; i++) this.spawnFood('apple');
+            for (let i = n; i < this.mode.apples; i++) {
+                if (this.spawnFood('apple')) continue;
+                // Sin hueco para otra manzana: si la serpiente llena el tablero, ¡victoria!
+                const b = this.bounds(), cells = (b.x1 - b.x0 + 1) * (b.y1 - b.y0 + 1);
+                if (this.state === 'playing' && !this.foods.length && this.snake.length >= cells - this.rocks.length) this.die('¡Has llenado el tablero!', true);
+                break;
+            }
+        }
+        /** ¿Hay un tramo del cuerpo partido por un portal (la serpiente lo está cruzando)? */
+        crossingPortal() {
+            for (let i = 1; i < this.snake.length; i++) {
+                const a = this.snake[i - 1], b = this.snake[i];
+                if (Math.abs(a.x - b.x) + Math.abs(a.y - b.y) > 1) return true;
+            }
+            return false;
+        }
+        /** ¿Sigue alcanzable la comida (y la mayor parte del tablero) si se pone una roca en c? */
+        rockIsSafe(c) {
+            const b = this.bounds(), blocked = new Set();
+            for (const r of this.rocks) blocked.add(key(r.x, r.y));
+            blocked.add(key(c.x, c.y));
+            for (let i = 1; i < this.snake.length - 1; i++) blocked.add(key(this.snake[i].x, this.snake[i].y));
+            const h = this.snake[0], seen = new Set([key(h.x, h.y)]), q = [h];
+            for (let qi = 0; qi < q.length; qi++) {
+                const p = q[qi];
+                for (const d of Object.values(DIRS)) {
+                    const x = p.x + d.x, y = p.y + d.y, k = key(x, y);
+                    if (x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1 || seen.has(k) || blocked.has(k)) continue;
+                    seen.add(k); q.push({ x, y });
+                }
+            }
+            if (this.foods.some(f => !seen.has(key(f.x, f.y)))) return false;
+            const free = (b.x1 - b.x0 + 1) * (b.y1 - b.y0 + 1) - blocked.size;
+            return seen.size >= free * 0.9;     // no deja bolsas cerradas grandes
         }
         pickPower() {
             const list = Object.entries(FOODS).filter(([, d]) => d.power);
@@ -293,7 +326,8 @@
             this.ensureApples();
 
             // Portales
-            if (this.portals) { if ((this.portals.ttl -= dt) <= 0) { this.portals = null; this.portalCd = 7; } }
+            // No se cierran mientras el cuerpo los está cruzando (antes quedaba partido en el dibujo)
+            if (this.portals) { if ((this.portals.ttl -= dt) <= 0 && !this.crossingPortal()) { this.portals = null; this.portalCd = 7; } }
             else if (this.portalCd > 0) this.portalCd -= dt;
 
             // Zona
@@ -460,7 +494,9 @@
                 if (this.apples >= 5 && Math.random() < 0.13) this.spawnFood('shroom');
             }
             if (m.rocks && this.apples % 4 === 0 && this.rocks.length < 16) {
-                const c = this.freeCell(4, true);
+                // Nunca una roca que encierre la comida o cierre un pasillo (antes había muertes inevitables)
+                let c = null;
+                for (let tries = 0; tries < 24 && !c; tries++) { const x = this.freeCell(4, true); if (x && this.rockIsSafe(x)) c = x; }
                 if (c) { this.rocks.push(c); this.burst(c.x, c.y, '#94a3b8', 8); }
             }
             if (m.portals && !this.portals && this.portalCd <= 0 && this.apples >= 6) this.spawnPortals();
@@ -837,7 +873,7 @@
                 `<div class="sn-leg"><span class="sn-leg-icon">${d.emoji}</span><span><b>${d.name}</b><small>${d.desc}</small></span></div>`).join('');
         }
 
-        die(reason) {
+        die(reason, won = false) {
             if (this.state === 'over') return;
             this.state = 'over';
             if (this.run) this.run.clear();
@@ -846,8 +882,9 @@
             const h = this.snake[0];
             this.burst(h.x, h.y, '#4ade80', 30);
             this.snake.forEach(s => this.burst(s.x, s.y, '#22c55e', 2));
-            Nexus.audio.play('lose');
+            Nexus.audio.play(won ? 'win' : 'lose');
             const m = this.mode;
+            if (won) { this.stats.fullBoard = 1; this.score += 5000; }
             const xp = Math.min(400, Math.round(this.score / 12) + this.apples + this.stats.kills * 15);
             const result = Nexus.services.progress.recordGame({
                 game: 'snake', mode: m.id, won: false, endless: true, score: Math.round(this.score), time: Math.round(this.time), xp,
@@ -866,7 +903,7 @@
             const open = () => {
                 if (this.destroyed) return;
                 this.resultModal = Nexus.ui.modal.resultModal({
-                    emoji: '🐍', kind: 'lose', title: 'FIN DE LA PARTIDA', subtitle: reason, stats, result,
+                    emoji: won ? '🏆' : '🐍', kind: won ? 'win' : 'lose', title: won ? '¡TABLERO COMPLETO!' : 'FIN DE LA PARTIDA', subtitle: reason, stats, result,
                     actions: [
                         { label: '🔄 Otra partida', kind: 'primary', onClick: () => { this.later(() => this.newGame(), 50); } },
                         { label: '☰ Cambiar modo', kind: 'ghost', onClick: () => { this.later(() => { this.state = 'menu'; this.showMenu(); }, 50); } },
@@ -1144,6 +1181,8 @@
             test: (c) => { const e = ev(c); return !!e && e.extra.hopOver >= 1; } },
         { id: 'sn_ghost', game: 'snake', name: 'Intangible', desc: 'Atraviesa tu propio cuerpo con 👻 Fantasma.', icon: '👻', rarity: 'common',
             test: (c) => { const e = ev(c); return !!e && e.extra.ghostPass >= 1; } },
+        { id: 'sn_full', game: 'snake', name: 'Sin hueco', desc: 'Llena el tablero entero con la serpiente.', icon: '🏆', rarity: 'legendary',
+            test: (c) => { const e = ev(c); return !!e && e.extra.fullBoard >= 1; } },
         { id: 'sn_portal', game: 'snake', name: 'Viajero dimensional', desc: 'Cruza 8 portales en una partida.', icon: '🌀', rarity: 'common',
             test: (c) => { const e = ev(c); return !!e && e.extra.portals >= 8; } },
         { id: 'sn_shroom', game: 'snake', name: 'Mal viaje', desc: 'Come 3 setas 🍄 en una partida.', icon: '🍄', rarity: 'common',

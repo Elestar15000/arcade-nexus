@@ -253,6 +253,9 @@ siempre abren en su modo por defecto.
   Eliges color, puedes deshacer y ofrecer tablas (la CPU acepta si no va ganando). La partida se guarda y se recupera.
 - **Online**: jugadas con número de orden por canal fiable; un latido cada 4 s detecta jugadas perdidas y resincroniza. Rendirse,
   ofrecer tablas, revancha alternando colores. Salir a mitad cuenta como derrota.
+- **Reloj online**: el anfitrión elige el control de tiempo en la sala (3+2, 5+0, 10+5, 15+10 o sin reloj; se recuerda). Incremento
+  Fischer por jugada; cada jugada viaja con los dos relojes. Quien llega a 0 pierde, salvo que el rival no tenga material para dar
+  mate (tablas). Si el rival no avisa de su caída, se reclama con 2 s de margen.
 
 ## Hundir la flota
 
@@ -283,6 +286,7 @@ siempre abren en su modo por defecto.
 `src/games/shared/online.js` (`Nexus.games.OnlineLobby`) da a cualquier juego por turnos el vestíbulo completo: crear sala pública o
 privada, unirse con código, enlace (`#/game/<juego>/<CÓDIGO>`) o buscador, sala con «¡Listo!» y revancha, y aviso si el rival se
 va. Lo usan Ajedrez y Hundir la flota sobre la misma red de `src/core/net.js` que Pong.
+- **Tiempo por disparo online**: 35 s por disparo (se reinicia con cada disparo); al agotarse se dispara al azar a una casilla sin tocar.
 
 ## Panel de administración
 
@@ -391,6 +395,9 @@ se cierra. Al acabar, todos vuelven a la mesa para jugar otra.
 Las reglas son módulos puros (`rules-tricks.js` para Brisca y Guiñote, `rules-chinchon.js`) con la misma interfaz
 (`setup / validate / apply / step / view / bot / turn`) y se prueban con `node tests/cardgames_rules_test.mjs`, que juega cientos de
 partidas completas entre bots.
+- **Tiempo de turno online** (todas las mesas, también Póker y Mentiroso): 30 s por decisión (25 s en Póker), con barra en el asiento
+  que juega. Al agotarse se juega solo (en Póker pasa o se retira; en el resto, la jugada del bot). Tres turnos seguidos sin jugar:
+  le sustituye un bot y la mesa sigue. Contra la CPU no hay límite.
 
 ## Póker, Mentiroso y Solitario
 
@@ -472,6 +479,8 @@ python3 tests/e2e_admin.py       # panel de administración: Google Authenticato
 python3 tests/e2e_turnbased.py    # Ajedrez y Hundir la flota: CPU y online (sincronía, tablas, revancha, anti-trampas, abandono)
 python3 tests/e2e_cards.py        # Brisca, Guiñote y Chinchón: CPU y online con 2 y 3 navegadores + bot, sustitución, vuelta a la mesa
 python3 tests/e2e_cards_more.py   # Póker y Mentiroso (CPU y online) y Solitario (tocar, arrastrar, deshacer, pista, terminar, diario)
+python3 tests/e2e_timers.py       # tiempo de turno online: cartas (jugada automática, bot tras 3), reloj de ajedrez, disparo automático
+python3 tests/e2e_audit.py        # correcciones de la auditoría de juegos (fases 1 y 2)
                                   # (las tres anteriores arrancan brokers MQTT locales: tests/mqtt_test_broker.mjs; sin Internet)
 node tests/chess_engine_test.mjs  # perft, reglas especiales, SAN, FEN y búsqueda del motor de ajedrez
 node tests/battleship_ai_test.mjs # flotas válidas y fuerza de los 4 niveles de IA

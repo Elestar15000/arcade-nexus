@@ -168,3 +168,8 @@
 .bsf-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .bsf-legend .bsf-c { width: 13px; height: 13px; }
 @media (max-width: 480px) { .bsf-boards { gap: 8px; } .bsf-grid { gap: 1px; padding: 3px; } }
+
+/* Tiempo por disparo online (auditoría F3) */
+.bs-clock-low { color: #fca5a5; border-color: #ef4444 !important; animation: bs-clock-pulse .5s ease-in-out infinite alternate; }
+@keyframes bs-clock-pulse { to { filter: brightness(1.4); } }
+@media (prefers-reduced-motion: reduce) { .bs-clock-low { animation: none; } }

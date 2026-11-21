@@ -225,6 +225,16 @@
             const face = i === 0 ? PAD_X[0] + PAD_W : PAD_X[1];
             const inX = i === 0 ? (b.x - R <= face && b.x > PAD_X[0] - R) : (b.x + R >= face && b.x < PAD_X[1] + PAD_W + R);
             if (!inX || Math.abs(b.y - p.y) > PAD_H / 2 + R * 0.8) return;
+            // Canto superior o inferior: si el centro de la bola ya está por detrás de la cara y fuera del largo
+            // de la pala, no es un golpe frontal → rebote vertical en el canto y la bola sigue su camino
+            const behind = i === 0 ? b.x < face : b.x > face;
+            if (behind && Math.abs(b.y - p.y) > PAD_H / 2) {
+                const sgn = b.y > p.y ? 1 : -1;
+                b.vy = sgn * Math.max(Math.abs(b.vy), 120);
+                b.y = clamp(p.y + sgn * (PAD_H / 2 + R + 1), B_MIN, B_MAX);
+                this.events.push({ k: 'wall', x: b.x, y: b.y });
+                return;
+            }
             const off = clamp((b.y - p.y) / (PAD_H / 2), -1, 1);
             b.spd = Math.min(MAX, b.spd * ACCEL);
             let real = b.spd, turbo = false;

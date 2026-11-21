@@ -92,7 +92,7 @@ function runMent(n) {
         if (!M.validate(st, t, a)) { illegal++; console.log('ilegal', JSON.stringify(a)); break; }
         M.apply(st, t, a); acts++;
         const inHands = st.hands.reduce((x, h) => x + h.length, 0), inPile = st.pile.reduce((x, p) => x + p.cards.length, 0);
-        if (inHands + inPile + st.discarded + st.dead.length * 4 !== 40) { cardsOk = false; break; }
+        if (inHands + inPile + st.discarded + st.dead.length * 4 + (st.aside || 0) !== 40) { cardsOk = false; break; }
     }
     return { st, ok: !!st.over && !illegal && cardsOk, acts };
 }

@@ -97,6 +97,7 @@
 
         newGame(difficulty) {
             if (difficulty) this.currentDifficulty = difficulty;
+            if (this.boardEl) this.later(() => this.updateRecords(), 0);   // récords de la dificultad elegida
             const cfg = this.difficulties[this.currentDifficulty];
             this.rows = cfg.rows;
             this.cols = cfg.cols;
@@ -107,6 +108,7 @@
             this.board = [];
             this.revealed = [];
             this.flagged = [];
+            this.defused = new Set();   // minas desactivadas con el Escudo: cuentan como bandera fija
             this.orbs = [];
             this.gameOver = false;
             this.gameWon = false;
@@ -246,7 +248,8 @@
         handleCellRightClick(row, col) {
             if (this.gameOver) return;
             if (this.revealed[row][col]) return;
-            if (this.firstClick) return; // Can't flag before first click
+            if (this.defused && this.defused.has(row + ',' + col)) return;   // mina desactivada: bandera fija
+            // Se pueden poner banderas antes del primer clic, como en el original
 
             this.flagCell(row, col);
         }
@@ -263,15 +266,18 @@
                 // Escudo activado para esta casilla
                 if (this.shieldArmed) {
                     this.shieldArmed = false;
-                    // La mina desactivada se marca como revelada pero NO cuenta como casilla
-                    // segura (antes inflaba el contador y permitía ganar una casilla antes).
-                    this.revealed[row][col] = true;
+                    // La mina desactivada queda como BANDERA FIJA (no revelada): cuenta en el contador
+                    // de minas y en los acordes de los números vecinos, y no se puede quitar.
+                    this.flagged[row][col] = true;
+                    this.flagsPlaced++;
+                    this.defused.add(row + ',' + col);
 
                     const cellEl = this.getCellElement(row, col);
                     if (cellEl) {
-                        cellEl.classList.add('revealed', 'defused');
+                        cellEl.classList.add('flagged', 'defused');
                         cellEl.textContent = '💣';
                         cellEl.setAttribute('data-number', '');
+                        cellEl.title = 'Mina desactivada con el Escudo';
                     }
 
                     this.playSound('powerUse');
@@ -460,7 +466,9 @@
 
             if (won) {
                 // Win bonus
-                const timeBonus = Math.max(0, 300 - this.timer) * 5;
+                // Tiempo de referencia según la dificultad (antes 300 s en todas: en Veterano y Pesadilla casi nunca sumaba)
+                const ref = { easy: 120, medium: 300, hard: 700, nightmare: 1000 }[this.currentDifficulty] || 300;
+                const timeBonus = Math.max(0, ref - this.timer) * 5;
                 const winBonus = 500 + this.mineCount * 10 + timeBonus;
                 this.score += winBonus;
                 this.playSound('win');
@@ -609,7 +617,12 @@
                             }
                         }
                     } else {
-                        // Reveal safe cells
+                        // Reveal safe cells (si tenía una bandera equivocada, se quita)
+                        if (this.flagged[nr][nc]) {
+                            this.flagged[nr][nc] = false;
+                            this.flagsPlaced--;
+                            if (cellEl) cellEl.classList.remove('flagged');
+                        }
                         this.revealed[nr][nc] = true;
                         this.cellsRevealed++;
                         const val = this.board[nr][nc];
@@ -921,9 +934,14 @@
             this.root.querySelectorAll('.diff-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const diff = btn.dataset.diff;
-                    if (diff && this.difficulties[diff]) {
-                        this.newGame(diff);
+                    if (!diff || !this.difficulties[diff] || diff === this.currentDifficulty && this.firstClick) return;
+                    // Confirmar si hay una partida empezada (antes se descartaba sin preguntar)
+                    if (!this.firstClick && !this.gameOver) {
+                        Nexus.ui.modal.confirm({ title: '¿Cambiar de dificultad?', message: 'Se perderá la partida en curso.', confirmLabel: 'Cambiar', icon: '💣' })
+                            .then(ok => { if (ok && !this.destroyed) this.newGame(diff); });
+                        return;
                     }
+                    this.newGame(diff);
                 });
             });
 
@@ -1256,12 +1274,13 @@
 
         /** Récords del usuario en el panel derecho. */
         updateRecords() {
-            const gs = Nexus.services.progress.stats('minesweeper');
+            // Récords de la dificultad elegida (antes se mezclaban todas: un 0:20 en Recluta salía en Pesadilla)
+            const gs = Nexus.services.progress.modeStats('minesweeper', this.currentDifficulty);
             const set = (id, v) => { const el = this.byId(id); if (el) el.textContent = v; };
-            set('info-best-score', gs.bestScore.toLocaleString('es-ES'));
-            set('info-best-time', gs.bestTime !== null ? this.formatTime(gs.bestTime) : '--:--');
-            set('info-streak', gs.bestStreak);
-            set('info-wins', gs.wins);
+            set('info-best-score', (gs.bestScore || 0).toLocaleString('es-ES'));
+            set('info-best-time', gs.bestTime !== null && gs.bestTime !== undefined ? this.formatTime(gs.bestTime) : '--:--');
+            set('info-streak', gs.bestStreak || 0);
+            set('info-wins', gs.wins || 0);
         }
 
         destroy() {

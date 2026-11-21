@@ -58,3 +58,13 @@
     .ol-grid, .ol-seats { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .ol-status i, .ol-spinner { animation: none; } }
+
+/* Ajuste de sala elegido por el anfitrión (p. ej. control de tiempo) */
+.ol-setting { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.ol-setting-l { font-size: .78em; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+.ol-setting-opts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.ol-chip { padding: 5px 11px; border-radius: 99px; border: 1px solid var(--border, rgba(255,255,255,.15)); background: transparent; color: inherit; font: 600 .82em/1.2 inherit; cursor: pointer; }
+.ol-chip.on { background: var(--ol-a, var(--accent)); border-color: transparent; color: #0b0a1a; font-weight: 800; }
+.ol-chip:disabled { cursor: default; opacity: .75; }
+.ol-chip.on:disabled { opacity: 1; }
+.ol-setting small { font-size: .72em; color: var(--text-muted); }

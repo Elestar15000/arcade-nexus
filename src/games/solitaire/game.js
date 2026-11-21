@@ -103,7 +103,96 @@
         return null;
     }
     const clone = (st) => JSON.parse(JSON.stringify(st));
-    Nexus.games.solitaireLogic = { deal, canFound, canTab, cardsOf, canMove, move, draw, won, canAutoFinish, bestTarget, hint, PTS };
+
+    /**
+     * Resolvedor de Klondike (robar 1, vueltas ilimitadas). Con vueltas ilimitadas cualquier carta del
+     * mazo + descarte se puede alcanzar sin cambiar su orden, así que el «talón» se trata como un conjunto
+     * ordenado del que se puede sacar cualquier carta. Búsqueda en profundidad con memoria de estados y
+     * presupuesto de nodos. → true (tiene solución) | false (no tiene) | null (no se pudo decidir a tiempo).
+     */
+    function solvable(st0, budget = 150000) {
+        const tab = st0.tab.map(col => ({ down: col.filter(x => !x.up).map(x => x.c), up: col.filter(x => x.up).map(x => x.c) }));
+        const talon = st0.stock.slice().reverse().concat(st0.waste.slice().reverse());
+        const fnd = { S: 0, H: 0, D: 0, C: 0 };
+        for (const s of SUITS) fnd[s] = st0.found[s].length;
+        const seen = new Set();
+        let nodes = 0, out = false;
+        const key = () => SUITS.map(s => fnd[s]).join('') + '|' + talon.join('') + '|' + tab.map(c => c.down.length + ':' + c.up.join('')).sort().join('/');
+        const fit = (c, s) => fnd[suit(c)] === rank(c) - 1;
+        const onto = (c, dst) => { const t = dst.up[dst.up.length - 1]; return t ? (red(t) !== red(c) && rank(t) === rank(c) + 1) : (dst.down.length === 0 && rank(c) === 13); };
+        const minF = (isRed) => Math.min(...SUITS.filter(s => (s === 'H' || s === 'D') !== isRed).map(s => fnd[s]));
+        const safe = (c) => rank(c) <= 2 || minF(red(c)) >= rank(c) - 1;      // nadie la necesitará en el tablero
+        function dfs() {
+            if (out || ++nodes > budget) return null;
+            if (SUITS.every(s => fnd[s] === 13)) return true;
+            const k = key(); if (seen.has(k)) return false; seen.add(k);
+            // 1) Subidas seguras a la fundación (sin bifurcar)
+            for (const col of tab) {
+                const c = col.up[col.up.length - 1];
+                if (c && fit(c) && safe(c)) {
+                    col.up.pop(); fnd[suit(c)]++; let fl = false;
+                    if (!col.up.length && col.down.length) { col.up.push(col.down.pop()); fl = true; }
+                    const r = dfs();
+                    if (fl) col.down.push(col.up.pop()); col.up.push(c); fnd[suit(c)]--;
+                    return r;
+                }
+            }
+            const moves = [];
+            // 2) Del tablero a la fundación
+            tab.forEach((col, i) => { const c = col.up[col.up.length - 1]; if (c && fit(c)) moves.push(['tf', i]); });
+            // 3) Pilas del tablero que destapan una carta o vacían la columna para un rey
+            tab.forEach((col, i) => {
+                for (let j = 0; j < col.up.length; j++) {
+                    const c = col.up[j];
+                    if (j > 0) continue;               // sólo la pila entera boca arriba (lo demás no destapa nada)
+                    if (!col.down.length && rank(c) === 13) continue;
+                    tab.forEach((dst, d) => { if (d !== i && onto(c, dst)) moves.push(['tt', i, d]); });
+                }
+            });
+            // 4) Del talón a la fundación o al tablero
+            talon.forEach((c, j) => {
+                if (fit(c)) moves.push(['lf', j]);
+                tab.forEach((dst, d) => { if (onto(c, dst)) moves.push(['lt', j, d]); });
+            });
+            for (const m of moves) {
+                let r;
+                if (m[0] === 'tf') {
+                    const col = tab[m[1]], c = col.up.pop(); fnd[suit(c)]++; let fl = false;
+                    if (!col.up.length && col.down.length) { col.up.push(col.down.pop()); fl = true; }
+                    r = dfs(); if (fl) col.down.push(col.up.pop()); col.up.push(c); fnd[suit(c)]--;
+                } else if (m[0] === 'tt') {
+                    const src = tab[m[1]], dst = tab[m[2]], seq = src.up.splice(0); dst.up.push(...seq); let fl = false;
+                    if (src.down.length) { src.up.push(src.down.pop()); fl = true; }
+                    r = dfs(); if (fl) src.down.push(src.up.pop()); dst.up.splice(dst.up.length - seq.length); src.up.push(...seq);
+                } else if (m[0] === 'lf') {
+                    const c = talon.splice(m[1], 1)[0]; fnd[suit(c)]++; r = dfs(); fnd[suit(c)]--; talon.splice(m[1], 0, c);
+                } else {
+                    const c = talon.splice(m[1], 1)[0]; tab[m[2]].up.push(c); r = dfs(); tab[m[2]].up.pop(); talon.splice(m[1], 0, c);
+                }
+                if (r === true) return true;
+                if (r === null) return null;
+            }
+            return false;
+        }
+        const r = dfs();
+        return r;
+    }
+    /** Reparto del solitario diario: se prueba la semilla del día y las siguientes hasta dar con uno con solución. */
+    function dailyDeal(day) {
+        const S = Nexus.games.seed, seedOf = (k) => `solitaire:${day}${k ? ':' + k : ''}`;
+        let cached = null;
+        try { cached = JSON.parse(localStorage.getItem('nexus.solitaireDaily') || 'null'); } catch (e) { /* sin almacenamiento */ }
+        if (cached && cached.day === day) return deal(S.rng(seedOf(cached.k)));
+        for (let k = 0; k < 40; k++) {
+            const st = deal(S.rng(seedOf(k)));
+            if (solvable(clone(st), 80000) === true) {
+                try { localStorage.setItem('nexus.solitaireDaily', JSON.stringify({ day, k })); } catch (e) { /* noop */ }
+                return st;
+            }
+        }
+        return deal(S.rng(seedOf(0)));
+    }
+    Nexus.games.solitaireLogic = { deal, canFound, canTab, cardsOf, canMove, move, draw, won, canAutoFinish, bestTarget, hint, PTS, solvable, dailyDeal };
 
     // ── Juego ───────────────────────────────────────────────
     const MODES = [
@@ -186,7 +275,8 @@
             if (this.ro) this.ro.disconnect();
         }
 
-        newGame(mode, r) { this.st = deal(r); this.hist = []; this.hintAt = null; }
+        // El diario siempre tiene solución: se valida con el resolvedor (antes ~1 de cada 5 días nadie podía ganar)
+        newGame(mode, r) { this.st = this.daily ? dailyDeal(this.daily) : deal(r); this.hist = []; this.hintAt = null; }
         serialize() { return this.st; }
         restore(d) { this.st = d; this.hist = []; }
 

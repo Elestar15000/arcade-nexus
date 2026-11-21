@@ -43,7 +43,7 @@
         extra: {}     // datos propios de cada juego (p. ej. distribución del Wordle)
     });
 
-    const modeStats = () => ({ played: 0, wins: 0, bestScore: 0, bestTime: null });
+    const modeStats = () => ({ played: 0, wins: 0, bestScore: 0, bestTime: null, streak: 0, bestStreak: 0 });
 
     const userData = () => ({
         v: SCHEMA_VERSION,

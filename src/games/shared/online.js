@@ -16,8 +16,9 @@
        onStart: ({ role, opts, round, peer }) => {},
        onMessage: (msg) => {},
        onLost: ({ reason, peer, wasPlaying }) => {},
-       onExit: () => {}                          // «Volver» desde el vestíbulo
-     });
+       onExit: () => {},                         // «Volver» desde el vestíbulo
+       setting: { label, choices: [{ id, label }], value, storeKey } // opcional: ajuste que elige el anfitrión
+     });                                         // (p. ej. control de tiempo); llega en opts.setting
      lobby.show();            lobby.send(obj);   lobby.gameOver();   lobby.afterGame();
    ============================================================ */
 (function () {
@@ -183,6 +184,7 @@
                 case 'copy-code': copy(this.net.code, 'Código copiado'); break;
                 case 'copy-link': copy(location.href.split('#')[0] + `#/game/${this.game}/${this.net.code}`, 'Enlace copiado'); break;
                 case 'ready': this.toggleReady(); break;
+                case 'setting': this.setSetting(b.dataset.v); break;
                 default: break;
             }
         }
@@ -237,7 +239,33 @@
             </div>`;
         }
 
-        sendRoom() { if (this.net && this.net.role === 'host') this.net.conn.send({ t: 'lb', k: 'room', ready: this.net.ready }, true); }
+        sendRoom() { if (this.net && this.net.role === 'host') this.net.conn.send({ t: 'lb', k: 'room', ready: this.net.ready, setting: this.settingValue() }, true); }
+
+        // ── Ajuste de sala (lo elige el anfitrión; el invitado lo ve) ──
+        settingValue() {
+            const s = this.o.setting; if (!s) return undefined;
+            if (this.net && this.net.role === 'guest') return this.net.setting !== undefined ? this.net.setting : s.value;
+            if (this.hostSetting === undefined) {
+                let v = s.value;
+                try { const saved = s.storeKey && localStorage.getItem(s.storeKey); if (saved && s.choices.some(c => c.id === saved)) v = saved; } catch (_) { /* sin almacenamiento */ }
+                this.hostSetting = v;
+            }
+            return this.hostSetting;
+        }
+        setSetting(v) {
+            const s = this.o.setting, n = this.net;
+            if (!s || !n || n.role !== 'host' || !s.choices.some(c => c.id === v)) return;
+            this.hostSetting = v;
+            try { if (s.storeKey) localStorage.setItem(s.storeKey, v); } catch (_) { /* sin almacenamiento */ }
+            n.ready = [false, false];             // cambiar el ajuste anula los «listo»
+            this.sendRoom(); this.showRoom();
+        }
+        settingHtml() {
+            const s = this.o.setting; if (!s || !this.net) return '';
+            const v = this.settingValue(), host = this.net.role === 'host';
+            return `<div class="ol-setting"><span class="ol-setting-l">${esc(s.label)}</span><div class="ol-setting-opts" role="radiogroup" aria-label="${esc(s.label)}">${s.choices.map(c =>
+                `<button type="button" class="ol-chip${c.id === v ? ' on' : ''}" role="radio" aria-checked="${c.id === v}" ${host ? `data-ol-do="setting" data-v="${esc(c.id)}"` : 'disabled'}>${esc(c.label)}</button>`).join('')}</div>${host ? '' : '<small>Lo elige el anfitrión</small>'}</div>`;
+        }
 
         // ── Invitado ────────────────────────────────────────
         join(raw) {
@@ -303,6 +331,7 @@
                 <h2 class="ol-title">SALA ${esc(n.code)}</h2>
                 <p class="ol-hint">${mode === 'p2p' ? '⚡ Conexión directa entre navegadores' : '📡 Conexión retransmitida'}${rtt != null ? ` · ${Math.round(rtt)} ms` : ''}</p>
                 <div class="ol-seats">${seat(mine, true, n.ready[me], n.role === 'host')}<span class="ol-vs">VS</span>${seat(peer, false, n.ready[1 - me], n.role !== 'host')}</div>
+                ${this.settingHtml()}
                 ${this.o.roomNote ? `<p class="ol-hint">${this.o.roomNote}</p>` : ''}
                 <div class="ol-row">
                     <button class="btn ${n.ready[me] ? 'btn-ghost' : 'btn-primary btn-glow'}" data-ol-do="ready" type="button">${n.ready[me] ? '✋ No estoy listo' : (this.round ? '🔄 ¡Revancha!' : '✅ ¡Listo!')}</button>
@@ -333,6 +362,7 @@
             n.ready = [false, false];
             this.round++;
             const opts = this.o.startOptions ? this.o.startOptions(this.round) : {};
+            if (this.o.setting) opts.setting = this.settingValue();
             n.conn.send({ t: 'lb', k: 'start', opts, round: this.round }, true);
             this.begin(opts, this.round);
         }
@@ -353,6 +383,7 @@
                     this.maybeStart();
                 } else if (n.role === 'guest' && m.k === 'room' && Array.isArray(m.ready)) {
                     n.ready = [!!m.ready[0], !!m.ready[1]];
+                    if (m.setting !== undefined) n.setting = m.setting;
                     if (!this.playing && this.view === 'room') this.showRoom();
                 } else if (n.role === 'guest' && m.k === 'start') {
                     n.ready = [false, false];

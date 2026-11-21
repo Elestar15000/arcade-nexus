@@ -96,7 +96,7 @@
         tagline: 'Echa cartas boca abajo, di lo que quieras… y pilla al que miente.',
         cpuText: 'De 2 a 4 jugadores con bots', seatsText: 'Mesa de 2 a 4 jugadores.',
         help: [
-            'Baraja española de 40 cartas repartida entera. Si tienes las 4 de un número, se descartan solas.',
+            'Baraja española de 40 cartas repartida entera (mano a mano, 12 cartas cada uno y el resto queda fuera: se juega mejor con 3 o 4). Si tienes las 4 de un número, se descartan solas.',
             'Quien abre la ronda pone de 1 a 4 cartas <b>boca abajo</b> y dice un número. Los demás, por turno, tienen que poner cartas diciendo <b>ese mismo número</b>… sea verdad o no.',
             'En tu turno, antes de jugar, puedes gritar <b>¡Mentiroso!</b>: se levantan las últimas cartas. Si alguna no era del número dicho, el mentiroso se lleva todo el montón; si eran verdad, te lo llevas tú.',
             'Empieza la ronda siguiente quien no se llevó el montón. También puedes <b>pasar</b>: si todos pasan, el montón se retira y abre quien jugó lo último.',

@@ -104,7 +104,7 @@
 
 /* Mi zona */
 .cg-mine { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-.cg-me { position: static; transform: none; max-width: 100%; }
+.cg-me { position: relative; transform: none; max-width: 100%; }
 .cg-hand { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 6px; min-height: calc(var(--cw) * 1.7); padding: 6px 4px 0; }
 .cg-hand .pc.playable { cursor: pointer; }
 .cg-hand.my-turn .pc.playable { box-shadow: 0 2px 4px rgba(0, 0, 0, .35), inset 0 0 0 3px #fffdf6, 0 0 0 2px var(--ax-accent); }
@@ -278,3 +278,10 @@
     .cg-poker .cg-hand .pc.pk-hole { --cw: clamp(52px, 15vw, 70px); }
     .mt-pile { transform: scale(.85); }
 }
+
+/* Tiempo de turno online (auditoría F3) */
+.cg-timer { position: absolute; left: 6px; right: 6px; bottom: -9px; height: 16px; border-radius: 99px; font: 700 .68rem/16px var(--font-mono, monospace); text-align: center; color: #fff;
+    background: linear-gradient(90deg, var(--ax-accent) var(--p, 100%), rgba(255,255,255,.12) var(--p, 100%)); box-shadow: 0 2px 6px rgba(0,0,0,.35); pointer-events: none; }
+.cg-timer.low { background: linear-gradient(90deg, #ef4444 var(--p, 100%), rgba(255,255,255,.12) var(--p, 100%)); animation: cg-timer-pulse .5s ease-in-out infinite alternate; }
+@keyframes cg-timer-pulse { to { filter: brightness(1.35); } }
+@media (prefers-reduced-motion: reduce) { .cg-timer.low { animation: none; } }

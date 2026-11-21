@@ -45,26 +45,37 @@
         constructor(rules, seats, { onView, send, botDelay = [650, 1150] }) {
             this.rules = rules; this.seats = seats; this.onView = onView; this.send = send; this.botDelay = botDelay;
             this.state = rules.setup(seats.length, seats.map(s => s.name), seats.map(s => s.kind));
-            this.seq = 0; this.timer = 0; this.destroyed = false;
+            this.seq = 0; this.timer = 0; this.turnTimer = 0; this.deadline = 0; this.destroyed = false;
+            // Online: tiempo por turno para que un jugador inactivo no bloquee la mesa
+            this.online = seats.some(s => s.kind === 'remote');
+            this.misses = seats.map(() => 0);
         }
-        start() { this.broadcast(); this.schedule(); }
-        act(seat, a) {
+        start() { this.schedule(); this.broadcast(); }
+        act(seat, a, auto = false) {
             if (this.destroyed || this.state.over || this.state.pause) return false;
             if (!this.rules.validate(this.state, seat, a)) return false;
             this.rules.apply(this.state, seat, a);
+            if (!auto) this.misses[seat] = 0;
             this.seq++;
-            this.broadcast(); this.schedule();
+            this.schedule(); this.broadcast();
             return true;
         }
         schedule() {
-            clearTimeout(this.timer);
+            clearTimeout(this.timer); clearTimeout(this.turnTimer); this.deadline = 0;
             if (this.destroyed || this.state.over) return;
             if (this.state.pause) {
-                this.timer = setTimeout(() => { this.rules.step(this.state); this.seq++; this.broadcast(); this.schedule(); }, this.state.pause * TableSession.speed);
+                this.timer = setTimeout(() => { this.rules.step(this.state); this.seq++; this.schedule(); this.broadcast(); }, this.state.pause * TableSession.speed);
                 return;
             }
             const t = this.rules.turn(this.state);
-            if (t === null || t === undefined || this.seats[t].kind !== 'bot') return;
+            if (t === null || t === undefined) return;
+            if (this.seats[t].kind !== 'bot') {
+                if (!this.online) return;
+                const ms = (this.rules.turnTime || TableSession.turnTime) * 1000 * TableSession.turnScale;
+                this.deadline = Date.now() + ms;
+                this.turnTimer = setTimeout(() => this.timeout(t), ms);
+                return;
+            }
             const [a, b] = this.botDelay;
             this.timer = setTimeout(() => {
                 if (this.destroyed) return;
@@ -72,18 +83,34 @@
                 if (!this.act(t, act)) console.warn('[cartas] jugada de bot no válida', act);
             }, (a + Math.random() * (b - a)) * TableSession.speed);
         }
+        /** Se acabó el tiempo: jugada automática (pasar o retirarse en el póker, la del bot en el resto). */
+        timeout(t) {
+            if (this.destroyed || this.state.over || this.rules.turn(this.state) !== t) return;
+            const a = this.rules.autoAction ? this.rules.autoAction(this.state, t) : this.rules.bot(this.state, t);
+            this.misses[t]++;
+            if (this.state.log) this.state.log.push(`⏱ Se acabó el tiempo de ${this.state.names ? this.state.names[t] : 'un jugador'}: jugada automática.`);
+            if (!this.act(t, a, true)) { console.warn('[cartas] jugada automática no válida', a); return; }
+            // Tres turnos seguidos sin jugar: le sustituye un bot (la mesa sigue)
+            if (this.misses[t] >= 3 && this.seats[t].kind === 'remote') { this.toBot(t); if (this.onAfk) this.onAfk(t); }
+        }
         broadcast() {
+            const tl = this.deadline ? Math.max(0, this.deadline - Date.now()) : null;
             this.seats.forEach((s, i) => {
-                if (s.kind === 'me') this.onView(this.rules.view(this.state, i));
-                else if (s.kind === 'remote' && this.send) this.send(s.guestId, { t: 'tb', k: 'view', v: this.rules.view(this.state, i), s: this.seq });
+                const v = this.rules.view(this.state, i); if (v) v.tl = tl;
+                if (s.kind === 'me') this.onView(v);
+                else if (s.kind === 'remote' && this.send) this.send(s.guestId, { t: 'tb', k: 'view', v, s: this.seq });
             });
         }
         toBot(seat) { const s = this.seats[seat]; if (!s) return; s.kind = 'bot'; s.name += ' 🤖'; this.state.names[seat] = s.name; this.schedule(); }
-        destroy() { this.destroyed = true; clearTimeout(this.timer); }
+        destroy() { this.destroyed = true; clearTimeout(this.timer); clearTimeout(this.turnTimer); }
     }
 
     /** Factor de tiempo de pausas y bots (las pruebas lo bajan). */
     TableSession.speed = 1;
+    /** Segundos por turno en las mesas online (cada reglamento puede fijar rules.turnTime). */
+    TableSession.turnTime = 30;
+    /** Factor del tiempo de turno (independiente de speed para que las pruebas rápidas no expulsen a nadie). */
+    TableSession.turnScale = 1;
 
     // ── Vestíbulo online multiasiento ───────────────────────
     const ERRORS = { notfound: 'No hay ninguna sala abierta con ese código.', full: 'Esa mesa está llena o la partida ya ha empezado.', version: 'El anfitrión usa otra versión del juego. Recargad la página.' };
@@ -579,6 +606,7 @@
             this.begin('online', ctx.pub, ctx.you);
             if (ctx.role === 'host') {
                 this.session = new TableSession(this.rules, ctx.seats, { onView: (v) => this.onView(v), send: ctx.send });
+                this.session.onAfk = (seat) => { if (this.pub[seat]) this.pub[seat].bot = true; this.bubble(`${this.pub[seat] ? this.pub[seat].name : 'Un jugador'} no responde: le sustituye un bot`); };
                 this.session.start();
             }
         }
@@ -604,6 +632,9 @@
             if (this.destroyed || !v) return;
             const prev = this.v;
             this.v = v;
+            // Cuenta atrás del turno (sólo online): se calcula con el tiempo que queda al recibir la vista
+            this.turnEnd = v.tl !== null && v.tl !== undefined ? Date.now() + v.tl : 0;
+            this.tickTimer();
             this.sounds(prev, v);
             this.render();
             if (v.over && this.state === 'playing') this.finish();
@@ -644,7 +675,8 @@
                 el.classList.toggle('mate', !!v.teams && i !== v.me && i % 2 === v.me % 2);
                 const backs = pos === 'bottom' ? '' : `<span class="cg-backs">${Array.from({ length: Math.min(pl.count, 8) }, () => '<i></i>').join('')}</span>`;
                 el.innerHTML = `<span class="cg-av">${Nexus.ui.avatar.html(p.avatar)}</span>
-                    <span class="cg-name"><b>${esc(p.name)}${i === v.me ? ' <small>(tú)</small>' : ''}</b><small>${this.spec.seatBadge(v, i)}</small></span>${backs}`;
+                    <span class="cg-name"><b>${esc(p.name)}${i === v.me ? ' <small>(tú)</small>' : ''}</b><small>${this.spec.seatBadge(v, i)}</small></span>${backs}
+                    ${v.turn === i && this.turnEnd ? '<span class="cg-timer" data-timer aria-live="off"></span>' : ''}`;
             }
             // Centro
             this.$('#cg-center').innerHTML = this.spec.center(v, this);
@@ -682,6 +714,21 @@
                 }
             });
             this.prevTrick = cur.slice();
+        }
+
+        /** Actualiza la cuenta atrás del turno (barra en el asiento que juega; aviso sonoro en los 5 últimos segundos). */
+        tickTimer() {
+            clearInterval(this.timerIv);
+            if (!this.turnEnd) { this.root.querySelectorAll('[data-timer]').forEach(e => e.remove()); return; }
+            const total = Math.max(1, this.turnEnd - Date.now()), tick = () => {
+                if (this.destroyed) return clearInterval(this.timerIv);
+                const left = Math.max(0, this.turnEnd - Date.now()), s = Math.ceil(left / 1000);
+                this.root.querySelectorAll('[data-timer]').forEach(e => { e.textContent = `⏱ ${s}`; e.style.setProperty('--p', (left / total * 100).toFixed(1) + '%'); e.classList.toggle('low', s <= 5); });
+                const mine = this.v && this.v.turn === this.v.me;
+                if (mine && s <= 5 && s > 0 && s !== this.lastBeep) { this.lastBeep = s; Nexus.audio.play('click'); }
+                if (!left) clearInterval(this.timerIv);
+            };
+            tick(); this.timerIv = setInterval(tick, 250);
         }
 
         updateHud() {
@@ -790,6 +837,7 @@
         later(fn, ms) { const id = setTimeout(() => { this.timers.delete(id); if (!this.destroyed) fn(); }, ms); this.timers.add(id); return id; }
 
         destroy() {
+            clearInterval(this.timerIv);
             if (this.state === 'playing' && this.kind === 'online') this.quit();
             this.destroyed = true;
             if (this.session) this.session.destroy();

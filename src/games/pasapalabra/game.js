@@ -66,12 +66,29 @@
 
     const slim = (q) => ({ id: q.id, l: q.l, c: q.c, d: q.d, a: q.a, x: q.x });
 
-    /** Rosco diario: determinista por fecha. */
+    /** Rosco diario: determinista por fecha.
+     *  Desde DAILY_CUTOVER cada letra recorre su banco (medio + difícil) en una permutación fija:
+     *  no se repite ninguna definición hasta agotar las de esa letra (antes se sorteaba cada día sin memoria). */
+    const DAILY_CUTOVER = '2026-11-23';
+    const dailyPerm = {};
     function buildDaily(date) {
-        const rnd = mulberry32(seedOf('pasapalabra:' + date));
+        const k = daysBetween(DAILY_CUTOVER, date);
+        if (k < 0) {     // días anteriores: el rosco que tocó entonces
+            const rnd = mulberry32(seedOf('pasapalabra:' + date));
+            return B().LETTERS.map(l => {
+                const pool = ['medium', 'hard'].flatMap(lv => B().LEVELS[lv].filter(q => q.l === l));
+                return slim(pool[Math.floor(rnd() * pool.length)]);
+            });
+        }
         return B().LETTERS.map(l => {
-            const pool = ['medium', 'hard'].flatMap(lv => B().LEVELS[lv].filter(q => q.l === l));
-            return slim(pool[Math.floor(rnd() * pool.length)]);
+            const pool = ['medium', 'hard'].flatMap(lv => B().LEVELS[lv].filter(q => q.l === l)).sort((x, y) => (x.id < y.id ? -1 : 1));
+            if (!dailyPerm[l] || dailyPerm[l].length !== pool.length) {
+                const rnd = mulberry32(seedOf('pasapalabra-perm:' + l));
+                const idx = pool.map((_, i) => i);
+                for (let i = idx.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+                dailyPerm[l] = idx;
+            }
+            return slim(pool[dailyPerm[l][k % pool.length]]);
         });
     }
     /** Rosco aleatorio de una dificultad, evitando las últimas definiciones vistas. */

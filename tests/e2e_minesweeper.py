@@ -26,6 +26,17 @@ with sync_playwright() as p:
     page.click(f'.cell[data-row="{mine[0]}"][data-col="{mine[1]}"]'); page.wait_for_timeout(200)
     check(not page.evaluate("__ms.gameOver") and page.evaluate("__ms.powers.shield.charges")==0, 'el escudo activado protege la casilla elegida')
     check(page.evaluate("__ms.cellsRevealed")==before, 'mina desactivada no cuenta como casilla segura')
+    check(page.evaluate(f"__ms.flagged[{mine[0]}][{mine[1]}] && __ms.defused.has('{mine[0]},{mine[1]}') && __ms.flagsPlaced === 1"), 'mina desactivada = bandera fija (cuenta en el contador)')
+    page.evaluate(f"__ms.handleCellRightClick({mine[0]}, {mine[1]})")
+    check(page.evaluate(f"__ms.flagged[{mine[0]}][{mine[1]}]"), 'la bandera de la mina desactivada no se puede quitar')
+    # Escáner sobre una casilla segura con bandera equivocada: se destapa y se quita la bandera
+    safe = page.evaluate("(() => { for (let r=1;r<__ms.rows-1;r++) for (let c=1;c<__ms.cols-1;c++) if (__ms.board[r][c]!==-1 && !__ms.revealed[r][c] && !__ms.flagged[r][c]) return [r,c]; })()")
+    if safe:
+        page.evaluate(f"__ms.flagCell({safe[0]}, {safe[1]})")
+        fp = page.evaluate("__ms.flagsPlaced")
+        page.evaluate(f"__ms.powers.scanner.charges = 1; __ms.useScanner({safe[0]}, {safe[1]})")
+        check(page.evaluate(f"__ms.revealed[{safe[0]}][{safe[1]}] && !__ms.flagged[{safe[0]}][{safe[1]}]"), 'el Escáner quita la bandera equivocada al destapar')
+    check(page.evaluate("document.getElementById('info-best-time') !== null"), 'panel de récords por dificultad')
     page.click('.power-btn[data-power=shield]'); page.wait_for_timeout(100)
     check(page.evaluate("__ms.activePower") is None, 'el escudo sólo se puede usar una vez por partida')
     page.evaluate("(() => { for (let r=0;r<__ms.rows;r++) for (let c=0;c<__ms.cols;c++) if (__ms.orbs[r][c]) { __ms.collectOrb(r,c); } return 1; })()")

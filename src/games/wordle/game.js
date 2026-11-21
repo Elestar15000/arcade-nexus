@@ -66,8 +66,11 @@
         return res;
     }
 
-    /** Modo difícil: devuelve el mensaje de error o null si el intento es válido. */
+    /** Modo difícil: devuelve el mensaje de error o null si el intento es válido.
+     *  Exige las verdes en su sitio y el número MÍNIMO de apariciones de cada letra revelada
+     *  (si se han descubierto dos E, hay que poner dos E). */
     function hardViolation(guess, previous, target) {
+        const count = (w, ch) => [...w].filter(x => x === ch).length;
         for (const prev of previous) {
             const ev = evaluate(prev, target);
             for (let i = 0; i < LEN; i++) {
@@ -75,10 +78,10 @@
                     return `La letra ${i + 1} debe ser ${prev[i].toUpperCase()}`;
                 }
             }
-            for (let i = 0; i < LEN; i++) {
-                if (ev[i] === 'present' && !guess.includes(prev[i])) {
-                    return `El intento debe contener la ${prev[i].toUpperCase()}`;
-                }
+            const need = {};
+            for (let i = 0; i < LEN; i++) if (ev[i] !== 'absent') need[prev[i]] = (need[prev[i]] || 0) + 1;
+            for (const [ch, n] of Object.entries(need)) {
+                if (count(guess, ch) < n) return n > 1 ? `El intento debe contener ${n} ${ch.toUpperCase()}` : `El intento debe contener la ${ch.toUpperCase()}`;
             }
         }
         return null;

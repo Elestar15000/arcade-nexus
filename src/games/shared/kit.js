@@ -155,16 +155,25 @@
         },
 
         /** Gesto de deslizar → callback('up'|'down'|'left'|'right'). Un toque corto → callback('tap'). */
-        swipe(el, cb, threshold = 22) {
+        /**
+         * Gestos de deslizamiento. cb(dir) con 'up' | 'down' | 'left' | 'right' | 'tap'.
+         * opts: número (umbral en px, por compatibilidad) u objeto { threshold = 22, chain = true }.
+         * chain: true  → encadena giros dentro del mismo gesto (Snake, Pac-Man)
+         * chain: false → un gesto = un movimiento (2048: un deslizamiento largo ya no hace 2–3 jugadas)
+         */
+        swipe(el, cb, opts) {
+            const o = typeof opts === 'number' ? { threshold: opts } : (opts || {});
+            const threshold = o.threshold || 22, chain = o.chain !== false;
             let sx = 0, sy = 0, active = false, fired = false;
             const start = (e) => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; active = true; fired = false; };
             const move = (e) => {
                 if (!active) return;
+                if (fired && !chain) { e.preventDefault(); return; }
                 const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
                 if (Math.max(Math.abs(dx), Math.abs(dy)) < threshold) return;
                 fired = true;
                 cb(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
-                sx = t.clientX; sy = t.clientY;     // permite encadenar giros en un mismo gesto
+                sx = t.clientX; sy = t.clientY;     // con chain: permite encadenar giros en un mismo gesto
                 e.preventDefault();
             };
             const end = () => { if (active && !fired) cb('tap'); active = false; };

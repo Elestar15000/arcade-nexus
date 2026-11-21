@@ -37,7 +37,7 @@
         help: [...trickHelpCommon,
             'Orden: As, Tres, Rey, Caballo, Sota, 7, 6, 5, 4, 2. Valen: As 11, Tres 10, Rey 4, Caballo 3, Sota 2 (120 en total).',
             'Aquí no hay obligación de asistir: puedes echar la carta que quieras.',
-            'Si tienes el 7 de triunfo (o el 2 si la muestra es baja) puedes cambiarlo por la muestra cuando sales y aún queda mazo.',
+            'Si tienes el 7 de triunfo (o el 2 si la muestra es baja) puedes cambiarlo por la muestra cuando sales, hasta el último robo: mientras la muestra siga en la mesa, aunque ya no quede mazo encima.',
             'Gana quien pase de 60 puntos; a 60 es empate.'],
         center: trickCenter,
         seatBadge: (v, i) => `${v.tricks[v.players[i].side]} bazas`,

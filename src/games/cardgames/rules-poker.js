@@ -356,5 +356,8 @@
     }
 
     Nexus.games.cardRules = Nexus.games.cardRules || {};
-    Nexus.games.cardRules.poker = { id: 'poker', setup, validate, apply, step, view, bot, turn, evaluate, equity, pots, START, BLINDS, CAT, _startHand: startHand };
+    /** Tiempo agotado online: pasa si se puede; si hay que pagar, se retira. */
+    function autoAction(st, seat) { return st.bet[seat] >= st.curBet ? { type: 'check' } : { type: 'fold' }; }
+
+    Nexus.games.cardRules.poker = { id: 'poker', autoAction, turnTime: 25, setup, validate, apply, step, view, bot, turn, evaluate, equity, pots, START, BLINDS, CAT, _startHand: startHand };
 })();

@@ -101,3 +101,11 @@
     .ch-choices { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .ch-piece { transition: none; } .ch-thinking i { animation: none; } }
+
+/* Reloj online (auditoría F3) */
+.ch-clock { margin-left: auto; padding: 4px 10px; border-radius: 8px; font: 700 1.05rem/1.2 var(--font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); color: var(--text-muted); min-width: 4.4em; text-align: center; }
+.ch-clock.run { background: var(--ax-accent); border-color: transparent; color: #0b0a1a; }
+.ch-clock.low { color: #fca5a5; }
+.ch-clock.run.low { background: #dc2626; color: #fff; }
+.ch-player .ch-thinking + .ch-clock, .ch-player .ch-clock { flex: none; }

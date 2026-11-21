@@ -14,6 +14,7 @@
     const LENGTH = 5;
     let validSet = null;
     let answers = null; // [{ word, display }]
+    let legacy = null;  // soluciones anteriores al cambio (para los días ya jugados)
 
     /** minúsculas, sin tildes ni diéresis, conservando la ñ. */
     function normalize(w) {
@@ -29,8 +30,10 @@
         if (!data) throw new Error('No se ha cargado el diccionario (assets/data/words-es.js).');
         validSet = new Set(data.VALID.split(' '));
         answers = data.ANSWERS.split(' ').map(display => ({ word: normalize(display), display }));
+        legacy = (data.LEGACY_ANSWERS || data.ANSWERS).split(' ').map(display => ({ word: normalize(display), display }));
         // Las soluciones siempre son válidas como intento
         answers.forEach(a => validSet.add(a.word));
+        legacy.forEach(a => validSet.add(a.word));
     }
 
     // PRNG con semilla (mulberry32) para barajar de forma reproducible
@@ -43,19 +46,29 @@
         };
     }
 
-    let dailyOrder = null;
-    function getDailyOrder() {
-        if (dailyOrder) return dailyOrder;
-        const rand = mulberry32(20240607);
-        const idx = answers.map((_, i) => i);
+    function shuffled(n, seed) {
+        const rand = mulberry32(seed);
+        const idx = Array.from({ length: n }, (_, i) => i);
         for (let i = idx.length - 1; i > 0; i--) {
             const j = Math.floor(rand() * (i + 1));
             [idx[i], idx[j]] = [idx[j], idx[i]];
         }
-        return (dailyOrder = idx);
+        return idx;
+    }
+    /** Orden antiguo (709 palabras desde 2024-01-01): ya dio la vuelta completa el 10-12-2025. */
+    let legacyOrder = null;
+    const getLegacyOrder = () => legacyOrder || (legacyOrder = shuffled(legacy.length, 20240607));
+    /** Orden nuevo: primero las palabras que NUNCA han salido como diaria (barajadas) y al final las que ya salieron. */
+    let dailyOrder = null;
+    function getDailyOrder() {
+        if (dailyOrder) return dailyOrder;
+        const used = new Set(legacy.map(a => a.word));
+        const perm = shuffled(answers.length, 20261123);
+        return (dailyOrder = perm.filter(i => !used.has(answers[i].word)).concat(perm.filter(i => used.has(answers[i].word))));
     }
 
     const EPOCH = '2024-01-01';
+    const CUTOVER = '2026-11-23';     // desde este día, la lista nueva sin repeticiones
 
     Nexus.games.wordleDict = {
         LENGTH,
@@ -73,7 +86,7 @@
         /** Devuelve la versión con tilde de una solución (p. ej. "angel" → "ángel"). */
         display(word) {
             load();
-            const a = answers.find(x => x.word === word);
+            const a = answers.find(x => x.word === word) || legacy.find(x => x.word === word);
             return a ? a.display : word;
         },
 
@@ -92,10 +105,15 @@
         /** Palabra del día: el mismo resultado para la misma fecha en cualquier dispositivo. */
         daily(dayKey) {
             load();
+            const k = Nexus.util.daysBetween(CUTOVER, dayKey);
+            if (k < 0) {   // días anteriores al cambio: la palabra que tocó entonces
+                const order = getLegacyOrder(), n = Nexus.util.daysBetween(EPOCH, dayKey);
+                return legacy[order[((n % order.length) + order.length) % order.length]].word;
+            }
             const order = getDailyOrder();
-            const n = Nexus.util.daysBetween(EPOCH, dayKey);
-            const i = ((n % order.length) + order.length) % order.length;
-            return answers[order[i]].word;
-        }
+            return answers[order[k % order.length]].word;
+        },
+        /** Días seguidos sin repetir palabra diaria desde el cambio. */
+        dailyCycle() { load(); return getDailyOrder().length; }
     };
 })();

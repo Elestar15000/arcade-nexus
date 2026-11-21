@@ -163,8 +163,9 @@
             this.notes = new Array(81).fill(0);
             this.errors = 0; this.hints = 0; this.history = []; this.sel = -1; this.notesOn = false; this.wrong = [];
         }
-        serialize() { return { p: this.puzzle, s: this.solution, b: this.board, n: this.notes, e: this.errors, h: this.hints, w: this.wrong }; }
-        restore(d) { this.puzzle = d.p; this.solution = d.s; this.board = d.b; this.notes = d.n; this.errors = d.e; this.hints = d.h; this.wrong = d.w || []; this.history = []; this.sel = -1; this.notesOn = false; }
+        // Con la partida se guardan las últimas 50 acciones de deshacer (antes se perdían al recargar)
+        serialize() { return { p: this.puzzle, s: this.solution, b: this.board, n: this.notes, e: this.errors, h: this.hints, w: this.wrong, u: this.history.slice(-50) }; }
+        restore(d) { this.puzzle = d.p; this.solution = d.s; this.board = d.b; this.notes = d.n; this.errors = d.e; this.hints = d.h; this.wrong = d.w || []; this.history = Array.isArray(d.u) ? d.u : []; this.sel = -1; this.notesOn = false; }
 
         push() { this.history.push({ b: this.board.slice(), n: this.notes.slice(), w: this.wrong.slice() }); if (this.history.length > 200) this.history.shift(); }
         input(n) {

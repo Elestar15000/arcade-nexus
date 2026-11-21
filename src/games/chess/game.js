@@ -30,8 +30,34 @@
     const NAMES = { 1: 'peón', 2: 'caballo', 3: 'alfil', 4: 'torre', 5: 'dama', 6: 'rey' };
     const REASONS = {
         mate: 'Jaque mate', stalemate: 'Rey ahogado', fifty: 'Regla de las 50 jugadas', repetition: 'Triple repetición',
-        material: 'Material insuficiente', resign: 'Abandono', agreement: 'Tablas de mutuo acuerdo', forfeit: 'El rival se desconectó'
+        material: 'Material insuficiente', resign: 'Abandono', agreement: 'Tablas de mutuo acuerdo', forfeit: 'El rival se desconectó',
+        time: 'Sin tiempo', timedraw: 'Sin tiempo, pero el rival no tiene material para dar mate'
     };
+    /** Controles de tiempo online: minutos + segundos de incremento por jugada (Fischer). */
+    const CLOCKS = [
+        { id: '3+2', label: '⚡ 3+2', base: 3, inc: 2 }, { id: '5+0', label: '⚡ 5+0', base: 5, inc: 0 },
+        { id: '10+5', label: '⏱ 10+5', base: 10, inc: 5 }, { id: '15+10', label: '⏱ 15+10', base: 15, inc: 10 },
+        { id: 'none', label: '∞ Sin reloj', base: 0, inc: 0 }
+    ];
+    const fmtClock = (ms) => {
+        const s = Math.max(0, ms) / 1000;
+        if (s < 10) return s.toFixed(1);
+        const m = Math.floor(s / 60), r = Math.floor(s % 60);
+        return `${m}:${String(r).padStart(2, '0')}`;
+    };
+    /** ¿Puede este color dar mate con alguna serie de jugadas legales? (para «sin tiempo» frente a tablas) */
+    function canMate(pos, color) {
+        let minors = 0, foeExtra = 0;
+        for (let s = 0; s < 128; s++) {
+            if (s & 0x88) { s += 7; continue; }
+            const p = pos.b[s]; if (!p) continue;
+            const t = p & 7; if (t === 6) continue;
+            if ((p & 8) === color) { if (t === 1 || t === 4 || t === 5) return true; minors++; }
+            else foeExtra++;
+        }
+        // Dos menores bastan; un solo caballo o alfil sólo puede dar mate si el rival tiene piezas que se lo tapen
+        return minors >= 2 || (minors === 1 && foeExtra > 0);
+    }
     const glyph = (p) => GLYPH[p & 7] + '︎';
 
     // ── IA en un Web Worker (con alternativa en el hilo principal) ──
@@ -100,7 +126,7 @@
             this.bind();
             this.lobby = new Nexus.games.OnlineLobby({
                 game: 'chess', el: this.$('#ch-online'), title: 'AJEDREZ ONLINE',
-                roomNote: 'Los colores se sortean en la primera partida y se alternan en cada revancha.',
+                roomNote: 'Los colores se sortean en la primera partida y se alternan en cada revancha. Quien se queda sin tiempo pierde (tablas si el rival no tiene material para dar mate).',
                 startOptions: (round) => {
                     this.hostWhite = round === 1 ? Math.random() < 0.5 : !this.hostWhite;
                     return { hostWhite: this.hostWhite };
@@ -109,7 +135,8 @@
                 onMessage: (m) => this.onNet(m),
                 onLost: (info) => this.onPeerLost(info),
                 onExit: () => this.showHome(),
-                onStatus: () => this.updateSide()
+                onStatus: () => this.updateSide(),
+                setting: { label: 'Control de tiempo', choices: CLOCKS.map(c => ({ id: c.id, label: c.label })), value: '10+5', storeKey: 'nexus.chessClock' }
             });
             this.renderBoard();
             this.updateSide();
@@ -373,6 +400,7 @@
             const san = pos.san(m);
             const uci = pos.uci(m);
             const isMine = (mover & 8) === this.myColor;
+            this.clockMove(mover & 8, by);
             pos.make(m);
             this.moves.push(uci); this.sans.push(san);
             this.selected = -1;
@@ -387,7 +415,7 @@
             this.renderBoardMove({ from, to, castle });
             const check = pos.inCheck();
             Nexus.audio.play(check ? 'chessCheck' : castle ? 'chessCastle' : (fl & C.F_CAP) ? 'chessCapture' : 'chessMove');
-            if (this.kind === 'online' && by === 'me' && this.lobby) this.lobby.send({ t: 'mv', n: this.moves.length, u: uci });
+            if (this.kind === 'online' && by === 'me' && this.lobby) this.lobby.send({ t: 'mv', n: this.moves.length, u: uci, c: this.clock ? this.clock.slice() : undefined });
             if (this.offerShown && by !== 'sync') this.clearOffer();
             this.save();
             this.updateSide();
@@ -455,6 +483,7 @@
             this.thinkSeq++; Engine.cancel(); this.thinking = false;
             this.kind = kind;
             this.myColor = myColor;
+            clearInterval(this.clockIv); this.clock = null; this.tc = null; this.peerClock = null;
             this.userFlip = false;
             this.startFen = C.START;
             this.pos = C.Position.fromFen(C.START);
@@ -539,10 +568,66 @@
 
         clearOffer() { this.offerShown = false; this.drawSent = false; const o = this.$('#ch-offer'); if (o) { o.hidden = true; o.innerHTML = ''; } }
 
+        // ── Reloj (online) ──────────────────────────────────
+        /** Descuenta el tiempo pensado por quien mueve y suma el incremento; con la jugada del rival se adopta su reloj. */
+        clockMove(color, by) {
+            if (!this.clock || this.kind !== 'online') return;
+            const i = color === WHITE ? 0 : 1, now = Date.now();
+            if (by === 'peer' && this.peerClock) this.clock = this.peerClock.slice(0, 2).map(Number);
+            else this.clock[i] = Math.max(0, this.clock[i] - (now - this.clockStart)) + this.tc.inc * 1000;
+            this.peerClock = null;
+            this.clockStart = now;
+        }
+        /** Tiempo restante [blancas, negras] contando lo que lleva pensando quien tiene el turno. */
+        clockNow() {
+            if (!this.clock) return null;
+            const c = this.clock.slice();
+            if (this.state === 'playing') c[this.pos.turn === WHITE ? 0 : 1] -= Date.now() - this.clockStart;
+            return c;
+        }
+        startClock() {
+            clearInterval(this.clockIv);
+            if (!this.clock) { this.renderClocks(); return; }
+            this.clockIv = setInterval(() => {
+                if (this.destroyed || this.state !== 'playing' || !this.clock) { clearInterval(this.clockIv); this.renderClocks(); return; }
+                const c = this.clockNow(), turn = this.pos.turn, left = c[turn === WHITE ? 0 : 1];
+                this.renderClocks(c);
+                if (turn === this.myColor && left <= 0) this.flagFall(turn, true);
+                // Si el rival no avisa (pestaña congelada), se reclama con 2 s de margen por la latencia
+                else if (turn !== this.myColor && left <= -2000) this.flagFall(turn, true);
+                if (turn === this.myColor && left > 0 && left <= 10000 && Math.ceil(left / 1000) !== this.lastTick) { this.lastTick = Math.ceil(left / 1000); Nexus.audio.play('click'); }
+            }, 100);
+        }
+        renderClocks(c = this.clockNow()) {
+            this.root.querySelectorAll('[data-clock]').forEach(el => {
+                if (!c) { el.hidden = true; return; }
+                const i = el.dataset.clock === 'w' ? 0 : 1, run = this.state === 'playing' && (this.pos.turn === WHITE ? 0 : 1) === i;
+                el.hidden = false;
+                const txt = fmtClock(c[i]);
+                if (el.textContent !== txt) el.textContent = txt;
+                el.classList.toggle('run', run);
+                el.classList.toggle('low', c[i] < 20000);
+            });
+        }
+        /** A `color` se le ha acabado el tiempo: pierde, salvo que el rival no pueda dar mate (tablas). */
+        flagFall(color, announce) {
+            if (this.state !== 'playing') return;
+            if (announce) this.lobby.send({ t: 'flag', w: color });
+            const i = color === WHITE ? 0 : 1;
+            this.clock[i] = 0; this.renderClocks(this.clock);
+            if (!canMate(this.pos, color ^ 8)) this.finish('1/2-1/2', 'timedraw');
+            else this.finish(color === WHITE ? '0-1' : '1-0', 'time');
+        }
+
         // ── Online ──────────────────────────────────────────
         startOnline({ role, opts }) {
             const hostWhite = !!opts.hostWhite;
             this.newGame('online', (role === 'host') === hostWhite ? WHITE : BLACK);
+            const tc = CLOCKS.find(c => c.id === opts.setting && c.base);
+            this.tc = tc || null;
+            this.clock = tc ? [tc.base * 60000, tc.base * 60000] : null;
+            this.clockStart = Date.now();
+            this.startClock();
             // Latido: cada 4 s se anuncia cuántas jugadas hay; si el otro tiene menos, pide sincronizar
             clearInterval(this.plyBeat);
             this.plyBeat = setInterval(() => { if (this.state === 'playing' && this.kind === 'online') this.lobby.send({ t: 'ply', n: this.moves.length }); }, 4000);
@@ -557,18 +642,26 @@
                 if (this.pos.turn === this.myColor) { this.lobby.send({ t: 'sync?' }); return; }
                 const mv = this.pos.fromUci(m.u);
                 if (!mv) { this.lobby.send({ t: 'sync?' }); return; }
+                this.peerClock = Array.isArray(m.c) ? m.c : null;
                 this.commit(mv, 'peer');
             } else if (m.t === 'ply') {
                 if (this.state === 'playing' && typeof m.n === 'number' && m.n > this.moves.length) this.lobby.send({ t: 'sync?' });
             } else if (m.t === 'sync?') {
-                this.lobby.send({ t: 'sync', moves: this.moves });
+                this.lobby.send({ t: 'sync', moves: this.moves, c: this.clockNow() });
             } else if (m.t === 'sync') {
                 if (!Array.isArray(m.moves) || this.state !== 'playing') return;
                 const mine = this.moves;
                 const extends_ = m.moves.length > mine.length && mine.every((u, i) => m.moves[i] === u);
                 if (this.lobby.role === 'guest' || extends_) {
-                    try { this.rebuild(m.moves); const st = this.pos.status(); if (st.over) this.finish(st.result, st.reason); } catch (_) { /* lista inválida */ }
+                    try {
+                        this.rebuild(m.moves);
+                        if (this.clock && Array.isArray(m.c)) { this.clock = m.c.slice(0, 2).map(Number); this.clockStart = Date.now(); }
+                        const st = this.pos.status(); if (st.over) this.finish(st.result, st.reason);
+                    } catch (_) { /* lista inválida */ }
                 }
+            } else if (m.t === 'flag') {
+                // El rival avisa de que a alguien se le ha acabado el tiempo (m.w: color sin tiempo)
+                if (this.state === 'playing' && this.clock && (m.w === WHITE || m.w === BLACK)) this.flagFall(m.w, false);
             } else if (m.t === 'resign') {
                 if (this.state === 'playing') this.finish(this.myColor === WHITE ? '1-0' : '0-1', 'resign');
             } else if (m.t === 'draw?') {
@@ -598,7 +691,7 @@
             if (this.state !== 'playing') return;
             this.state = 'over';
             this.thinkSeq++; Engine.cancel(); this.thinking = false;
-            clearInterval(this.plyBeat);
+            clearInterval(this.plyBeat); clearInterval(this.clockIv);
             this.clearOffer();
             const online = this.kind === 'online';
             if (online) this.lobby.gameOver();
@@ -725,6 +818,7 @@
                     <span class="ch-pl-info"><b>${esc(info.name)}${isMe ? ' <small>(tú)</small>' : ''}</b>
                         <span class="ch-caps ${c ? 'w' : 'b'}">${caps.map(t => glyph(t | (c ? WHITE : BLACK))).join('')}${adv > 0 ? ` <em>+${adv}</em>` : ''}</span></span>
                     <span class="ch-pl-color ${c ? 'b' : 'w'}${turn ? ' turn' : ''}" title="${c ? 'Negras' : 'Blancas'}"></span>
+                    <span class="ch-clock" data-clock="${c ? 'b' : 'w'}" role="timer" aria-label="Reloj de ${c ? 'negras' : 'blancas'}" hidden></span>
                     ${!isMe && this.thinking ? '<span class="ch-thinking"><i></i><i></i><i></i></span>' : ''}`;
             };
             const topColor = this.flipped ? WHITE : BLACK, bottomColor = topColor ^ 8;
@@ -734,6 +828,7 @@
             bottom.innerHTML = card(mineTop ? peer : me, bottomColor, !mineTop);
             top.classList.toggle('turn', this.state === 'playing' && this.pos.turn === topColor);
             bottom.classList.toggle('turn', this.state === 'playing' && this.pos.turn === bottomColor);
+            this.renderClocks();
         }
 
         updateSide() {
@@ -789,7 +884,7 @@
             }
             this.destroyed = true;
             this.thinkSeq++; Engine.cancel();
-            clearInterval(this.plyBeat);
+            clearInterval(this.plyBeat); clearInterval(this.clockIv);
             window.removeEventListener('pointermove', this.onMove);
             window.removeEventListener('pointerup', this.onUp);
             window.removeEventListener('pointercancel', this.onUp);

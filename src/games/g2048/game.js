@@ -67,7 +67,7 @@
         { id: 'clasico', label: 'Clásico 4×4', emoji: '🟧', desc: 'Llega a 2048 (y sigue si quieres)', n: 4, target: 2048, undo: 3 },
         { id: 'grande', label: 'Grande 5×5', emoji: '🟪', desc: 'Más espacio: llega a 4096', n: 5, target: 4096, undo: 3 },
         { id: 'contrarreloj', label: 'Contrarreloj', emoji: '⏱️', desc: '3 minutos para sumar todo lo posible', n: 4, limit: 180, undo: 0 },
-        { id: 'diario', label: '2048 diario', emoji: '📅', desc: 'Mismas fichas para todos · 150 movimientos', n: 4, moves: 150, undo: 0, daily: true }
+        { id: 'diario', label: '2048 diario', emoji: '📅', desc: 'Mismos valores de ficha para todos · 150 movimientos', n: 4, moves: 150, undo: 0, daily: true }
     ];
 
     class G2048 extends Nexus.games.PuzzleGame {
@@ -80,7 +80,7 @@
                     'Dos fichas iguales que chocan se fusionan en una con su suma, y sumas esos puntos.',
                     'Tras cada movimiento aparece un 2 (o, a veces, un 4). Si el tablero se llena y no puedes mover, se acaba.',
                     'En clásico y grande tienes 3 deshacer por partida. En contrarreloj y en el reto diario, ninguno.',
-                    'El reto diario usa la misma secuencia de fichas para todos: haz la máxima puntuación en 150 movimientos.']
+                    'El reto diario reparte a todos los mismos valores de ficha nueva (2 o 4) en el mismo orden; dónde aparece cada una depende de tu tablero. Haz la máxima puntuación en 150 movimientos.']
             });
             this.bindGame();
             this.showMenu();
@@ -106,7 +106,7 @@
                 else if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); this.undo(); }
             };
             document.addEventListener('keydown', this.onKey);
-            Kit.swipe(this.$('#g2-board'), (d) => { if (d !== 'tap' && this.state === 'playing') this.move(d); }, 26);
+            Kit.swipe(this.$('#g2-board'), (d) => { if (d !== 'tap' && this.state === 'playing') this.move(d); }, { threshold: 26, chain: false });
             this.$('#g2-undo').addEventListener('click', () => this.undo());
         }
         onDestroy() { document.removeEventListener('keydown', this.onKey); }
@@ -134,7 +134,7 @@
         move(dir) {
             const res = slide(this.tiles, this.n, dir, () => this.idc++);
             if (!res.moved) { this.$('#g2-board').classList.remove('bump'); void this.$('#g2-board').offsetWidth; this.$('#g2-board').classList.add('bump'); return; }
-            this.hist.push({ t: this.tiles.map(({ id, v, r, c }) => ({ id, v, r, c })), sc: this.score, m: this.moves, sp: this.spawns, id: this.idc });
+            this.hist.push({ t: this.tiles.map(({ id, v, r, c }) => ({ id, v, r, c })), sc: this.score, m: this.moves, sp: this.spawns, id: this.idc, re: this.reached });
             if (this.hist.length > 10) this.hist.shift();
             this.tiles = res.tiles; this.score += res.gained; this.moves++;
             this.lastMerges = res.merges;
@@ -154,7 +154,9 @@
             if (this.state !== 'playing' || !this.undos || !this.hist.length) { if (this.mode && !this.mode.undo) this.toast('En este modo no se puede deshacer'); return; }
             const h = this.hist.pop();
             this.tiles = h.t; this.score = h.sc; this.moves = h.m; this.spawns = h.sp; this.idc = h.id; this.undos--;
+            this.reached = !!h.re;                      // si se deshace la fusión que llegó al objetivo, se volverá a celebrar
             this.buildBg(); this.render(); Nexus.audio.play('click');
+            this.saveRun();                             // recargar la página ya no devuelve el estado anterior al deshacer
         }
         onTick() {
             if (this.mode.limit) {
@@ -231,7 +233,7 @@
     Nexus.games.registry.register({
         id: 'g2048', name: '2048', emoji: '🟧', accent: '#f59e0b',
         tagline: '4×4 · 5×5 · contrarreloj · reto diario',
-        description: 'Desliza y fusiona fichas iguales hasta llegar a 2048. Con tablero grande, contrarreloj de 3 minutos y un reto diario con la misma secuencia de fichas para todos.',
+        description: 'Desliza y fusiona fichas iguales hasta llegar a 2048. Con tablero grande, contrarreloj de 3 minutos y un reto diario con los mismos valores de ficha para todos.',
         tags: ['Puzzle', 'Números'],
         modes: MODES.map(m => ({ id: m.id, label: m.label })),
         metrics: [{ id: 'score', label: 'Puntuación' }, { id: 'wins', label: 'Victorias' }],

@@ -45,9 +45,12 @@
     // Conocimiento de un tablero enemigo: 0 desconocido, 1 agua, 2 tocado, 3 hundido (4 ya no se usa: el alrededor no se revela)
     const U = 0, MISS = 1, HIT = 2, SUNK = 3, WATER = 4;
     const COLS = 'ABCDEFGHIJ';
-    const label = (i) => COLS[i % S] + (Math.floor(i / S) + 1);
+    // Las filas llevan letra (A–J, rótulo lateral) y las columnas número (1–10, rótulo superior): «C5» = fila C, columna 5
+    const label = (i) => COLS[Math.floor(i / S)] + (i % S + 1);
     const xyOf = (i) => ({ x: i % S, y: Math.floor(i / S) });
     const rand = (n) => Math.floor(Math.random() * n);
+    /** Segundos por disparo en las partidas online. */
+    const SHOT_TIME = 35;
 
     // ── Lógica pura ─────────────────────────────────────────
     function shipCells(x, y, len, vertical) {
@@ -317,6 +320,7 @@
                 ${Kit.header({ emoji: Nexus.ui.icons.logo('battleship'), title: 'Hundir la flota', pills: [
                     { id: 'shots', icon: '🎯', init: '0', title: 'Disparos' },
                     { id: 'acc', icon: '💥', init: '–', title: 'Precisión' },
+                    { id: 'clock', icon: '⏱', init: '–', title: 'Tiempo de turno (online)' },
                     { id: 'ping', icon: '📶', init: '–', title: 'Latencia' }] })}
                 <div class="bs-body" id="bs-body">
                     <div class="bs-banner" id="bs-banner" role="status" aria-live="polite"></div>
@@ -551,6 +555,33 @@
             if (res.r === 'miss') { this.banner(`${this.kind === 'cpu' ? 'La CPU' : this.peerName()} falla en ${label(i)}. ¡Tu turno!`); }
             else this.banner(res.r === 'sunk' ? `¡Te han hundido el ${shipName(res.ship)}!` : `Te han tocado en ${label(i)}…`);
         }
+
+        // ── Tiempo de turno online ──────────────────────────
+        /** Cada disparo (propio o del rival) reinicia la cuenta: SHOT_TIME s por disparo; al agotarse, disparo automático al azar. */
+        armShotClock() {
+            const on = this.kind === 'online' && this.phase === 'battle';
+            if (!on) { clearInterval(this.shotIv); this.shotIv = 0; this.shotKey = null; this.setPill('–'); return; }
+            const key = `${this.myTurn}:${this.stats.shots}:${this.foeStats.shots}`;
+            if (key !== this.shotKey) { this.shotKey = key; this.shotDeadline = Date.now() + SHOT_TIME * 1000 * (BattleshipGame.timeScale || 1); }
+            if (!this.shotIv) this.shotIv = setInterval(() => this.tickShotClock(), 250);
+            this.tickShotClock();
+        }
+        tickShotClock() {
+            if (this.destroyed || this.phase !== 'battle') { clearInterval(this.shotIv); this.shotIv = 0; return; }
+            const left = this.shotDeadline - Date.now(), s = Math.max(0, Math.ceil(left / 1000));
+            this.setPill(this.myTurn ? `${s} s` : `${this.peerName()} · ${s} s`);
+            const pill = this.root.querySelector('[data-pill="clock"]');
+            if (pill && pill.parentElement) pill.parentElement.classList.toggle('bs-clock-low', this.myTurn && s <= 5);
+            if (this.myTurn && !this.awaiting && s <= 5 && s > 0 && s !== this.lastBeep) { this.lastBeep = s; Nexus.audio.play('click'); }
+            if (this.myTurn && !this.awaiting && left <= 0) {
+                const free = []; for (let i = 0; i < S * S; i++) if (this.view.k[i] === U) free.push(i);
+                if (!free.length) return;
+                const i = free[rand(free.length)];
+                Nexus.ui.toast(`Se acabó el tiempo: disparo automático a ${label(i)}`, { icon: '⏱' });
+                this.playerFire(i);
+            }
+        }
+        setPill(v) { const el = this.root.querySelector('[data-pill="clock"]'); if (el && el.textContent !== v) el.textContent = v; }
 
         // ── Online ──────────────────────────────────────────
         startOnline({ role, opts }) {
@@ -790,6 +821,7 @@
             const place = this.phase === 'place';
             this.$('#bs-enemy-side').hidden = place || this.phase === 'menu';
             this.renderMine(); this.renderEnemy(); this.renderDock(); this.renderPreview(); this.updateHud();
+            this.armShotClock();
             if (place) this.banner(this.ready ? (this.kind === 'online' && !this.peerReady ? `Flota lista. Esperando a que ${this.peerName()} coloque la suya…` : 'Flota lista.') :
                 this.fleetComplete() ? 'Flota colocada. Pulsa «¡Listo!» para empezar.' : this.variant === 'libre'
                     ? `Reparte tus casillas: elige un tamaño y toca tu tablero (R para girar). Te quedan ${this.freeLeft()} de ${FREE_CELLS}.`
@@ -927,6 +959,7 @@
         destroy() {
             if (this.kind === 'online' && this.lobby.playing) this.finishQuietLoss();
             this.destroyed = true;
+            clearInterval(this.shotIv);
             document.removeEventListener('keydown', this.onKey);
             this.timers.forEach(clearTimeout); this.timers.clear();
             if (this.resultModal) this.resultModal.close();

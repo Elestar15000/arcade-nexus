@@ -209,7 +209,7 @@
             this.lastRot = false;
             this.snap = null;
             this.softDrop = false;
-            this.dir = 0; this.dasT = 0; this.arrT = 0;
+            this.dir = 0; this.dasT = 0; this.arrT = 0; this.held = [];
             this.clearT = 0; this.pending = null; this.flash = null;
             this.stats = { maxLines: 0, tspins: 0, bombs: 0, bolts: 0, rewinds: 0, purges: 0, maxChain: 0, events: 0, perfect: 0, powers: 0 };
             this.particles = []; this.floaters = [];
@@ -350,7 +350,9 @@
                 board: this.board.map(r => r.map(c => c && { ...c })),
                 item: { type: p.type, pw: p.pw ? { ...p.pw } : null },
                 score: this.score, lines: this.lines, level: this.level, combo: this.combo, b2b: this.b2b,
-                star: this.star, piecesLocked: this.piecesLocked, stats: { ...this.stats }
+                star: this.star, piecesLocked: this.piecesLocked, stats: { ...this.stats },
+                // La cola y la bolsa de 7 también: tras rebobinar, la secuencia es la que se veía
+                queue: this.queue.map(clonePiece), bag: this.bag.slice()
             };
             const tspin = p.type === 'T' && this.lastRot && this.isTSpin(p);
             let allHidden = true;
@@ -517,7 +519,8 @@
             const keepRewinds = this.stats.rewinds + 1;
             this.stats = { ...s.stats, rewinds: keepRewinds };
             this.energy = gained - ENERGY_REWIND;
-            if (current) this.queue.unshift(current);
+            if (s.queue) { this.queue = s.queue; this.bag = s.bag; }
+            else if (current) this.queue.unshift(current);
             this.snap = null;
             this.spawn(clonePiece(s.item));
             this.floatText('⏪ REBOBINADO', '#7dd3fc');
@@ -685,7 +688,7 @@
 
         act(a, down, repeat) {
             if (this.state !== 'playing' || !this.piece) {
-                if (a === 'left' || a === 'right') this.dir = 0;
+                if (a === 'left' || a === 'right') { this.dir = 0; this.held = []; }
                 if (a === 'down') this.softDrop = false;
                 return;
             }
@@ -693,8 +696,16 @@
             if (a === 'left' || a === 'right') {
                 let d = a === 'left' ? -1 : 1;
                 if (mirror) d = -d;
-                if (down) { if (repeat) return; this.dir = d; this.dasT = 0; this.arrT = 0; this.move(d, 0); }
-                else if (this.dir === d) this.dir = 0;
+                // Pila de direcciones pulsadas: al soltar una, la pieza sigue hacia la otra si aún está pulsada
+                this.held = (this.held || []).filter(x => x !== a);
+                if (down) {
+                    if (repeat) return;
+                    this.held.push(a); this.dir = d; this.dasT = 0; this.arrT = 0; this.move(d, 0);
+                } else {
+                    const other = this.held[this.held.length - 1];
+                    if (other) { let od = other === 'left' ? -1 : 1; if (mirror) od = -od; if (od !== this.dir) { this.dir = od; this.dasT = 0; this.arrT = 0; } }
+                    else this.dir = 0;
+                }
                 return;
             }
             if (a === 'down') { this.softDrop = down; return; }

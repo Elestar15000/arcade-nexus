@@ -124,7 +124,10 @@
 
         /** ¿Puede cambiar el 7 (o el 2 en la Brisca) de triunfo por la muestra? Devuelve la carta o null. */
         function swapCard(st, seat) {
-            if (st.phase !== 'play' || st.turnSeat !== seat || st.trick.length || !st.muestra || !st.deck.length) return null;
+            if (st.phase !== 'play' || st.turnSeat !== seat || st.trick.length || !st.muestra) return null;
+            // Brisca: se puede cambiar hasta el último robo, mientras la muestra siga en la mesa (variante elegida, explicada en la ayuda).
+            // Guiñote: mientras quede mazo además de la muestra.
+            if (cfg.id !== 'brisca' && !st.deck.length) return null;
             if (cfg.id === 'guinote' && st.lastWinner !== seat) return null;
             const m = rankOf(st.muestra);
             const need = [1, 3, 10, 11, 12].includes(m) ? 7 : (cfg.id === 'brisca' && [4, 5, 6, 7].includes(m) ? 2 : 0);

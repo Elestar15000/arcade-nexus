@@ -147,6 +147,7 @@
                 gs.wins++; ms.wins++;
                 gs.streak++;
                 gs.bestStreak = Math.max(gs.bestStreak, gs.streak);
+                ms.streak = (ms.streak || 0) + 1; ms.bestStreak = Math.max(ms.bestStreak || 0, ms.streak);   // racha por modo/dificultad
                 if (score > gs.bestScore) gs.bestScore = score;
                 if (gs.bestTime === null || time < gs.bestTime) gs.bestTime = time;
                 if (score > ms.bestScore) ms.bestScore = score;
@@ -156,7 +157,7 @@
                 result.records.time = prevBestTime !== null && time < prevBestTime;
             } else {
                 gs.losses++;
-                gs.streak = 0;
+                gs.streak = 0; ms.streak = 0;
             }
             if (typeof p.updateExtra === 'function') p.updateExtra(gs.extra);
 

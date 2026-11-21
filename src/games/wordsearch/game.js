@@ -88,7 +88,14 @@
         }
         return w.length > 1 && w === w.split('').reverse().join('') ? k / 2 : k;
     }
-    Nexus.games.wordsearchLogic = { generate, occurrences, THEMES, LV };
+    let themeOrder = null;
+    function dailyTheme(day) {
+        const S = Nexus.games.seed;
+        if (!themeOrder || themeOrder.length !== THEMES.length) themeOrder = S.rng('wordsearch-themes').shuffle(THEMES.map((_, i) => i));
+        const k = S.dayNumber(day);
+        return THEMES[themeOrder[((k % themeOrder.length) + themeOrder.length) % themeOrder.length]];
+    }
+    Nexus.games.wordsearchLogic = { generate, occurrences, THEMES, LV, dailyTheme };
 
     // ── Juego ───────────────────────────────────────────────
     const MODES = [
@@ -207,7 +214,9 @@
         }
 
         newGame(mode, r) {
-            const theme = r.pick(THEMES);
+            // Sopa diaria: los temas se recorren en un orden barajado fijo (nunca el mismo dos días seguidos
+            // y no se repite hasta agotarlos); el resto de modos, al azar
+            const theme = this.daily ? dailyTheme(this.daily) : r.pick(THEMES);
             const g = generate(r, mode.id, theme);
             this.theme = theme.name; this.themeEmoji = theme.emoji;
             this.grid = g.grid; this.words = g.words; this.found = []; this.hints = 0; this.drag = null; this.tapStart = null;
