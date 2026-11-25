@@ -1,7 +1,7 @@
 /* ============================================================
    NEXUS ARCADE · pet.css — Nexito, la mascota de racha
    Página #/pet (escenario + paneles), tarjeta de Inicio, línea
-   del modal de resultados, avisos y celebración de evolución.
+   del modal de resultados y avisos.
    Prefijo .nxt-* (página) · .nh-pet (Inicio) · .modal-pet
    ============================================================ */
 
@@ -115,15 +115,6 @@
 .nxt-wear-art { width: 76px; height: 82px; display: grid; place-items: center; }
 .nxt-wear-art svg { width: 100%; height: 100%; }
 .nxt-wear-none { width: 76px; height: 82px; display: grid; place-items: center; font-size: 1.6em; color: var(--text-muted); }
-.nxt-evo { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
-.nxt-evo-it { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px 6px; border-radius: 18px; text-align: center; background: var(--bg-dark); border: 1px solid var(--panel-border); opacity: .6; }
-.nxt-evo-it.got { opacity: 1; }
-.nxt-evo-it.cur { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(var(--primary-rgb), .3); }
-.nxt-evo-art { width: 80px; height: 90px; display: grid; place-items: center; }
-.nxt-evo-art svg { width: 100%; height: 100%; }
-.nxt-evo-q { width: 60px; height: 60px; border-radius: 16px; transform: rotate(45deg); display: grid; place-items: center; background: rgba(255, 255, 255, .06); border: 2px dashed var(--panel-border); font-weight: 900; color: var(--text-muted); }
-.nxt-evo-q::first-letter { display: inline-block; }
-.nxt-evo-it small { color: var(--text-muted); font-size: .76em; }
 .nxt-rules ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: var(--text-dim); line-height: 1.5; }
 .nxt-rules b { color: var(--text); }
 .nxt-settings { display: flex; flex-direction: column; gap: 14px; }
@@ -158,7 +149,7 @@
 @media (max-width: 900px) { .nh-pet { grid-template-columns: auto minmax(0, 1fr) auto; } .nh-pet-acts { grid-column: 1 / -1; flex-direction: row; } }
 @media (max-width: 560px) { .nh-pet { grid-template-columns: 72px minmax(0, 1fr); gap: 12px; padding: 12px; } .nh-pet-art { width: 72px; height: 84px; } .nh-pet-streak { grid-column: 2; flex-direction: row; gap: 6px; align-items: baseline; justify-self: start; } }
 
-/* ── Modal de resultados, avisos y evolución ──────────────── */
+/* ── Modal de resultados y avisos ──────────────── */
 .modal-pet { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 8px 12px; border-radius: 16px; text-align: left; background: rgba(var(--primary-rgb), .08); border: 1px solid rgba(var(--primary-rgb), .3); }
 .modal-pet-snack { flex: none; color: var(--primary); border-color: rgba(var(--primary-rgb), .5); }
 .modal-pet-art { width: 46px; height: 52px; flex: none; }
@@ -170,26 +161,26 @@
 .toast-pet .nxt-toast-art svg { width: 100%; height: 100%; }
 .toast-pet.big { border-color: rgba(255, 212, 59, .6); box-shadow: 0 0 30px rgba(255, 212, 59, .3), var(--shadow-pop); }
 .toast-pet.warn { border-color: rgba(255, 138, 42, .6); }
-.nxt-evolve-art { width: 200px; }
-.nxt-evolve-art svg { width: 100%; height: auto; }
 
 /* ── Animaciones de Nexito ────────────────────────────────── */
-.nxp-float { animation: nxp-bob 3.4s ease-in-out infinite; transform-origin: 120px 190px; }
+.nxp-float { animation: nxp-bob 3.4s ease-in-out infinite; transform-origin: 118px 216px; }
 .m-sleepy .nxp-float { animation: nxp-breathe 4.5s ease-in-out infinite; }
-.nxp-egg { animation: nxp-wobble 2.8s ease-in-out infinite; transform-origin: 120px 196px; }
+.nxp-eyes { animation: nxp-blink 5s infinite; transform-box: fill-box; transform-origin: center; }
+.nxp-antenna { animation: nxp-sway 3.4s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
 .nxp-zzz text { animation: nxp-z 2.6s ease-in-out infinite; }
 .nxp-zzz text:nth-child(2) { animation-delay: .4s; } .nxp-zzz text:nth-child(3) { animation-delay: .8s; }
 .nxp-glow { animation: nxp-glow 1.8s ease-in-out infinite; }
-.nxp-aura { animation: rw-spin 12s linear infinite; transform-origin: 120px 134px; }
+.nxp-aura { animation: nxp-glow 2.4s ease-in-out infinite; }
 .nxp-light { animation: nxp-glow 1.2s ease-in-out infinite; }
 @keyframes nxp-bob { 50% { transform: translateY(-6px); } }
 @keyframes nxp-breathe { 50% { transform: scale(1.02, .98); } }
-@keyframes nxp-wobble { 0%, 60%, 100% { transform: rotate(0); } 70% { transform: rotate(-6deg); } 80% { transform: rotate(5deg); } 90% { transform: rotate(-3deg); } }
+@keyframes nxp-blink { 0%, 94%, 100% { transform: none; } 97% { transform: scaleY(.1); } }
+@keyframes nxp-sway { 50% { transform: rotate(6deg); } }
 @keyframes nxp-z { 0%, 100% { opacity: .2; transform: translateY(4px); } 50% { opacity: 1; transform: none; } }
 @keyframes nxp-glow { 50% { opacity: .45; } }
 @keyframes nxp-jump { 30% { transform: translateY(-22px) scale(1.05, .95); } 60% { transform: translateY(0) scale(.96, 1.04); } }
 @keyframes nxp-pop { from { opacity: 0; transform: scale(.8); } }
-:root[data-motion="reduced"] .nxp-float, :root[data-motion="reduced"] .nxp-egg, :root[data-motion="reduced"] .nxp-zzz text, :root[data-motion="reduced"] .nxp-glow,
+:root[data-motion="reduced"] .nxp-float, :root[data-motion="reduced"] .nxp-eyes, :root[data-motion="reduced"] .nxp-antenna, :root[data-motion="reduced"] .nxp-zzz text, :root[data-motion="reduced"] .nxp-glow,
 :root[data-motion="reduced"] .nxp-aura, :root[data-motion="reduced"] .nxp-light, :root[data-motion="reduced"] .nh-pet-art .nxp-body, :root[data-motion="reduced"] .nxt-bubble { animation: none; }
 
 /* Perfil y rankings */
@@ -214,7 +205,7 @@ html[data-pet-hidden] .nav-item[data-route="pet"] { display: none; }
     background: radial-gradient(circle at 50% 50%, #1d2072 0 28%, transparent 29%), linear-gradient(135deg, #FFE680, #FFD43B 55%, #F2A900); border: 2px solid #C98300; }
 
 /* ── Responsive ───────────────────────────────────────────── */
-@media (max-width: 1100px) { .nxt-grid { grid-template-columns: minmax(0, 1fr); } .nxt-side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .nxt-evo { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 1100px) { .nxt-grid { grid-template-columns: minmax(0, 1fr); } .nxt-side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) {
     .nxt-grid { padding: 12px; border-radius: 22px; }
     .nxt-side { grid-template-columns: minmax(0, 1fr); }
@@ -225,7 +216,6 @@ html[data-pet-hidden] .nav-item[data-route="pet"] { display: none; }
     .nxt-streak b { font-size: 1.4em; }
     .nxt-acts-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .nxt-need { grid-template-columns: 26px 74px minmax(0, 1fr) 42px; gap: 8px; }
-    .nxt-evo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .nxt-foods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .nxt-form .input { width: 100%; }
 }
