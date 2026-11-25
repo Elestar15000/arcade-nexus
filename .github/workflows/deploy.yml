@@ -11,6 +11,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read      # deploy-pages busca el artefacto «github-pages» con la API de Actions
 
 # Las publicaciones se ponen en cola: cancelar un despliegue de Pages a medias deja la anterior «en curso» y el
 # siguiente falla con «Deployment request failed … due to in progress deployment» (pasaba al hacer dos push seguidos)
@@ -53,15 +54,12 @@ jobs:
           URL=$(grep -Eo 'https://[A-Za-z0-9._-]+\.workers\.dev' deploy.log | head -1)
           echo "api_url=${URL}" >> "$GITHUB_OUTPUT"
 
-  pages:
-    name: Publicar en GitHub Pages
+  build:
+    name: Preparar la web
     needs: backend
     # La web se publica aunque falle el despliegue del Worker (antes, un fallo del backend dejaba la web sin actualizar)
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v6
       - name: Preparar sitio
@@ -79,8 +77,20 @@ jobs:
           touch _site/.nojekyll
           echo "config.js publicado:"; cat _site/config.js
       - uses: actions/configure-pages@v6
-      # Versiones para Node 24: deploy-pages@v4 (Node 20) ya no encuentra el artefacto ("No artifacts named github-pages")
       - uses: actions/upload-pages-artifact@v5
         with: { path: _site, include-hidden-files: true }
+
+  # Publicar en un job aparte: si se sube y se despliega en el mismo job, deploy-pages@v5 a veces busca el artefacto
+  # antes de que GitHub lo tenga visible («No artifacts named "github-pages" were found»). Separados, el artefacto ya
+  # existe al empezar este job y «Re-run failed jobs» reintenta sólo la publicación, sin subir un segundo artefacto.
+  pages:
+    name: Publicar en GitHub Pages
+    needs: build
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - id: deployment
         uses: actions/deploy-pages@v5
