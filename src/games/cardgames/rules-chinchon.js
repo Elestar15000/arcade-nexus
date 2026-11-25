@@ -7,8 +7,8 @@
        (o5 y o5z son los dos cincos de oros); comodines j1 y j2.
      · 7 cartas por jugador. En tu turno robas (del mazo o la carta
        de arriba del montón) y descartas una.
-     · Combinaciones: grupos de 3 o 4 cartas del mismo número (de
-       palos distintos) y escaleras de 3 o más del mismo palo
+     · Combinaciones: grupos de 3 o 4 cartas del mismo número (con
+       el mazo doble pueden repetir palo) y escaleras de 3 o más del mismo palo
        (… 6, 7, sota, caballo, rey). El comodín sustituye a
        cualquier carta y vale 25 si queda suelto.
      · Cierres:
@@ -55,7 +55,9 @@
             const i = idx(c);
             for (const d of [-2, -1, 1, 2]) if (RANKS[i + d]) cand.add(suitOf(c) + RANKS[i + d] + 'w');
         }
-        const opts = [...cand].slice(0, 30);
+        // Todas las cartas posibles (antes se cortaba en 30 y, con manos variadas, el comodín no se probaba en algunos
+        // conjuntos: un −10 con comodín dentro de un grupo o escalera podía no reconocerse)
+        const opts = [...cand];
         const tryAssign = (subs) => {
             const b = bestPlain(rest.concat(subs));
             const map = new Map(subs.map((s, i) => [s, jk[i]]));
@@ -63,22 +65,22 @@
             const dead = b.dead - looseSubs.reduce((s, x) => s + value(x), 0) + JOKER * looseSubs.length;
             if (dead < bestR.dead) bestR = { melds: b.melds.map(m => m.map(x => map.get(x) || x)), dead, loose: b.loose.map(x => map.get(x) || x) };
         };
-        if (jk.length === 1) opts.forEach(o => tryAssign([o]));
-        else for (let a = 0; a < opts.length; a++) for (let b = a + 1; b < opts.length; b++) tryAssign([opts[a], opts[b]]);
+        if (jk.length === 1) opts.forEach(o => { if (bestR.dead > 0) tryAssign([o]); });
+        else for (let a = 0; a < opts.length && bestR.dead > 0; a++) for (let b = a + 1; b < opts.length && bestR.dead > 0; b++) tryAssign([opts[a], opts[b]]);
         return bestR;
     }
 
-    /** Combinaciones posibles de una mano sin comodines (grupos de palos distintos y escaleras de una copia por número). */
+    /** Combinaciones posibles de una mano sin comodines (grupos del mismo número, de cualquier palo, y escaleras). */
     function candidates(cards) {
         const cand = [];
         const byRank = {};
         for (const c of cards) (byRank[rankOf(c)] = byRank[rankOf(c)] || []).push(c);
         for (const g of Object.values(byRank)) {
-            // Subconjuntos de 3 o 4 cartas con palos distintos
+            // Subconjuntos de 3 o 4 cartas del mismo número: con dos barajas pueden repetir palo (5♣, 5♣ y 5 de bastos)
             const n = g.length;
             for (let mask = 0; mask < (1 << n); mask++) {
                 const sub = g.filter((_, i) => mask & (1 << i));
-                if (sub.length >= 3 && sub.length <= 4 && new Set(sub.map(suitOf)).size === sub.length) cand.push(sub);
+                if (sub.length >= 3 && sub.length <= 4) cand.push(sub);
             }
         }
         for (const s of K.SUITS) {
@@ -151,9 +153,9 @@
         if (!real.length) return false;
         const sameRank = real.every(x => rankOf(x) === rankOf(real[0]));
         const sameSuit = real.every(x => suitOf(x) === suitOf(real[0]));
-        if (sameRank && !(sameSuit && real.length > 1)) {
-            return m.length < 4 && rankOf(c) === rankOf(real[0]) && !real.some(x => suitOf(x) === suitOf(c));
-        }
+        const groupOk = m.length < 4 && rankOf(c) === rankOf(real[0]);           // grupo: mismo número, cualquier palo
+        if (sameRank && real.length > 1) return groupOk;
+        if (real.length === 1 && groupOk) return true;                           // una carta y comodines: puede ser grupo
         if (!sameSuit || suitOf(c) !== suitOf(real[0])) return false;
         const ids = real.map(idx), lo = Math.min(...ids), hi = Math.max(...ids), free = j - (hi - lo + 1 - real.length);
         const i = idx(c);
