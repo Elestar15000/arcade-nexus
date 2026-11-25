@@ -18,7 +18,10 @@
     'use strict';
 
     const F = Nexus.games.frenchCards;
-    const START = 1000, HANDS_PER_LEVEL = 6;
+    const START = 1000;
+    /** Estructura de ciegas: torneo rápido (sube cada 6 manos), lento (cada 12) o ciegas fijas (partida «cash»). */
+    const STRUCTURES = { fast: 6, slow: 12, fixed: Infinity };
+    const setting = (k) => { try { return Nexus.services.settings.get(k); } catch (_) { return undefined; } };
     const BLINDS = [[10, 20], [15, 30], [25, 50], [40, 80], [60, 120], [100, 200], [150, 300], [250, 500], [400, 800], [600, 1200], [1000, 2000]];
 
     // ── Evaluación de manos ─────────────────────────────────
@@ -79,6 +82,7 @@
             game: 'poker', n, names: names || null, humans: (kinds || []).map(k => k !== 'bot'),
             chips: new Array(n).fill(START), out: new Array(n).fill(false), bustOrder: [],
             dealer: Math.floor(Math.random() * n), handNo: 0, level: 0, log: [], pause: 0, over: null, phase: 'bet',
+            perLevel: STRUCTURES[setting('poker.blinds')] || STRUCTURES.fast, autoMuck: setting('poker.autoMuck') !== false,
             stats: Array.from({ length: n }, () => ({ handsWon: 0, biggestPot: 0, bestCat: -1, allinWins: 0, bluffWins: 0 }))
         };
         startHand(st);
@@ -94,7 +98,8 @@
 
     function startHand(st) {
         st.handNo++;
-        st.level = Math.min(BLINDS.length - 1, Math.floor((st.handNo - 1) / HANDS_PER_LEVEL));
+        st.level = st.perLevel === Infinity ? 0 : Math.min(BLINDS.length - 1, Math.floor((st.handNo - 1) / st.perLevel));
+        st.streetLog = [];
         const [sb, bb] = BLINDS[st.level];
         st.sb = sb; st.bb = bb;
         const alive = (s) => !st.out[s];
@@ -160,6 +165,8 @@
             log(st, `${name} ${st.allin[seat] ? 'va all-in' : 'sube'} a ${to}.`);
         }
         st.acted[seat] = true;
+        // Historial de la calle en curso (fichas delante de cada asiento y resumen «Ana sube a 60 · Bot iguala»)
+        st.streetLog.push({ s: seat, t: a.type, to: a.type === 'raise' ? Math.floor(Number(a.to)) : a.type === 'call' ? st.bet[seat] : 0, allin: st.allin[seat] });
         const live = [...Array(st.n).keys()].filter(s => inHand(st, s));
         if (live.length === 1) { winUncontested(st, live[0]); return; }
         if (needsAction(st)) {
@@ -170,6 +177,7 @@
     }
 
     function endStreet(st) {
+        st.prevStreet = { street: st.street, log: st.streetLog.slice() }; st.streetLog = [];
         st.bet = new Array(st.n).fill(0); st.acted = new Array(st.n).fill(false);
         st.curBet = 0; st.minRaise = st.bb; st.toAct = -1;
         if (st.street === 'river') { showdown(st); return; }
@@ -235,7 +243,18 @@
         st.street = 'showdown';
         const live = [...Array(st.n).keys()].filter(s => inHand(st, s));
         const ev = {};
-        for (const s of live) { ev[s] = evaluate(st.hands[s].concat(st.board)); st.revealed[s] = true; st.stats[s].bestCat = Math.max(st.stats[s].bestCat, ev[s].cat); }
+        for (const s of live) { ev[s] = evaluate(st.hands[s].concat(st.board)); st.stats[s].bestCat = Math.max(st.stats[s].bestCat, ev[s].cat); }
+        // Orden de muestra: primero el último agresor (o el primero tras el botón) y en sentido horario. Quien no puede
+        // ganar a lo ya enseñado tira sus cartas sin mostrarlas (bots siempre; personas con «tirar la mano perdedora»).
+        const first = live.includes(st.lastAggressor) && st.street === 'showdown' ? st.lastAggressor : nextFrom(st, st.dealer, (s) => live.includes(s));
+        const order = []; for (let k = 0; k < st.n; k++) { const s = (first + k) % st.n; if (live.includes(s)) order.push(s); }
+        let bestShown = -1; const mucked = [];
+        for (const s of order) {
+            const allin = st.allin[s];
+            const muck = bestShown >= 0 && ev[s].v < bestShown && !allin && (!st.humans[s] || st.autoMuck);
+            if (muck) { mucked.push(s); continue; }
+            st.revealed[s] = true; bestShown = Math.max(bestShown, ev[s].v);
+        }
         const amounts = new Array(st.n).fill(0), potList = [];
         for (const p of pots(st)) {
             const best = Math.max(...p.elig.map(s => ev[s].v));
@@ -250,8 +269,9 @@
         for (const s of live) if (amounts[s] > 0 && st.allin[s]) st.stats[s].allinWins++;
         award(st, amounts);
         const winners = [...Array(st.n).keys()].filter(s => amounts[s] > 0);
-        st.showdown = { uncontested: false, winners, amounts, pots: potList,
-            results: live.map(s => ({ seat: s, cards: st.hands[s].slice(), name: ev[s].name, cat: ev[s].cat, won: amounts[s] })) };
+        st.showdown = { uncontested: false, winners, amounts, pots: potList, order, mucked,
+            results: order.filter(s => st.revealed[s]).map(s => ({ seat: s, cards: st.hands[s].slice(), name: ev[s].name, cat: ev[s].cat, won: amounts[s] })) };
+        if (mucked.length) log(st, `${mucked.map(s => who(st, s)).join(', ')} tira${mucked.length > 1 ? 'n' : ''} sus cartas sin enseñarlas.`);
         log(st, potList.map((p, i) => `${potList.length > 1 ? (i === 0 ? 'Bote principal' : 'Bote secundario') + ': ' : ''}${p.winners.map(s => who(st, s)).join(' y ')} gana${p.winners.length > 1 ? 'n' : ''} ${p.amount} con ${p.name.toLowerCase()}`).join('. ') + '.');
         endHand(st, 5200);
     }
@@ -293,13 +313,16 @@
                 add(st.curBet + Math.max(st.minRaise, Math.round((pot + tc) / 2)), '½ bote:');
                 add(st.curBet + Math.max(st.minRaise, pot + tc), 'Bote:');
                 opts.set(rb.max, 'All-in');
-                for (const [to, lbl] of [...opts].sort((a, b) => a[0] - b[0])) buttons.push({ label: lbl === 'All-in' ? `💥 All-in (${to})` : `⬆️ ${lbl} ${to}`, action: { type: 'raise', to } });
+                for (const [to, lbl] of [...opts].sort((a, b) => a[0] - b[0])) buttons.push({ label: lbl === 'All-in' ? `💥 All-in (${to})` : `⬆️ ${lbl} ${to}`, action: { type: 'raise', to }, quick: true });
             }
         }
         return {
             game: 'poker', n: st.n, me: seat, phase: st.phase, street: st.street, turn: turn(st), handNo: st.handNo,
             hand: st.hands[seat] ? st.hands[seat].slice() : [], legal: [], board: st.board.slice(), pot: potTotal(st),
-            toCall: toCall(st, seat), curBet: st.curBet, sb: st.sb, bb: st.bb, level: st.level, nextLevelIn: HANDS_PER_LEVEL - ((st.handNo - 1) % HANDS_PER_LEVEL),
+            toCall: toCall(st, seat), curBet: st.curBet, sb: st.sb, bb: st.bb, level: st.level,
+            nextLevelIn: st.perLevel === Infinity ? null : st.perLevel - ((st.handNo - 1) % st.perLevel), fixedBlinds: st.perLevel === Infinity,
+            raise: my && raiseBounds(st, seat).can ? { min: raiseBounds(st, seat).min, max: raiseBounds(st, seat).max, step: st.sb, cur: st.curBet } : null,
+            streetLog: st.streetLog.slice(), prevStreet: st.prevStreet || null,
             dealer: st.dealer, sbSeat: st.sbSeat, bbSeat: st.bbSeat,
             players: [...Array(st.n).keys()].map(s => ({
                 count: inHand(st, s) && !st.revealed[s] && !st.over ? 2 : 0, active: !st.out[s], chips: st.chips[s], bet: st.bet[s], total: st.total[s],
@@ -359,5 +382,5 @@
     /** Tiempo agotado online: pasa si se puede; si hay que pagar, se retira. */
     function autoAction(st, seat) { return st.bet[seat] >= st.curBet ? { type: 'check' } : { type: 'fold' }; }
 
-    Nexus.games.cardRules.poker = { id: 'poker', autoAction, turnTime: 25, setup, validate, apply, step, view, bot, turn, evaluate, equity, pots, START, BLINDS, CAT, _startHand: startHand };
+    Nexus.games.cardRules.poker = { id: 'poker', autoAction, turnTime: 25, STRUCTURES, setup, validate, apply, step, view, bot, turn, evaluate, equity, pots, START, BLINDS, CAT, _startHand: startHand };
 })();

@@ -17,6 +17,11 @@
      · Gana el primero que se queda sin cartas… siempre que nadie le
        pille la última mentira: si el siguiente juega o pasa sin
        acusarle, ha ganado.
+     · Tras cada jugada hay una ventana de unos segundos en la que
+       CUALQUIERA puede acusar (gana quien pulsa primero).
+     · No se puede abrir con un número muerto (sus 4 cartas fuera).
+     · Variantes (⚙️ del anfitrión): mismo número toda la ronda,
+       «mismo o siguiente» o ascendente (cada jugada, el siguiente).
    ============================================================ */
 (function () {
     'use strict';
@@ -30,6 +35,17 @@
     const who = (st, s) => (st.names ? st.names[s] : `Jugador ${s + 1}`);
     function log(st, t) { st.log.push(t); if (st.log.length > 10) st.log.shift(); }
     const next = (st, s) => (s + 1) % st.n;
+    const setting = (k) => { try { return Nexus.services.settings.get(k); } catch (_) { return undefined; } };
+    const VARIANTS = ['same', 'next', 'up'];
+    /** Número siguiente (cíclico, saltando los muertos). */
+    const nextRank = (st, r) => { let i = K.RANKS.indexOf(r); for (let k = 0; k < 10; k++) { i = (i + 1) % 10; if (!st.dead.includes(K.RANKS[i])) return K.RANKS[i]; } return r; };
+    /** Números que se pueden decir ahora (al abrir, cualquiera vivo). */
+    function allowedRanks(st) {
+        if (st.rank === null) return K.RANKS.filter(r => !st.dead.includes(r));
+        if (st.variant === 'up') return [st.last ? nextRank(st, st.last.rank) : st.rank];
+        if (st.variant === 'next') return [st.last ? st.last.rank : st.rank, nextRank(st, st.last ? st.last.rank : st.rank)];
+        return [st.rank];
+    }
 
     /** Descarta los grupos de 4 iguales de una mano. → números descartados. */
     function dropQuads(st, s) {
@@ -41,8 +57,10 @@
         return out;
     }
 
-    function setup(n, names) {
+    function setup(n, names, kinds) {
+        const v = setting('mentiroso.variant');
         const st = { game: 'mentiroso', n, names: names || null, hands: Array.from({ length: n }, () => []), dead: [],
+            kinds: kinds || Array.from({ length: n }, (_, i) => (i ? 'bot' : 'me')), variant: VARIANTS.includes(v) ? v : 'same',
             pile: [], rank: null, last: null, passes: 0, pendingWin: null, reveal: null, discarded: 0,
             phase: 'turn', log: [], pause: 0, over: null, round: 1,
             stats: Array.from({ length: n }, () => ({ calls: 0, goodCalls: 0, lies: 0, caught: 0, picked: 0, bluffWin: false })) };
@@ -60,11 +78,16 @@
     const pileCards = (st) => st.pile.reduce((a, p) => a.concat(p.cards), []);
 
     function validate(st, seat, a) {
-        if (!a || st.over || st.phase !== 'turn' || st.turnSeat !== seat) return false;
+        if (!a || st.over) return false;
+        // Ventana de acusación: cualquiera menos quien acaba de jugar
+        if (st.phase === 'window') return a.type === 'call' && !!st.last && st.last.seat !== seat;
+        if (st.phase !== 'turn' || st.turnSeat !== seat) return false;
         if (a.type === 'play') {
             if (!Array.isArray(a.cards) || a.cards.length < 1 || a.cards.length > 4 || new Set(a.cards).size !== a.cards.length) return false;
             if (!a.cards.every(c => st.hands[seat].includes(c))) return false;
-            if (st.rank === null) return K.RANKS.includes(Number(a.rank));
+            const allowed = allowedRanks(st);
+            if (st.rank === null) return a.rank !== undefined && allowed.includes(Number(a.rank));     // al abrir hay que decir un número vivo
+            if (st.variant !== 'same') return allowed.includes(Number(a.rank !== undefined ? a.rank : allowed[0]));
             return true;
         }
         if (a.type === 'call') return !!st.last && st.last.seat !== seat;
@@ -81,6 +104,7 @@
 
     function apply(st, seat, a) {
         // Si el anterior se quedó sin cartas y este jugador no le acusa, aquél gana
+        if (a.type === 'call' && st.phase === 'window') st.phase = 'turn';
         if (a.type !== 'call' && st.pendingWin !== null && st.pendingWin !== seat) {
             const p = st.pendingWin, lastLie = st.last && st.last.lie;
             if (lastLie) st.stats[p].bluffWin = true;
@@ -88,17 +112,19 @@
             return;
         }
         if (a.type === 'play') {
-            const r = st.rank === null ? Number(a.rank) : st.rank;
+            const r = st.rank === null || st.variant !== 'same' ? Number(a.rank !== undefined ? a.rank : allowedRanks(st)[0]) : st.rank;
             for (const c of a.cards) K.removeCard(st.hands[seat], c);
             const lie = a.cards.some(c => rankOf(c) !== r);
             if (lie) st.stats[seat].lies++;
             if (st.rank === null) { st.rank = r; log(st, `${who(st, seat)} abre ronda con ${claimText(a.cards.length, r)}.`); }
-            else log(st, `${who(st, seat)} pone ${claimText(a.cards.length, r)}.`);
+            else { st.rank = r; log(st, `${who(st, seat)} pone ${claimText(a.cards.length, r)}.`); }
             st.pile.push({ seat, cards: a.cards.slice(), count: a.cards.length });
             st.last = { seat, count: a.cards.length, rank: r, lie };
             st.passes = 0;
             if (!st.hands[seat].length) { st.pendingWin = seat; log(st, `¡${who(st, seat)} se ha quedado sin cartas! Si nadie le acusa, gana.`); }
-            st.turnSeat = next(st, seat);
+            // Ventana para que cualquiera acuse (más corta si los demás son todos bots)
+            const humansOther = st.kinds.some((k, i) => i !== seat && k !== 'bot');
+            st.phase = 'window'; st.turnSeat = null; st.after = next(st, seat); st.pause = humansOther ? 3500 : 900;
             return;
         }
         if (a.type === 'pass') {
@@ -142,6 +168,15 @@
 
     function step(st) {
         st.pause = 0;
+        if (st.phase === 'window') {
+            // Al cerrarse la ventana, los bots que quieran acusar lo hacen (el primero en orden); si no, sigue el turno
+            for (let k = 1; k < st.n; k++) {
+                const s = (st.last.seat + k) % st.n;
+                if (st.kinds[s] === 'bot' && wantsCall(st, s, k === 1)) { apply(st, s, { type: 'call' }); return; }
+            }
+            st.phase = 'turn'; st.turnSeat = st.after;
+            return;
+        }
         if (st.phase !== 'reveal' || st.over) return;
         st.reveal = null;
         newRound(st, st.nextStarter);
@@ -156,7 +191,8 @@
             game: 'mentiroso', n: st.n, me: seat, phase: st.phase, turn: turn(st), round: st.round,
             hand, legal: my ? hand : [], rank: st.rank, last: st.last ? { seat: st.last.seat, count: st.last.count, rank: st.last.rank } : null,
             pileCount: pileCards(st).length, plays: st.pile.map(p => ({ seat: p.seat, count: p.count })), dead: st.dead.slice(), discarded: st.discarded,
-            canCall: my && !!st.last && st.last.seat !== seat, canPass: my && st.rank !== null && !!st.last, mustOpen: my && st.rank === null,
+            canCall: (my || st.phase === 'window') && !!st.last && st.last.seat !== seat, canPass: my && st.rank !== null && !!st.last, mustOpen: my && st.rank === null,
+            window: st.phase === 'window', variant: st.variant, allowed: my ? allowedRanks(st) : [],
             pendingWin: st.pendingWin, reveal: st.reveal,
             players: st.hands.map(h => ({ count: h.length, active: true })),
             log: st.log.slice(), over: st.over, stats: st.stats[seat], buttons: []
@@ -164,29 +200,41 @@
     }
 
     // ── Bot ─────────────────────────────────────────────────
+    /** ¿Acusa este bot a la última jugada? (en la ventana, los que no son el siguiente sólo acusan si es seguro o muy probable) */
+    function wantsCall(st, seat, isNext) {
+        if (!st.last || st.last.seat === seat) return false;
+        const L = st.last, hand = st.hands[seat];
+        const mine = hand.filter(c => rankOf(c) === L.rank).length;
+        const myPile = st.pile.filter(p => p.seat === seat).reduce((n, p) => n + p.cards.filter(c => rankOf(c) === L.rank).length, 0);
+        if (st.dead.includes(L.rank) || L.count + mine + myPile > 4) return true;          // imposible: seguro que miente
+        if (st.pendingWin === L.seat) return isNext || Math.random() < 0.5;                 // o alguien acusa o gana
+        const claimedRound = st.pile.reduce((n, p) => n + p.count, 0);
+        let pLie = 0.12 + 0.12 * (L.count - 1) + 0.13 * (mine + myPile) + Math.max(0, claimedRound - 4) * 0.08;
+        if (st.hands[L.seat].length <= 2) pLie += 0.2;
+        pLie *= st.pile.length > 3 ? 0.75 : 1;                                               // montón grande: más prudente
+        if (allowedRanks(st).some(r => hand.some(c => rankOf(c) === r))) pLie *= 0.6;        // puede seguir sin mentir
+        if (!isNext) pLie *= 0.35;
+        return Math.random() < Math.min(0.9, pLie);
+    }
+
     function bot(st, seat) {
         const hand = st.hands[seat];
         const by = {};
         for (const c of hand) (by[rankOf(c)] = by[rankOf(c)] || []).push(c);
-        const rnd = Math.random();
         // ¿Acusar?
-        if (st.last && st.last.seat !== seat) {
-            const L = st.last;
-            if (st.pendingWin === L.seat) return { type: 'call' };                     // o acusa o pierde
-            const mine = (by[L.rank] || []).length;
-            const myPile = st.pile.filter(p => p.seat === seat).reduce((n, p) => n + p.cards.filter(c => rankOf(c) === L.rank).length, 0);
-            if (st.dead.includes(L.rank) || L.count + mine + myPile > 4) return { type: 'call' };   // imposible: seguro que miente
-            const claimedRound = st.pile.reduce((n, p) => n + p.count, 0);
-            let pLie = 0.12 + 0.12 * (L.count - 1) + 0.13 * (mine + myPile) + Math.max(0, claimedRound - 4) * 0.08;
-            if (st.hands[L.seat].length <= 2) pLie += 0.2;
-            pLie *= st.pile.length > 3 ? 0.75 : 1;                                       // montón grande: más prudente
-            const have = (by[st.rank] || []).length;
-            if (have) pLie *= 0.6;                                                       // puede seguir sin mentir
-            if (rnd < Math.min(0.9, pLie)) return { type: 'call' };
+        if (st.last && st.last.seat !== seat && wantsCall(st, seat, true)) return { type: 'call' };
+        // Variantes con número a elegir: el permitido del que más cartas tiene
+        if (st.rank !== null && st.variant !== 'same') {
+            const al = allowedRanks(st), r = al.slice().sort((a, b) => (by[b] || []).length - (by[a] || []).length)[0];
+            const real = by[r] || [];
+            if (real.length) return { type: 'play', cards: real.slice(0, 4), rank: r };
+            if (st.last && Math.random() < 0.3) return { type: 'pass' };
+            const singles = Object.values(by).sort((a, b) => a.length - b.length);
+            return { type: 'play', cards: singles[0].slice(0, 1), rank: r };
         }
         // Abrir ronda: con el número del que más tiene (verdad)
         if (st.rank === null) {
-            const best = Object.entries(by).sort((a, b) => b[1].length - a[1].length || Math.random() - 0.5)[0];
+            const best = Object.entries(by).filter(([r]) => !st.dead.includes(Number(r))).sort((a, b) => b[1].length - a[1].length || Math.random() - 0.5)[0];
             const cards = best[1].slice(0, 4);
             // Alguna vez cuela una carta de más para soltar
             if (cards.length < 3 && Math.random() < 0.25) { const extra = hand.find(c => !cards.includes(c)); if (extra) cards.push(extra); }
@@ -207,5 +255,5 @@
     }
 
     Nexus.games.cardRules = Nexus.games.cardRules || {};
-    Nexus.games.cardRules.mentiroso = { id: 'mentiroso', setup, validate, apply, step, view, bot, turn, claimText, PLURAL, SING };
+    Nexus.games.cardRules.mentiroso = { id: 'mentiroso', setup, validate, apply, step, view, bot, turn, claimText, PLURAL, SING, allowedRanks, VARIANTS };
 })();

@@ -104,3 +104,6 @@
     .pasapalabra.pp-playing .pp-side { position: sticky; bottom: 0; z-index: 3; width: 100%; }
     .pasapalabra.pp-playing .pp-play { box-shadow: 0 -10px 30px rgba(0, 0, 0, .45); }
 }
+.pp-clock { align-self: flex-start; font: 800 1rem/1 var(--font-title); padding: 6px 12px; border-radius: 99px; background: rgba(var(--primary-rgb, 124, 58, 237), .18); font-variant-numeric: tabular-nums; }
+.pp-clock.paused { opacity: .7; }
+.pp-clock.low { background: rgba(239, 68, 68, .25); color: #fecaca; }

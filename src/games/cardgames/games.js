@@ -120,84 +120,136 @@
 
     // ── Chinchón ────────────────────────────────────────────
     const CH = R.chinchon;
-    function arrangeHand(v) {
-        const used = new Set(); const groups = [];
-        for (const m of v.melds) { const g = m.slice().sort((a, b) => K.RANKS.indexOf(K.rankOf(a)) - K.RANKS.indexOf(K.rankOf(b))); g.forEach(c => used.add(c)); groups.push(g); }
-        const loose = K.sortHand(v.hand.filter(c => !used.has(c)));
-        return { groups, loose };
+    const KIND = { normal: 'cierre normal', minus10: 'cierre de −10', minus25: 'cierre de −25', chinchon: '¡CHINCHÓN!' };
+    /** Montón: las 3 últimas cartas tiradas, la de arriba se puede coger. */
+    function chPile(v, myTurn) {
+        const last = v.discardLast || [];
+        const can = myTurn && v.discardTop;
+        return `<button type="button" class="cg-pile ch-discard ${can ? 'can' : ''}" ${can ? act({ type: 'draw', from: 'discard' }) : 'disabled'} aria-label="Coger la carta de arriba del montón">
+            <span class="ch-fan">${last.length ? last.map((c, i) => cardHtml(c, { cls: i === last.length - 1 ? 'top' : 'under', attrs: `style="--i:${i - last.length + 1}"` })).join('') : '<span class="pc empty"></span>'}</span>
+            <small>Montón · últimas ${Math.min(3, last.length)}</small></button>`;
+    }
+    function chLastDraw(v, g) {
+        const L = v.lastDraw;
+        if (!L || L.seat === null || L.seat === undefined || v.phase === 'roundEnd') return '';
+        const who = L.seat === v.me ? 'Tú' : esc(g.pub[L.seat].name);
+        return `<div class="ch-lastdraw ${L.from}">${L.from === 'discard'
+            ? `♻️ <b>${who}</b> ${L.seat === v.me ? 'has cogido' : 'coge'} del <b>montón</b>${L.card ? ` ${cardHtml(L.card, { cls: 'xs' })}` : ''}`
+            : `🂠 <b>${who}</b> ${L.seat === v.me ? 'has robado' : 'roba'} del <b>mazo</b>`}</div>`;
+    }
+    function chLigar(v, g) {
+        const L = v.lig, sel = g.ui.ligSel;
+        const byOwner = {};
+        L.melds.forEach((m, i) => (byOwner[m.owner] = byOwner[m.owner] || []).push({ m, i }));
+        const mine = !L.done;
+        return `<div class="cg-summary ch-ligar"><h4>${esc(g.pub[L.closer].name)} cierra · ${KIND[L.kind]}</h4>
+            <p class="ch-ligar-tip">${mine ? (sel ? 'Toca una combinación donde encaje la carta elegida.' : 'Toca una de tus cartas sueltas (resaltadas) y luego la combinación de otro jugador donde quieras ligarla.')
+                : L.pending.length ? `Esperando a que ${L.pending.map(s => esc(g.pub[s].name)).join(', ')} liguen…` : ''}</p>
+            ${Object.keys(byOwner).map(o => `<div class="ch-lig-row"><span class="ch-lig-name">${Nexus.ui.avatar.html(g.pub[o].avatar)} ${esc(g.pub[o].name)}</span>
+                <span class="ch-lig-melds">${byOwner[o].map(({ m, i }) => {
+                    const ok = mine && sel && Number(o) !== v.me && CH.fits(m.cards, sel);
+                    return `<button type="button" class="cg-meld ch-meld ${ok ? 'can' : ''}" ${ok ? act({ type: 'ligar', card: sel, meld: i }) : 'disabled'}>${m.cards.map(c => cardHtml(c, { cls: 'sm' })).join('')}</button>`;
+                }).join('')}</span></div>`).join('')}</div>`;
+    }
+    function chRound(v, g) {
+        const rr = v.roundResult;
+        return `<div class="cg-summary cg-round"><h4>${rr.nulled ? 'Ronda nula' : rr.chinchon ? `¡CHINCHÓN de ${esc(g.pub[rr.closer].name)}!` : `${esc(g.pub[rr.closer].name)}: ${KIND[rr.kind]}`}</h4>
+            ${rr.results.map(r => `<div class="cg-rr ${r.seat === v.me ? 'mine' : ''}"><span class="cg-rr-name">${Nexus.ui.avatar.html(g.pub[r.seat].avatar)} ${esc(g.pub[r.seat].name)}</span>
+                <span class="cg-rr-cards">${r.melds.map(m => `<span class="cg-meld">${m.map(c => cardHtml(c, { cls: 'sm' })).join('')}</span>`).join('')}${(r.tied || []).map(c => cardHtml(c, { cls: 'sm tied', attrs: 'title="Ligada: no suma"' })).join('')}${(r.loose || []).map(c => cardHtml(c, { cls: 'sm loose' })).join('')}</span>
+                <b class="cg-rr-pts">${r.pts > 0 ? '+' : ''}${r.pts}</b></div>`).join('')}</div>`;
     }
     const chinchon = {
         id: 'chinchon', name: 'Chinchón', title: 'CHINCHÓN', emoji: '🎴', accent: '#22c55e', rules: CH,
-        seats: { min: 2, max: 4, default: 2 }, teams: false,
+        seats: { min: 2, max: 4, default: 2 }, teams: false, freeOrder: true,
         tagline: 'Roba, combina y cierra antes que nadie. De 2 a 4 jugadores.',
         cpuText: 'De 2 a 4 jugadores con bots', seatsText: 'Mesa de 2 a 4 jugadores.',
         help: [
-            'Baraja española de 40 cartas, sin comodines. Cada jugador recibe 7 cartas.',
-            'En tu turno <b>robas</b> (del mazo o la carta de arriba del descarte) y <b>descartas</b> una. No puedes tirar la carta que acabas de coger del descarte.',
-            'Combina grupos de 3 o 4 cartas del mismo número o escaleras de 3 o más del mismo palo (el 7 enlaza con la sota). La mesa te las ordena sola.',
-            'Puedes <b>cerrar</b> al descartar si lo que te queda sin combinar suma 5 o menos. Si cierras con todo combinado te restas 10.',
-            'Al cerrar, cada uno suma sus cartas sueltas (figuras 10, el resto lo que marcan). Quien pasa de 100 queda eliminado; gana el último que queda.',
-            '¡<b>Chinchón</b>! Siete cartas seguidas del mismo palo: ganas la partida al momento.'],
+            'Se juega con <b>dos barajas españolas y 2 comodines</b> (82 cartas): cada carta está dos veces, así que hay 8 de cada número (2 de cada palo). El comodín sustituye a cualquier carta y vale 25 si queda suelto. Cada jugador recibe 7 cartas.',
+            'En tu turno <b>robas</b> (del mazo o la carta de arriba del montón) y <b>descartas</b> una. No puedes tirar la carta que acabas de coger del montón. La carta que robas sale resaltada y se ven las 3 últimas del montón.',
+            'Combina grupos de 3 o 4 cartas del mismo número (de palos distintos) o escaleras de 3 o más del mismo palo (el 7 enlaza con la sota). <b>Ordena tu mano como quieras</b>: arrastra las cartas o usa «Ordenar».',
+            'Cierres: <b>normal</b> si te queda una sola carta suelta de 5 o menos (sumas su valor); <b>−10</b> con las 7 cartas combinadas; <b>−25</b> con un chinchón hecho con comodines (7 seguidas del mismo palo con algún comodín); <b>¡Chinchón!</b> 7 cartas seguidas del mismo palo sin comodines: ganas la partida.',
+            'Tras un cierre normal, los demás pueden <b>ligar</b> sus cartas sueltas en las combinaciones de los otros jugadores para no contarlas. En los cierres de −10, −25 y chinchón no se liga.',
+            'Cada uno suma lo que no combina (figuras 10, el resto lo que marcan, comodín 25). Se juega <b>a 100 o a 50</b> (se elige al empezar): quien <b>llega</b> a ese número queda eliminado. Gana el último que queda.',
+            'Si se acaba el mazo, el montón se da la vuelta sin barajar (menos la carta de arriba): se roba primero la primera que se tiró.'],
         center: (v, g) => {
+            if (v.phase === 'ligar' && v.lig) return chLigar(v, g);
+            if (v.roundResult && (v.phase === 'roundEnd' || v.phase === 'over')) return chRound(v, g);
             const myTurn = v.turn === v.me && v.canDraw;
             const deck = `<button type="button" class="cg-pile ${myTurn ? 'can' : ''}" ${myTurn ? act({ type: 'draw', from: 'deck' }) : 'disabled'} aria-label="Robar del mazo">
                 <span class="pc back"><i></i></span><small>Mazo · ${v.deck}</small></button>`;
-            const disc = `<button type="button" class="cg-pile ${myTurn && v.discardTop ? 'can' : ''}" ${myTurn && v.discardTop ? act({ type: 'draw', from: 'discard' }) : 'disabled'} aria-label="Robar del descarte">
-                ${v.discardTop ? cardHtml(v.discardTop) : '<span class="pc empty"></span>'}<small>Descarte</small></button>`;
-            let res = '';
-            const rr = v.roundResult;
-            if (rr) {
-                res = `<div class="cg-summary cg-round"><h4>${rr.nulled ? 'Ronda nula' : rr.chinchon ? `¡CHINCHÓN de ${esc(g.pub[rr.closer].name)}!` : `Cierra ${esc(g.pub[rr.closer].name)}`}</h4>
-                    ${rr.results.map(r => {
-                        const inM = new Set(r.melds.flat());
-                        return `<div class="cg-rr ${r.seat === v.me ? 'mine' : ''}"><span class="cg-rr-name">${Nexus.ui.avatar.html(g.pub[r.seat].avatar)} ${esc(g.pub[r.seat].name)}</span>
-                        <span class="cg-rr-cards">${r.melds.map(m => `<span class="cg-meld">${m.map(c => cardHtml(c, { cls: 'sm' })).join('')}</span>`).join('')}${r.hand.filter(c => !inM.has(c)).map(c => cardHtml(c, { cls: 'sm loose' })).join('')}</span>
-                        <b class="cg-rr-pts">${r.pts > 0 ? '+' : ''}${r.pts}</b></div>`;
-                    }).join('')}</div>`;
-            }
-            return rr ? res : `<div class="cg-piles">${deck}${disc}</div>`;
+            return `<div class="cg-piles">${deck}${chPile(v, myTurn)}</div>${chLastDraw(v, g)}`;
         },
-        handHtml: (v, g) => {
-            const { groups, loose } = arrangeHand(v);
-            const closing = !!g.ui.close;
-            const cls = (c) => {
-                const k = [];
-                if (c === v.took) k.push('took');
-                if (closing) k.push(v.closeWith.includes(c) ? 'playable close' : 'dim');
-                else if (v.legal.includes(c)) k.push('playable');
+        cardCls: (v, c, g) => {
+            const k = [];
+            if (v.phase === 'ligar' && v.lig) {
+                if (!v.lig.done && v.lig.myLoose.includes(c)) k.push('playable loose'); else k.push('dim');
+                if (g.ui.ligSel === c) k.push('sel');
                 return k.join(' ');
-            };
-            return groups.map(m => `<span class="cg-meld">${m.map(c => cardHtml(c, { cls: cls(c) })).join('')}</span>`).join('') +
-                (loose.length ? `<span class="cg-loose">${loose.map(c => cardHtml(c, { cls: cls(c) })).join('')}</span>` : '');
+            }
+            if (c === v.drawn) k.push('new');
+            if (c === v.took) k.push('took');
+            if (g.ui.close) k.push(v.closeWith.includes(c) ? 'playable close' : 'dim');
+            else if (v.legal.includes(c)) k.push('playable');
+            return k.join(' ');
         },
         onCard: (v, card, g) => {
+            if (v.phase === 'ligar' && v.lig) {
+                if (v.lig.done || !v.lig.myLoose.includes(card)) return null;
+                g.ui.ligSel = g.ui.ligSel === card ? null : card;
+                Nexus.audio.play('click'); g.render();
+                return null;
+            }
             if (v.turn !== v.me) return null;
-            if (v.phase === 'draw') { g.bubble('Primero roba del mazo o del descarte'); return null; }
+            if (v.phase === 'draw') { g.bubble('Primero roba del mazo o del montón'); return null; }
             if (g.ui.close && v.closeWith.includes(card)) return { type: 'discard', card, close: true };
             if (v.legal.includes(card)) return { type: 'discard', card };
-            if (card === v.took) g.bubble('No puedes tirar la carta que acabas de coger del descarte');
+            if (card === v.took) g.bubble('No puedes tirar la carta que acabas de coger del montón');
             return null;
         },
         extraButtons: (v, g) => {
             const out = [];
+            if (v.phase === 'ligar' && v.lig) {
+                if (!v.lig.done) {
+                    out.push(`<button class="btn btn-primary" type="button" ${act({ type: 'ligarAuto' })}>🪄 Ligar todo lo posible</button>`);
+                    out.push(`<button class="btn btn-ghost" type="button" ${act({ type: 'ligarDone' })}>✅ Listo</button>`);
+                    const pts = v.lig.myLoose.reduce((s, c) => s + CH.value(c), 0);
+                    out.push(`<span class="cg-tip">Te quedan sueltas: <b>${pts}</b> puntos</span>`);
+                }
+                return out;
+            }
             if (v.turn === v.me && v.phase === 'discard') {
-                if (v.closeWith.length) out.push(`<button class="btn ${g.ui.close ? 'btn-primary btn-glow' : 'btn-ghost'}" type="button" data-ui="close">${g.ui.close ? '🔒 Elige la carta con la que cierras' : '🔒 Cerrar'}</button>`);
-                out.push(`<span class="cg-tip">Toca una carta para descartarla · sueltas: <b>${v.dead}</b></span>`);
-            } else if (v.turn === v.me) out.push('<span class="cg-tip">Roba del mazo o del descarte</span>');
+                if (v.can25) out.push(`<button class="btn btn-primary btn-glow" type="button" ${act({ type: 'close25' })}>🔒 ${v.can25 === 'chinchon' ? '¡Chinchón!' : 'Cerrar con las 8 (−25)'}</button>`);
+                if (v.closeWith.length) {
+                    const kinds = [...new Set(Object.values(v.closeKinds))];
+                    out.push(`<button class="btn ${g.ui.close ? 'btn-primary btn-glow' : 'btn-ghost'}" type="button" data-ui="close">${g.ui.close ? '🔒 Elige la carta que tiras para cerrar' : `🔒 Cerrar (${kinds.map(k => KIND[k]).join(' / ')})`}</button>`);
+                }
+                out.push(`<span class="cg-tip">Toca una carta para tirarla · sin combinar: <b>${v.dead}</b></span>`);
+            } else if (v.turn === v.me) out.push('<span class="cg-tip">Roba del mazo o del montón</span>');
             return out;
         },
         seatBadge: (v, i) => (v.players[i].active ? `${v.players[i].score} puntos` : 'Eliminado'),
-        scoreHtml: (v, g) => `<div class="cg-ch-scores">${v.players.map((p, i) => `
-            <div class="cg-ch-row ${i === v.me ? 'mine' : ''} ${p.active ? '' : 'out'}"><span>${Nexus.ui.avatar.html(g.pub[i].avatar)} ${esc(g.pub[i].name)}</span><b>${p.score}</b>
-            <span class="cg-bar"><i style="width:${Math.min(100, Math.max(0, p.score))}%"></i></span></div>`).join('')}</div>
-            <small class="cg-note">Ronda ${v.round}. Quien pasa de ${v.limit} queda eliminado.</small>`,
+        // Marcador como una gran suma: lo que suma cada uno por ronda y el total
+        scoreHtml: (v, g) => {
+            const cols = v.players.map((p, i) => i);
+            const rows = v.history.slice(-12).map(h => `<tr><th>R${h.round}</th>${cols.map(i => `<td class="${h.closer === i ? 'closer' : ''}">${h.pts[i] === null ? '·' : (h.pts[i] > 0 ? '+' : '') + h.pts[i]}</td>`).join('')}</tr>`).join('');
+            return `<table class="ch-sum"><thead><tr><th></th>${cols.map(i => `<th class="${i === v.me ? 'mine' : ''}${v.players[i].active ? '' : ' out'}" title="${esc(g.pub[i].name)}">${Nexus.ui.avatar.html(g.pub[i].avatar)}<small>${esc(g.pub[i].name)}</small></th>`).join('')}</tr></thead>
+                <tbody>${rows || `<tr><td colspan="${cols.length + 1}" class="muted">Aún no se ha cerrado ninguna ronda</td></tr>`}</tbody>
+                <tfoot><tr><th>Total</th>${cols.map(i => `<td class="${i === v.me ? 'mine' : ''}${v.players[i].active ? '' : ' out'}"><b>${v.players[i].score}</b></td>`).join('')}</tr></tfoot></table>
+                <small class="cg-note">Ronda ${v.round} · se juega a ${v.limit}: quien llega a ${v.limit} queda eliminado.</small>`;
+        },
         pill: (v) => `${v.scores[v.me]} / ${v.limit}`,
+        sounds: (p, v, g) => {
+            const L = v.lastDraw, P = p.lastDraw;
+            if (L && L.seat !== v.me && (!P || P.seat !== L.seat || P.from !== L.from || P.card !== L.card) && v.phase === 'discard')
+                g.bubble(L.from === 'discard' ? 'Coge del montón' : 'Roba del mazo', L.seat);
+            if (v.phase !== 'ligar') g.ui.ligSel = null;
+        },
         result: (v) => {
             const s = v.stats;
             return { won: iWon(v), draw: false, score: (iWon(v) ? 500 : 0) + Math.max(0, v.limit - v.scores[v.me]) * 5 + (s.chinchon ? 1000 : 0),
-                extra: { finalScore: v.scores[v.me] },
-                updateExtra: (x) => { x.closes = (x.closes || 0) + s.closes; x.minus10 = (x.minus10 || 0) + s.minus10; },
-                stats: [{ label: 'Tus puntos', value: v.scores[v.me] }, { label: 'Cierres', value: s.closes }, { label: 'Rondas', value: v.round }] };
+                extra: { finalScore: v.scores[v.me], players: v.n, limit: v.limit, minus10: s.minus10, minus25: s.minus25, chinchon: s.chinchon },
+                updateExtra: (x) => { x.closes = (x.closes || 0) + s.closes; x.minus10 = (x.minus10 || 0) + s.minus10; x.minus25 = (x.minus25 || 0) + s.minus25; },
+                stats: [{ label: 'Tus puntos', value: `${v.scores[v.me]} / ${v.limit}` }, { label: 'Cierres', value: s.closes }, { label: 'Rondas', value: v.round }] };
         }
     };
 
@@ -219,6 +271,7 @@
         { id: 'ch_first', game: 'chinchon', name: 'Último en pie', desc: 'Gana una partida de Chinchón.', icon: '🎴', rarity: 'common', test: (c) => { const e = ev(c, 'chinchon'); return !!e && e.won; } },
         { id: 'ch_4', game: 'chinchon', name: 'Mesa llena', desc: 'Gana un Chinchón de 4 jugadores.', icon: '👑', rarity: 'rare', test: (c) => { const e = ev(c, 'chinchon'); return !!e && e.won && e.extra.players === 4; } },
         { id: 'ch_minus10', game: 'chinchon', name: 'Menos diez', desc: 'Cierra con todas las cartas combinadas.', icon: '➖', rarity: 'rare', test: (c) => { const e = ev(c, 'chinchon'); return !!e && e.extra.minus10 > 0; } },
+        { id: 'ch_minus25', game: 'chinchon', name: 'Menos veinticinco', desc: 'Cierra con un chinchón con comodines.', icon: '⏬', rarity: 'epic', test: (c) => { const e = ev(c, 'chinchon'); return !!e && e.extra.minus25 > 0; } },
         { id: 'ch_chinchon', game: 'chinchon', name: '¡Chinchón!', desc: 'Consigue siete cartas seguidas del mismo palo.', icon: '🌈', rarity: 'legendary', test: (c) => { const e = ev(c, 'chinchon'); return !!e && e.extra.chinchon; } },
         { id: 'ch_online', game: 'chinchon', name: 'Chinchón conectado', desc: 'Gana un Chinchón online.', icon: '🌐', rarity: 'rare', test: (c) => { const e = ev(c, 'chinchon'); return !!e && e.won && e.extra.online; } },
         { id: 'ch_online10', game: 'chinchon', name: 'Leyenda del bar', desc: 'Gana 10 Chinchones online.', icon: '🥇', rarity: 'epic', ...A.counter(onlineWins('chinchon'), 10) }
@@ -230,7 +283,7 @@
         guinote: { tagline: 'Contra la máquina · Online 2 contra 2', tags: ['Cartas', 'Multijugador'],
             description: 'El Guiñote aragonés en dos parejas: cantes de 20 y 40, cambio del siete, arrastre y vueltas hasta 101. Los asientos que falten los ocupan bots.' },
         chinchon: { tagline: 'Contra la máquina · Online de 2 a 4', tags: ['Cartas', 'Multijugador'],
-            description: 'Roba, descarta y forma grupos y escaleras. Cierra con 5 o menos, réstate 10 con todo ligado y, si sumas más de 100, fuera. ¡Y si haces chinchón, ganas!' }
+            description: 'Dos barajas y dos comodines: roba, descarta y forma grupos y escaleras. Cierra con una carta de 5 o menos, réstate 10 o 25, liga tus sueltas y no llegues a 100 (o a 50). ¡Y si haces chinchón, ganas!' }
     };
     for (const spec of [brisca, guinote, chinchon]) {
         Nexus.games.registry.register({

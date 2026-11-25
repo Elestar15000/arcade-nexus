@@ -18,15 +18,23 @@
     // ── Póker ───────────────────────────────────────────────
     const PK = R.poker;
     const STREET = { preflop: 'Preflop', flop: 'Flop', turn: 'Turn', river: 'River', showdown: 'Showdown' };
+    /** Resumen de la calle en curso: «Ana sube a 60 · Bot iguala · Eva se retira». */
+    const ACT = { fold: 'se retira', check: 'pasa', call: 'iguala', raise: 'sube a' };
+    function streetLine(v, g) {
+        const L = v.streetLog && v.streetLog.length ? v.streetLog : null;
+        if (!L) return '';
+        return `<div class="pk-line">${L.slice(-6).map(x => `<span><b>${nm(g, x.s)}</b> ${x.allin && x.t !== 'fold' && x.t !== 'check' ? 'all-in' : ACT[x.t]}${x.t === 'raise' ? ' ' + formatNumber(x.to) : ''}</span>`).join(' · ')}</div>`;
+    }
     const poker = {
         id: 'poker', name: 'Póker', title: 'PÓKER', emoji: '♠️', accent: '#10b981', rules: PK,
-        seats: { min: 2, max: 4, default: 4 }, teams: false,
+        seats: { min: 2, max: 6, default: 6 }, teams: false,
         tagline: 'Texas Hold\'em sin límite: farolea, sube y llévate todas las fichas.',
-        cpuText: 'De 2 a 4 jugadores con bots', seatsText: 'Mesa de 2 a 4 jugadores.',
+        cpuText: 'De 2 a 6 jugadores con bots', seatsText: 'Mesa de 2 a 6 jugadores.',
         help: [
-            '<b>Texas Hold\'em</b> con baraja francesa. Todos empiezan con 1000 fichas; las ciegas (10/20) suben cada 6 manos.',
+            '<b>Texas Hold\'em</b> con baraja francesa, de 2 a 6 jugadores. Todos empiezan con 1000 fichas; las ciegas (10/20) suben cada 6 manos (⚙️: torneo lento, cada 12, o ciegas fijas).',
             'Recibes <b>2 cartas</b> tuyas. En la mesa salen 3 (<b>flop</b>), luego 1 (<b>turn</b>) y 1 más (<b>river</b>). Tu jugada es la mejor de 5 entre tus 2 y las 5 de la mesa.',
-            'En cada ronda puedes <b>pasar</b> (si nadie ha apostado), <b>igualar</b>, <b>subir</b> (como mínimo lo que subió el último) o ir <b>all-in</b>; o <b>retirarte</b>.',
+            'En cada ronda puedes <b>pasar</b> (si nadie ha apostado), <b>igualar</b>, <b>subir</b> cualquier cantidad con la barra (como mínimo lo que subió el último) o ir <b>all-in</b>; o <b>retirarte</b>.',
+            'En el <b>showdown</b> enseña primero el último que subió y luego en orden; quien no puede ganar a lo ya enseñado tira sus cartas sin mostrarlas (⚙️ «Tirar la mano perdedora»).',
             'Jugadas de menor a mayor: carta alta, pareja, doble pareja, trío, escalera, color, full, póker y escalera de color.',
             'Con all-in se forman <b>botes secundarios</b>: cada uno sólo puede ganar lo que ha podido cubrir. Los empates se reparten.',
             'Quien se queda sin fichas queda eliminado. Gana quien se lleva todas.'],
@@ -45,27 +53,36 @@
                 <div class="pk-street">${esc(STREET[v.street] || '')} · Mano ${v.handNo} · ciegas ${v.sb}/${v.bb}</div>
                 <div class="pk-board">${slots}</div>
                 <div class="pk-pot"><span class="pk-chip" aria-hidden="true"></span> Bote <b>${formatNumber(v.pot)}</b></div>
-                ${res}</div>`;
+                ${streetLine(v, g)}${res}</div>`;
         },
         handHtml: (v) => (v.hand.length ? v.hand.map(c => cardHtml(c, { cls: 'pk-hole' })).join('') + (v.myHand ? `<span class="pk-mine">${esc(v.myHand)}</span>` : '')
             : '<span class="cg-tip">Te has quedado sin fichas</span>'),
         onCard: () => null,
-        extraButtons: (v) => (v.turn === v.me ? [`<span class="cg-tip">${v.toCall ? `Para seguir: <b>${v.toCall}</b>` : 'Nadie ha apostado'} · bote ${formatNumber(v.pot)}</span>`] : []),
+        extraButtons: (v) => (v.turn === v.me ? [
+            // Apuesta libre: barra + campo numérico (± una ciega grande) entre el mínimo y el all-in
+            v.raise ? `<span class="pk-raise" data-step="${v.bb}"><button type="button" class="btn btn-ghost btn-sm" data-pk="-">−</button>
+                <input type="range" min="${v.raise.min}" max="${v.raise.max}" step="${v.raise.step}" value="${v.raise.min}" data-pk="range" aria-label="Cantidad de la subida">
+                <input type="number" min="${v.raise.min}" max="${v.raise.max}" step="${v.raise.step}" value="${v.raise.min}" data-pk="num" aria-label="Subir a">
+                <button type="button" class="btn btn-ghost btn-sm" data-pk="+">+</button>
+                <button type="button" class="btn btn-primary btn-sm" data-pk="go" data-act='${esc(JSON.stringify({ type: 'raise', to: v.raise.min }))}'>⬆️ ${v.curBet ? 'Subir a' : 'Apostar'} <b>${v.raise.min}</b></button></span>` : '',
+            `<span class="cg-tip">${v.toCall ? `Para seguir: <b>${v.toCall}</b>` : 'Nadie ha apostado'} · bote ${formatNumber(v.pot)}</span>`] : []),
         seatBadge: (v, i) => {
             const p = v.players[i];
             if (!p.active) return 'Eliminado';
             const tags = [];
             if (i === v.dealer) tags.push('<span class="pk-btn" title="Botón">D</span>');
-            if (v.handNo && i === v.sbSeat && v.street === 'preflop') tags.push('<span class="pk-tag">CP</span>');
-            if (v.handNo && i === v.bbSeat && v.street === 'preflop') tags.push('<span class="pk-tag">CG</span>');
-            const st = p.folded ? ' · retirado' : p.allin ? ' · <b>all-in</b>' : p.bet ? ` · apuesta ${formatNumber(p.bet)}` : '';
+            if (v.handNo && i === v.sbSeat && v.street === 'preflop') tags.push(`<span class="pk-tag" title="Ciega pequeña: ${v.sb}">Ciega peq.</span>`);
+            if (v.handNo && i === v.bbSeat && v.street === 'preflop') tags.push(`<span class="pk-tag" title="Ciega grande: ${v.bb}">Ciega gr.</span>`);
+            const st = p.folded ? ' · retirado' : p.allin ? ' · <b>all-in</b>' : '';
+            const chip = p.bet ? ` <span class="pk-bet" title="Apuesta en esta calle"><i></i>${formatNumber(p.bet)}</span>` : '';
             const cards = p.cards && i !== v.me ? ` <span class="pk-show">${p.cards.map(c => cardHtml(c, { cls: 'xs' })).join('')}</span>` : '';
-            return `${tags.join('')}🪙 ${formatNumber(p.chips)}${st}${cards}`;
+            const mucked = v.showdown && v.showdown.mucked && v.showdown.mucked.includes(i) ? ' · <i>tira sin enseñar</i>' : '';
+            return `${tags.join('')}🪙 ${formatNumber(p.chips)}${st}${chip}${mucked}${cards}`;
         },
         scoreHtml: (v, g) => `<div class="cg-ch-scores">${v.players.map((p, i) => [p, i]).sort((a, b) => b[0].chips - a[0].chips).map(([p, i]) => `
             <div class="cg-ch-row ${i === v.me ? 'mine' : ''} ${p.active ? '' : 'out'}"><span>${Nexus.ui.avatar.html(g.pub[i].avatar)} ${nm(g, i)}</span><b>${formatNumber(p.chips)}</b>
             <span class="cg-bar"><i style="width:${Math.min(100, p.chips / (PK.START * v.n) * 100)}%"></i></span></div>`).join('')}</div>
-            <small class="cg-note">Ciegas ${v.sb}/${v.bb} · suben en ${v.nextLevelIn} mano${v.nextLevelIn === 1 ? '' : 's'}.</small>`,
+            <small class="cg-note">Ciegas ${v.sb}/${v.bb} · ${v.fixedBlinds ? 'fijas' : `suben en ${v.nextLevelIn} mano${v.nextLevelIn === 1 ? '' : 's'}`}.</small>`,
         pill: (v) => `${formatNumber(v.players[v.me].chips)} 🪙`,
         sounds: (p, v, g) => {
             if (v.board.length > p.board.length) { g.ui.lastBoard = p.board.length; Nexus.audio.play('flip'); }
@@ -100,7 +117,10 @@
             'Quien abre la ronda pone de 1 a 4 cartas <b>boca abajo</b> y dice un número. Los demás, por turno, tienen que poner cartas diciendo <b>ese mismo número</b>… sea verdad o no.',
             'En tu turno, antes de jugar, puedes gritar <b>¡Mentiroso!</b>: se levantan las últimas cartas. Si alguna no era del número dicho, el mentiroso se lleva todo el montón; si eran verdad, te lo llevas tú.',
             'Empieza la ronda siguiente quien no se llevó el montón. También puedes <b>pasar</b>: si todos pasan, el montón se retira y abre quien jugó lo último.',
-            'Gana el primero que se queda sin cartas… si el siguiente no le pilla la última mentira.',
+            'Gana el primero que se queda sin cartas… si nadie le pilla la última mentira.',
+            'Tras cada jugada hay unos segundos en los que <b>cualquiera</b> puede gritar ¡Mentiroso! (gana quien pulsa primero), no sólo el siguiente.',
+            'No se puede abrir con un número <b>muerto</b> (sus cuatro cartas ya están fuera). Tus cartas que dicen la verdad salen resaltadas.',
+            'Variantes (⚙️ del anfitrión): <b>mismo número</b> toda la ronda, <b>mismo o siguiente</b>, o <b>ascendente</b> (cada jugada, el número siguiente).',
             'Toca las cartas para elegirlas y usa los botones para jugarlas, acusar o pasar.'],
         center: (v, g) => {
             const rv = v.reveal;
@@ -115,14 +135,19 @@
                 <p>${nm(g, rv.caller)} acusa a ${nm(g, rv.seat)}, que decía ${esc(MT.claimText(rv.cards.length, rv.rank))}:</p>
                 <div class="mt-cards">${rv.cards.map(c => cardHtml(c, { cls: 'sm ' + (K.rankOf(c) === rv.rank ? 'ok' : 'bad') })).join('')}</div>
                 <p>${rv.taker === v.me ? '<b>Te llevas</b>' : `<b>${nm(g, rv.taker)}</b> se lleva`} ${rv.count} carta${rv.count === 1 ? '' : 's'}.${rv.dropped && rv.dropped.length ? ` Junta los cuatro ${rv.dropped.map(r => MT.PLURAL[r]).join(' y ')} y los descarta.` : ''}</p></div>` : '';
-            const dead = v.dead.length ? `<div class="mt-dead">Fuera de juego: ${v.dead.map(r => `<span>${esc(cap(MT.PLURAL[r]))}</span>`).join('')}</div>` : '';
-            return rv ? `<div class="mt-center">${reveal}</div>` : `<div class="mt-center">${claim}${pile}${last}${warn}${dead}</div>`;
+            const dead = v.dead.length ? `<div class="mt-dead">Muertos: ${v.dead.map(r => `<span>${esc(cap(MT.PLURAL[r]))}</span>`).join('')}</div>` : '';
+            // Línea de jugadas de la ronda: «Pepa 1 · Paco 2 · Antonio 1»
+            const line = v.plays && v.plays.length ? `<div class="mt-line">${v.plays.slice(-8).map(p => `<span><b>${nm(g, p.seat)}</b> ${p.count}</span>`).join(' · ')}</div>` : '';
+            const win = v.window && !rv ? `<div class="mt-window">⏳ Se puede acusar…</div>` : '';
+            return rv ? `<div class="mt-center">${reveal}</div>` : `<div class="mt-center">${claim}${pile}${line}${last}${warn}${win}${dead}</div>`;
         },
         handHtml: (v, g) => {
             const sel = selOf(v, g), my = v.turn === v.me;
+            // Cartas que «dicen la verdad» para el número (o números) que se pueden decir ahora
+            const truth = my && !v.mustOpen ? new Set(v.allowed && v.allowed.length ? v.allowed : [v.rank]) : null;
             const groups = [];
             for (const c of v.hand) { const r = K.rankOf(c); const last = groups[groups.length - 1]; if (last && last.r === r) last.cs.push(c); else groups.push({ r, cs: [c] }); }
-            return groups.map(gr => `<span class="cg-meld mt-group">${gr.cs.map(c => cardHtml(c, { cls: (my ? 'playable' : '') + (sel.includes(c) ? ' sel' : '') })).join('')}</span>`).join('') || '<span class="cg-tip">Sin cartas</span>';
+            return groups.map(gr => `<span class="cg-meld mt-group">${gr.cs.map(c => cardHtml(c, { cls: (my ? 'playable' : '') + (sel.includes(c) ? ' sel' : '') + (truth && truth.has(K.rankOf(c)) ? ' truth' : '') })).join('')}</span>`).join('') || '<span class="cg-tip">Sin cartas</span>';
         },
         onCard: (v, card, g) => {
             if (v.turn !== v.me) { g.bubble('Espera tu turno'); return null; }
@@ -135,15 +160,18 @@
             return null;
         },
         extraButtons: (v, g) => {
-            if (v.turn !== v.me) return [];
+            // Ventana de acusación: cualquiera (no sólo el siguiente) puede gritar
+            if (v.turn !== v.me) return v.window && v.canCall ? [`<button class="btn btn-danger mt-call" type="button" ${act({ type: 'call' })}>🗣️ ¡Mentiroso!</button>`] : [];
             const sel = selOf(v, g), out = [];
+            const lies = (r) => sel.some(c => K.rankOf(c) !== r);
             if (v.mustOpen) {
                 out.push(`<span class="cg-tip">${sel.length ? `Pon ${sel.length} carta${sel.length === 1 ? '' : 's'} diciendo…` : 'Elige de 1 a 4 cartas y di un número'}</span>`);
-                out.push(`<span class="mt-ranks">${K.RANKS.map(r => `<button class="btn btn-sm ${sel.length ? 'btn-primary' : 'btn-ghost'}" type="button" ${sel.length ? act({ type: 'play', cards: sel, rank: r }) : 'disabled'} title="${esc(cap(MT.PLURAL[r]))}">${esc(cap(MT.PLURAL[r]))}</button>`).join('')}</span>`);
+                out.push(`<span class="mt-ranks">${K.RANKS.filter(r => !v.dead.includes(r)).map(r => `<button class="btn btn-sm ${sel.length ? 'btn-primary' : 'btn-ghost'}${sel.length && lies(r) ? ' mt-lie' : ''}" type="button" ${sel.length ? act({ type: 'play', cards: sel, rank: r }) : 'disabled'} title="${esc(cap(MT.PLURAL[r]))}${sel.length && lies(r) ? ' · vas a mentir' : ''}">${esc(cap(MT.PLURAL[r]))}</button>`).join('')}</span>`);
                 return out;
             }
             if (v.canCall) out.push(`<button class="btn btn-danger mt-call" type="button" ${act({ type: 'call' })}>🗣️ ¡Mentiroso!</button>`);
-            out.push(`<button class="btn ${sel.length ? 'btn-primary' : 'btn-ghost'}" type="button" ${sel.length ? act({ type: 'play', cards: sel }) : 'disabled'}>🂠 Poner ${sel.length || ''} como ${esc(MT.PLURAL[v.rank])}</button>`);
+            const ranks = v.allowed && v.allowed.length ? v.allowed : [v.rank];
+            for (const r of ranks) out.push(`<button class="btn ${sel.length ? 'btn-primary' : 'btn-ghost'}${sel.length && lies(r) ? ' mt-lie' : ''}" type="button" ${sel.length ? act({ type: 'play', cards: sel, rank: r }) : 'disabled'}>🂠 Poner ${sel.length || ''} como ${esc(MT.PLURAL[r])}${sel.length && lies(r) ? ' <small>(vas a mentir)</small>' : ''}</button>`);
             if (v.canPass) out.push(`<button class="btn btn-ghost" type="button" ${act({ type: 'pass' })}>⏭️ Pasar</button>`);
             if (!sel.length) out.push('<span class="cg-tip">Toca cartas para elegirlas</span>');
             return out;

@@ -26,6 +26,14 @@
             sw('pong.shake', 'Sacudida de pantalla', 'En golpes fuertes, remates y puntos'),
             sw('pong.publicRooms', 'Salas públicas por defecto', 'Las salas que crees aparecerán en el buscador de partidas')
         ],
+        pasapalabra: [sw('pasapalabra.contest', 'Modo Concurso', '180 s de reloj que se para mientras lees cada definición')],
+        sudoku: [sw('sudoku.checkAtEnd', 'Comprobar al terminar', 'Sin marcar errores al momento ni límite de 3: se comprueba al llenar el tablero')],
+        solitaire: [sw('solitaire.autoFound', 'Subida automática segura', 'Ases, doses y cartas que ya no hacen falta suben solas a la fundación')],
+        mentiroso: [{ type: 'choice', key: 'mentiroso.variant', title: 'Variante', desc: 'Lo elige quien crea la mesa', options: [{ value: 'same', label: 'Mismo número' }, { value: 'next', label: 'Mismo o siguiente' }, { value: 'up', label: 'Ascendente' }] }],
+        poker: [
+            { type: 'choice', key: 'poker.blinds', title: 'Ciegas', desc: 'Lo elige quien crea la mesa', options: [{ value: 'fast', label: 'Torneo rápido' }, { value: 'slow', label: 'Torneo lento' }, { value: 'fixed', label: 'Fijas' }] },
+            sw('poker.autoMuck', 'Tirar la mano perdedora', 'En el showdown, si no puedes ganar a lo enseñado, tiras sin mostrar')
+        ],
         brisca: [sw('brisca.showScore', 'Marcador visible', 'Ver los puntos durante la mano (en la mesa real se cuentan de memoria)')],
         guinote: [sw('guinote.partnerCante', 'Canta la pareja', 'También puede cantar el compañero de quien gana la baza')],
         chess: [sw('chess.showLegal', 'Marcar jugadas legales', 'Al elegir una pieza se señalan sus casillas de destino'), PUBLIC_ROOMS],

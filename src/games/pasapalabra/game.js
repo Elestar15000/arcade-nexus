@@ -15,7 +15,11 @@
 
     const { esc, $$, formatTime, formatNumber, dayKey, daysBetween } = Nexus.util;
     const B = () => Nexus.games.pasapalabraBank;
-    const WIN_OK = 18;                    // aciertos para contar como victoria
+    /** Aciertos para superar el rosco, por dificultad (antes 18 en todas: fácil en Básico, muy difícil en Profesional). */
+    const WIN_BY = { daily: 18, basic: 20, medium: 18, hard: 16, pro: 14 };
+    const winOk = (mode) => WIN_BY[mode] || 18;
+    /** Modo «Concurso» (⚙️): cuenta atrás de 180 s que se detiene 3 s mientras se lee cada definición. */
+    const CONTEST_S = 180, READ_S = 3;
     const EPOCH = '2026-01-01';
 
     // par = tiempo de referencia (s): terminar antes da puntos extra. penalty = segundos que suma cada fallo.
@@ -116,7 +120,7 @@
         const ok = st.res.filter(r => r === RESULT.OK).length;
         const fails = st.res.filter(r => r === RESULT.FAIL).length;
         // Rapidez: sólo si se supera el rosco; cada segundo por debajo del tiempo de referencia suma
-        const speed = ok >= WIN_OK ? Math.max(0, Math.round((d.par - (st.time || 0)) * 1.5)) : 0;
+        const speed = ok >= winOk(st.mode) ? Math.max(0, Math.round((d.par - (st.time || 0)) * 1.5)) : 0;
         let s = ok * 100 + speed - fails * 25 - st.hintsUsed * 20;
         if (ok === st.res.length) s += 500;
         return Math.max(0, Math.round(s * d.mult));
@@ -286,8 +290,29 @@
             st.startAt = Date.now();
             st.penaltyS = 0;
             st.idx = 0;
+            st.contest = !!Nexus.services.settings.get('pasapalabra.contest');
+            if (st.contest) { st.clockUsed = 0; st.readUntil = Date.now() + READ_S * 1000; }
             persist();
             this.render();
+            this.armClock();
+        }
+
+        /** Cuenta atrás del modo Concurso: corre salvo en los segundos de lectura de cada definición. */
+        armClock() {
+            clearInterval(this.clockIv);
+            const st = this.st;
+            if (!st.contest || st.status !== 'playing') return;
+            let last = Date.now();
+            this.clockIv = setInterval(() => {
+                if (this.destroyed || this.st !== st || st.status !== 'playing') { clearInterval(this.clockIv); return; }
+                const now = Date.now();
+                if (now > (st.readUntil || 0)) st.clockUsed = (st.clockUsed || 0) + (now - Math.max(last, st.readUntil || 0)) / 1000;
+                last = now;
+                const left = Math.max(0, CONTEST_S - st.clockUsed);
+                const el = this.root.querySelector('[data-el="clock"]');
+                if (el) { el.textContent = `⏳ ${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')}${now < st.readUntil ? ' · leyendo' : ''}`; el.classList.toggle('low', left < 20); el.classList.toggle('paused', now < st.readUntil); }
+                if (left <= 0) { clearInterval(this.clockIv); this.finish('time'); this.render(); }
+            }, 200);
         }
 
         /** Segundos de la marca (tiempo real + penalizaciones). */
@@ -348,6 +373,7 @@
             const nxt = nextIndex(st.res, st.idx);
             if (nxt === -1) { this.finish('done'); this.render(); return; }
             st.idx = nxt;
+            if (st.contest) st.readUntil = Date.now() + READ_S * 1000;     // el reloj se para mientras se lee la definición
             persist(); this.render();
         }
 
@@ -371,13 +397,13 @@
             st.recorded = true;
             const daily = st.mode === 'daily';
             const total = st.qs.length;
-            const won = st.ok >= WIN_OK;
+            const won = st.ok >= winOk(st.mode);
             const perfect = st.ok === total;
             const used = Math.max(1, Math.round(st.time));
             const xp = Math.round((10 + st.ok * 3 + (perfect ? 60 : 0)) * (DIFF[st.mode].mult)) + (daily && won ? 25 : 0);
             return Nexus.services.progress.recordGame({
                 game: 'pasapalabra', mode: st.mode, won, score: st.score, time: used, xp,
-                extra: { ok: st.ok, fails: st.fails, hints: st.hintsUsed, time: used, penalty: st.penaltyS || 0, perfect, daily, difficulty: st.mode, reason: st.reason },
+                extra: { ok: st.ok, fails: st.fails, hints: st.hintsUsed, time: used, penalty: st.penaltyS || 0, perfect, daily, difficulty: st.mode, reason: st.reason, contest: !!st.contest },
                 updateExtra: (extra) => {
                     extra.totalOk = (extra.totalOk || 0) + st.ok;
                     extra.bestOk = Math.max(extra.bestOk || 0, st.ok);
@@ -405,13 +431,13 @@
         showResult(result) {
             const st = this.st;
             if (!result || st.status !== 'over') return;
-            const perfect = st.ok === st.qs.length, won = st.ok >= WIN_OK;
+            const perfect = st.ok === st.qs.length, won = st.ok >= winOk(st.mode);
             const d = DIFF[st.mode];
             Nexus.ui.fx && won && Nexus.ui.fx.confetti({ count: perfect ? 220 : 100 });
             Nexus.ui.modal.resultModal({
                 emoji: perfect ? '🏆' : won ? '🎉' : '😵', kind: won ? 'win' : 'lose',
                 title: perfect ? '¡Rosco perfecto!' : won ? '¡Buen rosco!' : 'Rosco terminado',
-                subtitle: won ? `${st.ok} de ${st.qs.length} letras acertadas.` : `Necesitas ${WIN_OK} aciertos para ganar. Has hecho ${st.ok}.`,
+                subtitle: won ? `${st.ok} de ${st.qs.length} letras acertadas.` : `${st.reason === 'time' ? '¡Se acabó el tiempo! ' : ''}Necesitas ${winOk(st.mode)} aciertos para ganar. Has hecho ${st.ok}.`,
                 extraHtml: this.markHtml() + this.missedHtml(),
                 stats: [
                     { label: 'Puntuación', value: formatNumber(st.score) },
@@ -433,11 +459,11 @@
             const st = this.st;
             const ms = Nexus.services.progress.stats('pasapalabra').byMode[st.mode];
             const best = ms && ms.bestTime != null ? ms.bestTime : null;
-            const isBest = st.ok >= WIN_OK && best != null && Math.round(st.time) <= best;
+            const isBest = st.ok >= winOk(st.mode) && best != null && Math.round(st.time) <= best;
             return `<div class="pp-mark"><span>⏱️ Tu marca</span><b>${formatTime(st.time)}</b>
                 ${st.penaltyS ? `<small>incluye +${st.penaltyS} s por fallos</small>` : ''}
                 ${best != null ? `<small>${isBest ? '🏅 ¡Es tu mejor marca en este modo!' : `Tu mejor marca en ${esc(DIFF[st.mode].label)}: ${formatTime(best)}`}</small>`
-                    : st.ok >= WIN_OK ? '' : '<small>Supera el rosco para que la marca cuente como récord.</small>'}</div>`;
+                    : st.ok >= winOk(st.mode) ? '' : '<small>Supera el rosco para que la marca cuente como récord.</small>'}</div>`;
         }
 
         shareText() {
@@ -463,9 +489,10 @@
                     <ul class="help-list">
                         <li>Escribe la respuesta y pulsa <b>Enter</b>. Las tildes no importan; la <b>Ñ</b> sí es una letra distinta.</li>
                         <li>🟩 acierto · 🟥 fallo (no se puede repetir) · 🟦 pasada. Escribe <b>pasapalabra</b> o pulsa el botón para dejarla para la siguiente vuelta.</li>
-                        <li>Ganas con <b>${WIN_OK} aciertos</b> o más. Acertar las 25 es un <b>rosco perfecto</b> (+500 puntos).</li>
+                        <li>Superas el rosco con <b>20 aciertos en Básico, 18 en Medio y en la Diaria, 16 en Difícil y 14 en Profesional</b>. Acertar las 25 es un <b>rosco perfecto</b> (+500 puntos).</li>
                         <li><b>Diaria</b>: el mismo rosco para todos, una vez al día. <b>Aleatorios</b>: ilimitados, en 4 dificultades (más difícil = menos ayudas y más puntos).</li>
-                        <li><b>No hay cuenta atrás</b>: juega a tu ritmo. Al terminar verás tu <b>marca</b> (lo que has tardado) y si es tu récord. Terminar rápido da puntos extra.</li>
+                        <li>Por defecto <b>no hay cuenta atrás</b>: juega a tu ritmo. Al terminar verás tu <b>marca</b> (lo que has tardado) y si es tu récord. Terminar rápido da puntos extra.</li>
+                        <li>Modo <b>Concurso</b> (⚙️): ${CONTEST_S} s de reloj que se para ${READ_S} s mientras lees cada definición. Si se acaba, el rosco termina.</li>
                         <li>En <b>Profesional</b>, cada fallo suma 10 s a tu marca. Si sales de la página, el tiempo sigue contando.</li>
                     </ul>`,
                 actions: [{ label: '¡A jugar!', kind: 'primary' }]
@@ -544,7 +571,7 @@
                 const perfect = st.ok === st.qs.length;
                 el.innerHTML = `
                     <div class="pp-card pp-end">
-                        <h2>${perfect ? '🏆 Rosco perfecto' : st.ok >= WIN_OK ? '🎉 Rosco superado' : 'Rosco terminado'}</h2>
+                        <h2>${perfect ? '🏆 Rosco perfecto' : st.ok >= winOk(st.mode) ? '🎉 Rosco superado' : st.reason === 'time' ? '⏳ Se acabó el tiempo' : 'Rosco terminado'}</h2>
                         ${this.markHtml()}
                         <div class="pp-end-stats">
                             <div><span>Aciertos</span><b>${st.ok}/${st.qs.length}</b></div>
@@ -572,6 +599,7 @@
                         <span class="pp-qletter">${esc(q.l)}</span>
                         <span class="pp-qtype">${q.c ? 'Contiene la' : 'Empieza por'} <b>${esc(q.l)}</b></span>
                     </div>
+                    ${st.contest ? '<div class="pp-clock" data-el="clock" role="timer">⏳</div>' : ''}
                     <p class="pp-def" data-el="def">${esc(q.d)}</p>
                     ${this.patternHtml(q)}
                     <form class="pp-form" data-el="form" autocomplete="off">
@@ -601,7 +629,7 @@
 
         destroy() {
             this.destroyed = true;
-            clearTimeout(this.msgT);
+            clearTimeout(this.msgT); clearInterval(this.clockIv);
             try { persist(); } catch (e) { /* noop */ }
             document.removeEventListener('keydown', this.onKey);
             this.timers.forEach(clearTimeout); this.timers.clear();
@@ -622,7 +650,7 @@
     const pp = (c) => c.stats('pasapalabra');
     const ev = (c, fn) => !!c.event && c.event.game === 'pasapalabra' && (!fn || fn(c.event));
     A.register([
-        { id: 'pp_win_1', game: 'pasapalabra', name: 'Primer rosco', desc: 'Supera tu primer rosco (18 aciertos).', icon: '🎡', rarity: 'common',
+        { id: 'pp_win_1', game: 'pasapalabra', name: 'Primer rosco', desc: 'Supera tu primer rosco.', icon: '🎡', rarity: 'common',
             ...A.counter((c) => pp(c).wins, 1) },
         { id: 'pp_win_10', game: 'pasapalabra', name: 'Concursante', desc: 'Supera 10 roscos.', icon: '🎤', rarity: 'rare',
             ...A.counter((c) => pp(c).wins, 10) },

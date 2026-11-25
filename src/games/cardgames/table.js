@@ -33,6 +33,7 @@
     function cardHtml(c, o = {}) {
         if (c && !o.back && /^[SHDC]/.test(c) && Nexus.games.frenchCards) return Nexus.games.frenchCards.html(c, o);   // baraja francesa (Póker)
         if (!c || o.back) return `<span class="pc back ${o.cls || ''}" ${o.attrs || ''}><i></i></span>`;
+        if (K.isJoker(c)) return `<span class="pc joker ${o.cls || ''}" data-card="${esc(c)}" title="Comodín (25 si queda suelto)" ${o.attrs || ''}><b class="pc-n tl">★</b><span class="pc-joker">🃏</span><b class="pc-n br">★</b></span>`;
         const s = suitOf(c), r = rankOf(c), fig = r >= 10;
         const pips = fig ? `<span class="pc-fig">${FIG[r]}</span>${suitSvg(s, 'mid')}` : (r === 1 ? suitSvg(s, 'ace') : suitSvg(s, 'mid'));
         return `<span class="pc s-${s}${fig ? ' fig' : ''} ${o.cls || ''}" data-card="${esc(c)}" title="${esc(K.cardName(c))}" ${o.attrs || ''}>
@@ -42,9 +43,9 @@
     // ── Sesión autoritativa ─────────────────────────────────
     class TableSession {
         /** seats: [{ kind: 'me'|'remote'|'bot', name, avatar, guestId }] */
-        constructor(rules, seats, { onView, send, botDelay = [650, 1150] }) {
+        constructor(rules, seats, { onView, send, botDelay = [650, 1150], opts }) {
             this.rules = rules; this.seats = seats; this.onView = onView; this.send = send; this.botDelay = botDelay;
-            this.state = rules.setup(seats.length, seats.map(s => s.name), seats.map(s => s.kind));
+            this.state = rules.setup(seats.length, seats.map(s => s.name), seats.map(s => s.kind), opts || {});
             this.seq = 0; this.timer = 0; this.turnTimer = 0; this.deadline = 0; this.destroyed = false;
             // Online: tiempo por turno para que un jugador inactivo no bloquee la mesa
             this.online = seats.some(s => s.kind === 'remote');
@@ -207,6 +208,14 @@
             else if (d === 'copy-code') this.copy(this.net.code, 'Código copiado');
             else if (d === 'copy-link') this.copy(location.href.split('#')[0] + `#/game/${this.game}/${this.net.code}`, 'Enlace copiado');
             else if (d === 'start') this.startGame();
+            else if (d === 'opt') {
+                const defs = this.o.options || [], def = defs.find(x => x.key === b.dataset.k);
+                if (def && def.choices.some(c => c.id === b.dataset.v)) {
+                    this.tableOpts()[def.key] = b.dataset.v;
+                    try { localStorage.setItem(`nexus.tableopt.${this.game}.${def.key}`, b.dataset.v); } catch (_) { /* sin almacenamiento */ }
+                    this.sendRoom(); this.showRoom();
+                }
+            }
             else if (d === 'seats') { this.n = Number(b.dataset.n); this.net.conn.maxPlayers = this.n; this.net.conn._list(); this.sendRoom(); this.showRoom(); }
             else if (d === 'kick') { this.net.conn.kick(b.dataset.id); this.sendRoom(); this.showRoom(); }
             else if (d === 'swap') this.swapSeat(Number(b.dataset.i));
@@ -284,7 +293,24 @@
             for (let i = o.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [o[i], o[j]] = [o[j], o[i]]; }
             this.sendRoom(); this.showRoom();
         }
-        sendRoom() { if (this.net && this.net.role === 'host') { const seats = this.seatList(); this.net.conn.send({ t: 'tb', k: 'room', seats, n: this.n }, true); } }
+        sendRoom() { if (this.net && this.net.role === 'host') { const seats = this.seatList(); this.net.conn.send({ t: 'tb', k: 'room', seats, n: this.n, opts: this.tableOpts() }, true); } }
+
+        // ── Opciones de mesa (p. ej. Chinchón a 50 o a 100): las elige el anfitrión y el invitado las ve ──
+        tableOpts() {
+            const defs = this.o.options || [];
+            if (this.net && this.net.role === 'guest') return this.net.opts || {};
+            if (!this.opts) {
+                this.opts = {};
+                for (const d of defs) { let v = d.def; try { const s = localStorage.getItem(`nexus.tableopt.${this.game}.${d.key}`); if (s && d.choices.some(c => c.id === s)) v = s; } catch (_) { /* sin almacenamiento */ } this.opts[d.key] = v; }
+            }
+            return this.opts;
+        }
+        optsHtml() {
+            const defs = this.o.options || []; if (!defs.length) return '';
+            const host = this.net && this.net.role === 'host', cur = this.tableOpts();
+            return defs.map(d => `<div class="ol-setting"><span class="ol-setting-l">${esc(d.label)}</span><div class="ol-setting-opts" role="radiogroup" aria-label="${esc(d.label)}">${d.choices.map(c =>
+                `<button type="button" class="ol-chip${String(cur[d.key]) === c.id ? ' on' : ''}" role="radio" aria-checked="${String(cur[d.key]) === c.id}" ${host ? `data-ol-do="opt" data-k="${esc(d.key)}" data-v="${esc(c.id)}"` : 'disabled'}>${esc(c.label)}</button>`).join('')}</div>${host ? '' : '<small>Lo elige el anfitrión</small>'}</div>`).join('');
+        }
 
         showRoom() {
             const n = this.net; if (!n) { this.show(); return; }
@@ -317,6 +343,7 @@
                     <p class="ol-hint">${this.pick !== null ? `Toca el asiento con el que quieres cambiar a <b>${esc(seats[this.pick].name)}</b>.` : 'Toca ⇄ en un jugador y luego en otro para cambiarlos de sitio y elegir las parejas (también los bots).'}</p>`
                     : '<p class="ol-hint">El anfitrión elige las parejas. Juegan alternos: Pareja A, Pareja B, Pareja A, Pareja B.</p>'}`
                 : `<div class="cg-seats-list">${seats.map((s, i) => seatItem(s, i)).join('')}</div>`}
+                ${this.optsHtml()}
                 <p class="ol-hint">${host ? 'Comparte el código. Los huecos libres los juegan bots; empieza cuando quieras.' : 'Esperando a que el anfitrión empiece la partida…'}</p>
                 <div class="ol-row">
                     ${host ? `<button class="btn btn-primary btn-glow" data-ol-do="start" type="button">▶ Empezar partida</button>` : '<div class="ol-spinner"></div>'}
@@ -334,7 +361,7 @@
             seatSpec.forEach((s, i) => { if (s.kind === 'remote') n.conn.send({ t: 'tb', k: 'start', seats: pub, you: i }, true, s.guestId); });
             this.playing = true; this.pick = null; this.hide();
             const you = Math.max(0, seatSpec.findIndex(s => s.kind === 'me'));
-            this.o.onStart({ role: 'host', seats: seatSpec, pub, you, send: (gid, msg) => n.conn.send(msg, true, gid) });
+            this.o.onStart({ role: 'host', seats: seatSpec, pub, you, opts: Object.assign({}, this.tableOpts()), send: (gid, msg) => n.conn.send(msg, true, gid) });
         }
 
         // Invitado
@@ -363,7 +390,7 @@
                 if (m.k === 'act' && this.playing) this.o.onRemoteAction(gid, m.a);
                 return;
             }
-            if (m.k === 'room') { this.net.seats = Array.isArray(m.seats) ? m.seats.slice(0, 8) : []; if (!this.playing && (this.view === 'room' || this.view === 'joining')) this.showRoom(); }
+            if (m.k === 'room') { this.net.seats = Array.isArray(m.seats) ? m.seats.slice(0, 8) : []; if (m.opts && typeof m.opts === 'object') this.net.opts = m.opts; if (!this.playing && (this.view === 'room' || this.view === 'joining')) this.showRoom(); }
             else if (m.k === 'start') { this.playing = true; this.hide(); this.o.onStart({ role: 'guest', pub: m.seats, you: m.you | 0, send: null }); }
             else if (m.k === 'view') this.o.onView(m.v, m.s);
             else if (m.k === 'reopen') { this.playing = false; }
@@ -406,7 +433,8 @@
 
     // ── Juego de mesa (interfaz) ────────────────────────────
     const BOT_NAMES = ['Lola', 'Paco', 'Pepa', 'Manolo', 'Carmen', 'Antonio'];
-    const POS = { 2: ['bottom', 'top'], 3: ['bottom', 'right', 'left'], 4: ['bottom', 'right', 'top', 'left'] };
+    const POS = { 2: ['bottom', 'top'], 3: ['bottom', 'right', 'left'], 4: ['bottom', 'right', 'top', 'left'],
+        5: ['bottom', 'right', 'topright', 'topleft', 'left'], 6: ['bottom', 'right', 'topright', 'top', 'topleft', 'left'] };
 
     class CardTableGame {
         /**
@@ -421,7 +449,7 @@
             this.kind = 'cpu'; this.state = 'menu'; this.v = null; this.session = null; this.nPlayers = spec.seats.default;
             this.build(); this.bind();
             this.lobby = new TableLobby({
-                game: spec.id, el: this.$('#cg-online'), title: spec.title + ' ONLINE', seats: spec.seats, teams: spec.teams, seatsText: spec.seatsText,
+                game: spec.id, el: this.$('#cg-online'), title: spec.title + ' ONLINE', seats: spec.seats, teams: spec.teams, seatsText: spec.seatsText, options: spec.rules.options || [],
                 onStart: (ctx) => this.startOnline(ctx), onView: (v) => this.onView(v), onRemoteAction: (gid, a) => this.remoteAction(gid, a),
                 onGuestLeft: (gid) => this.guestLeft(gid), onHostLost: (was) => this.hostLost(was), onExit: () => this.showHome(), onStatus: () => this.updateHud()
             });
@@ -441,6 +469,7 @@
                     <div class="cg-main">
                         <div class="cg-table" id="cg-table">
                             <div class="cg-seat" data-pos="top"></div><div class="cg-seat" data-pos="left"></div><div class="cg-seat" data-pos="right"></div>
+                            <div class="cg-seat" data-pos="topleft"></div><div class="cg-seat" data-pos="topright"></div>
                             <div class="cg-center" id="cg-center"></div>
                             <div class="cg-bubble" id="cg-bubble" hidden></div>
                         </div>
@@ -478,11 +507,28 @@
             this.$('#cg-handtools').addEventListener('click', (e) => {
                 const b = e.target.closest('[data-sort]'); if (!b || !this.v) return;
                 Nexus.audio.play('click');
+                // En los juegos de orden libre (Chinchón) ordenar es una acción puntual: luego sigues moviendo a tu gusto
+                if (this.spec.freeOrder) { this.sortMode = null; this.order = this.sortCards(this.v.hand, b.dataset.sort); this.render(); return; }
                 this.sortMode = b.dataset.sort; this.order = this.sortCards(this.v.hand, this.sortMode); this.render();
             });
             this.$('#cg-table').addEventListener('click', (e) => {
                 const b = e.target.closest('[data-act]'); if (!b || !this.v) return;
                 try { this.act(JSON.parse(b.dataset.act)); } catch (_) { /* noop */ }
+            });
+            // Barra de apuesta libre del póker: rango, campo numérico y ± una ciega grande
+            const syncRaise = (box, val) => {
+                const r = box.querySelector('[data-pk="range"]'), n = box.querySelector('[data-pk="num"]'), go = box.querySelector('[data-pk="go"]');
+                const min = +r.min, max = +r.max, step = +r.step || 1;
+                let v = Math.round((Number(val) || min) / step) * step; v = Math.max(min, Math.min(max, v));
+                if (Number(val) >= max) v = max;
+                r.value = v; n.value = v;
+                go.dataset.act = JSON.stringify({ type: 'raise', to: v });
+                go.innerHTML = `${v >= max ? '💥 All-in' : '⬆️ Subir a'} <b>${v}</b>`;
+            };
+            this.$('#cg-actions').addEventListener('input', (e) => { const box = e.target.closest('.pk-raise'); if (box && e.target.dataset.pk) syncRaise(box, e.target.value); });
+            this.$('#cg-actions').addEventListener('click', (e) => {
+                const pm = e.target.closest('[data-pk="+"],[data-pk="-"]');
+                if (pm) { const box = pm.closest('.pk-raise'), n = box.querySelector('[data-pk="num"]'); syncRaise(box, Number(n.value) + (pm.dataset.pk === '+' ? 1 : -1) * (+box.dataset.step || 1)); }
             });
             this.$('#cg-actions').addEventListener('click', (e) => {
                 const b = e.target.closest('[data-act],[data-ui]'); if (!b || !this.v) return;
@@ -499,6 +545,10 @@
         get canReorder() { return !this.spec.handHtml; }
         sortCards(hand, mode) {
             const v = this.v, trump = v && v.trump;
+            if (mode === 'value' && !this.rules.strength) {
+                // Sin «fuerza» de cartas (Chinchón): por número y, dentro, por palo; comodines al final
+                return hand.slice().sort((a, b) => K.isJoker(a) - K.isJoker(b) || K.RANKS.indexOf(K.rankOf(a)) - K.RANKS.indexOf(K.rankOf(b)) || K.SUITS.indexOf(K.suitOf(a)) - K.SUITS.indexOf(K.suitOf(b)));
+            }
             if (mode === 'value' && this.rules.strength) {
                 const pts = this.rules.pts || (() => 0);
                 return hand.slice().sort((a, b) => (K.suitOf(b) === trump) - (K.suitOf(a) === trump)
@@ -587,8 +637,16 @@
             const seats = [{ kind: 'me', name: me.name, avatar: me.avatar }];
             for (let i = 1; i < n; i++) seats.push({ kind: 'bot', name: names[i - 1], avatar: '🤖' });
             this.begin('cpu', seats.map(s => ({ name: s.name, avatar: s.avatar, bot: s.kind === 'bot' })), 0);
-            this.session = new TableSession(this.rules, seats, { onView: (v) => this.onView(v) });
+            this.session = new TableSession(this.rules, seats, { onView: (v) => this.onView(v), opts: Object.assign({}, this.cpuOpts()) });
             this.session.start();
+        }
+        /** Opciones de mesa contra la máquina (mismas que online; se recuerdan por juego). */
+        cpuOpts() {
+            if (!this._cpuOpts) {
+                this._cpuOpts = {};
+                for (const d of (this.rules.options || [])) { let v = d.def; try { const s = localStorage.getItem(`nexus.tableopt.${this.spec.id}.${d.key}`); if (s && d.choices.some(c => c.id === s)) v = s; } catch (_) { /* sin almacenamiento */ } this._cpuOpts[d.key] = v; }
+            }
+            return this._cpuOpts;
         }
 
         begin(kind, pub, you) {
@@ -596,7 +654,7 @@
             if (this.session) { this.session.destroy(); this.session = null; }
             this.kind = kind; this.pub = pub; this.mySeat = you; this.state = 'playing';
             this.v = null; this.recorded = false; this.ui = {}; this.prevTrick = [];
-            this.order = null; this.sortMode = 'suit'; this.drag = null;
+            this.order = null; this.sortMode = this.spec.freeOrder ? null : 'suit'; this.drag = null;
             this.overlay.hidden = true;
             this.t0 = Date.now();
             Nexus.audio.play('tdRound');
@@ -605,7 +663,7 @@
         startOnline(ctx) {
             this.begin('online', ctx.pub, ctx.you);
             if (ctx.role === 'host') {
-                this.session = new TableSession(this.rules, ctx.seats, { onView: (v) => this.onView(v), send: ctx.send });
+                this.session = new TableSession(this.rules, ctx.seats, { onView: (v) => this.onView(v), send: ctx.send, opts: ctx.opts });
                 this.session.onAfk = (seat) => { if (this.pub[seat]) this.pub[seat].bot = true; this.bubble(`${this.pub[seat] ? this.pub[seat].name : 'Un jugador'} no responde: le sustituye un bot`); };
                 this.session.start();
             }
@@ -685,14 +743,17 @@
             const myTurn = v.turn === v.me;
             if (!(this.drag && this.drag.on)) {
                 this.$('#cg-hand').innerHTML = this.spec.handHtml ? this.spec.handHtml(v, this)
-                    : this.myHand(v).map(c => cardHtml(c, { cls: (v.legal.includes(c) ? 'playable' : (myTurn && v.phase === 'play' ? 'dim' : '')) + ' movable' })).join('');
+                    : this.myHand(v).map(c => cardHtml(c, { cls: (this.spec.cardCls ? this.spec.cardCls(v, c, this) : (v.legal.includes(c) ? 'playable' : (myTurn && v.phase === 'play' ? 'dim' : ''))) + ' movable' })).join('');
             }
             this.$('#cg-hand').classList.toggle('my-turn', myTurn);
             const tools = this.$('#cg-handtools');
             tools.hidden = !this.canReorder || !v.hand.length;
-            tools.querySelectorAll('[data-sort]').forEach(b => b.classList.toggle('on', b.dataset.sort === this.sortMode));
+            tools.querySelectorAll('[data-sort]').forEach(b => {
+                b.classList.toggle('on', b.dataset.sort === this.sortMode);
+                if (this.spec.freeOrder) b.textContent = b.dataset.sort === 'suit' ? 'Ordenar por palo' : 'Ordenar por número';
+            });
             // Botones
-            const btns = (v.buttons || []).map(b => `<button class="btn ${b.kind === 'primary' ? 'btn-primary' : 'btn-ghost'}" type="button" data-act='${esc(JSON.stringify(b.action))}'>${esc(b.label)}</button>`);
+            const btns = (v.buttons || []).map(b => `<button class="btn ${b.kind === 'primary' ? 'btn-primary' : 'btn-ghost'}${b.quick ? ' cg-quick' : ''}" type="button" data-act='${esc(JSON.stringify(b.action))}'${b.title ? ` title="${esc(b.title)}"` : ''}>${esc(b.label)}</button>`);
             if (this.spec.extraButtons) btns.push(...this.spec.extraButtons(v, this));
             this.$('#cg-actions').innerHTML = btns.join('');
             // Marcador y registro
@@ -803,13 +864,17 @@
         }
         showCpu() {
             const s = this.spec;
-            if (s.seats.min === s.seats.max) { this.startCpu(); return; }
+            if (s.seats.min === s.seats.max && !(this.rules.options || []).length) { this.startCpu(); return; }
+            const cur = this.cpuOpts();
+            const opts = (this.rules.options || []).map(d => `<p class="ax-sub">${esc(d.label)}</p><div class="segmented cg-seg" role="radiogroup">${d.choices.map(c =>
+                `<button type="button" class="${String(cur[d.key]) === c.id ? 'active' : ''}" data-opt="${esc(d.key)}" data-v="${esc(c.id)}">${esc(c.label)}</button>`).join('')}</div>`).join('');
             this.overlay.hidden = false;
             this.overlay.innerHTML = `<div class="ax-panel">
                 <h2 class="ax-big">CONTRA LA MÁQUINA</h2>
                 <p class="ax-sub">¿Cuántos jugadores en la mesa? Los demás asientos los ocupan bots.</p>
                 <div class="segmented cg-seg" role="radiogroup">${Array.from({ length: s.seats.max - s.seats.min + 1 }, (_, k) => s.seats.min + k)
                     .map(n => `<button type="button" class="${n === this.nPlayers ? 'active' : ''}" data-players="${n}">${n} jugadores</button>`).join('')}</div>
+                ${opts}
                 <div class="ax-play-row"><button class="btn btn-ghost" data-do="home" type="button">← Volver</button>
                     <button class="btn btn-primary btn-glow" data-do="start" type="button">▶ Repartir</button></div>
             </div>`;
@@ -822,6 +887,12 @@
         onOverlay(e) {
             const p = e.target.closest('[data-players]');
             if (p) { this.nPlayers = Number(p.dataset.players); Nexus.audio.play('click'); this.showCpu(); return; }
+            const op = e.target.closest('[data-opt]');
+            if (op) {
+                this.cpuOpts()[op.dataset.opt] = op.dataset.v;
+                try { localStorage.setItem(`nexus.tableopt.${this.spec.id}.${op.dataset.opt}`, op.dataset.v); } catch (_) { /* sin almacenamiento */ }
+                Nexus.audio.play('click'); this.showCpu(); return;
+            }
             const b = e.target.closest('[data-do]'); if (!b) return;
             Nexus.audio.play('click');
             const d = b.dataset.do;

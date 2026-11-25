@@ -23,11 +23,14 @@ HOOK = """() => {
     const v = g.v; if (v.turn !== v.me) return;
     const q = (s) => document.querySelector(s);
     if (v.game === 'chinchon') {
+      if (v.phase === 'ligar') { if (v.lig && !v.lig.done) { const b = [...document.querySelectorAll('#cg-actions [data-act]')].find(x => x.dataset.act.includes('ligarAuto')); if (b) b.click(); } return; }
       if (v.canDraw) { const b = q('.cg-pile.can'); if (b) b.click(); return; }
       if (v.phase !== 'discard') return;
+      if (v.can25) { const b = [...document.querySelectorAll('#cg-actions [data-act]')].find(x => x.dataset.act.includes('close25')); if (b) { b.click(); return; } }
       if (v.closeWith.length) { if (!g.ui.close) { q('#cg-actions [data-ui=close]').click(); return; } q(`#cg-hand [data-card="${v.closeWith[0]}"]`).click(); return; }
-      const loose = [...document.querySelectorAll('#cg-hand .cg-loose .pc.playable')].sort((a, b) => CH.value(b.dataset.card) - CH.value(a.dataset.card));
-      (loose[0] || q('#cg-hand .pc.playable')).click();
+      const loose = v.loose.filter(c => c !== v.took).sort((a, b) => CH.value(b) - CH.value(a));
+      const el = loose.length ? q(`#cg-hand [data-card="${loose[0]}"]`) : q('#cg-hand .pc.playable');
+      if (el) el.click();
       return;
     }
     const btn = q('#cg-actions [data-act]'); if (btn && Math.random() < 0.6) { btn.click(); return; }
@@ -125,6 +128,13 @@ try:
         A.click('.cg-pile.can >> nth=0')
         A.wait_for_function('__g.v.phase === "discard"', timeout=3000)
         check(len(A.evaluate('__g.v.hand')) == 8, 'chinchón: tras robar tengo 8 cartas')
+        check(A.locator('#cg-hand .pc.new').count() == 1, 'chinchón: la carta robada sale resaltada')
+        check(A.locator('.ch-discard .ch-fan .pc').count() >= 1 and A.locator('.ch-lastdraw').count() == 1, 'chinchón: montón con las últimas cartas y aviso de dónde se robó')
+        check(A.locator('#cg-hand .cg-meld').count() == 0 and A.locator('#cg-handtools').is_visible(), 'chinchón: la mano no se agrupa sola y se puede ordenar a mano')
+        order = A.evaluate("[...document.querySelectorAll('#cg-hand .pc[data-card]')].map(x => x.dataset.card)")
+        A.click('#cg-handtools [data-sort=value]'); A.wait_for_timeout(100)
+        o2 = A.evaluate("[...document.querySelectorAll('#cg-hand .pc[data-card]')].map(x => x.dataset.card)")
+        check(sorted(o2) == sorted(order) and A.evaluate('__g.sortMode') is None, 'chinchón: «Ordenar por número» es puntual (luego mueves libremente)')
         A.screenshot(path=str(SHOTS / 'cards_chinchon.png'))
         A.click('#cg-hand .pc.playable >> nth=0')
         A.wait_for_function('__g.v.turn !== __g.v.me || __g.v.phase === "draw"', timeout=3000)
@@ -133,6 +143,8 @@ try:
         A.wait_for_function('__g.v.roundResult || __g.v.over', timeout=60000)
         A.screenshot(path=str(SHOTS / 'cards_chinchon_round.png'))
         check(A.locator('.cg-round').count() == 1, 'chinchón: se muestra el recuento de la ronda')
+        A.wait_for_function('__g.v.history.length >= 1', timeout=20000)
+        check(A.locator('.ch-sum tbody tr').count() >= 1 and A.locator('.ch-sum tfoot').count() == 1, 'chinchón: marcador como una suma por rondas con total')
         wait_over(A, 240000)
         v = A.evaluate('__g.v')
         check(len(v['over']['winners']) == 1, f'chinchón: hay un ganador ({v["over"]["text"]})')

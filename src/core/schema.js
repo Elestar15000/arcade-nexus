@@ -32,7 +32,13 @@
         'pacman.dpad': false,
         'pong.shake': true,
         'pong.target': '11',
-        'brisca.showScore': false,     // Brisca: marcador visible durante la mano (para aprender)
+        'brisca.showScore': false,
+        'mentiroso.variant': 'same',   // same | next | up
+        'solitaire.autoFound': true,
+        'pasapalabra.contest': false,  // cuenta atrás tipo concurso
+        'sudoku.checkAtEnd': false,    // sudoku clásico: sin comprobación al momento   // subir solas las cartas seguras
+        'poker.blinds': 'fast',        // fast (cada 6 manos) | slow (cada 12) | fixed
+        'poker.autoMuck': true,        // tirar sin enseñar la mano que no puede ganar
         'guinote.partnerCante': false, // Guiñote: también puede cantar el compañero de quien gana la baza           // puntos para ganar (7, 11 o 21; con 2 de ventaja)            // sacudida de pantalla en golpes y puntos
         'pong.publicRooms': true,      // las salas nuevas aparecen en el buscador
         'online.publicRooms': true,    // ídem para Ajedrez y Hundir la flota

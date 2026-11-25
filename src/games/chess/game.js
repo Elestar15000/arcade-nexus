@@ -29,7 +29,8 @@
     const GLYPH = { 1: '♟', 2: '♞', 3: '♝', 4: '♜', 5: '♛', 6: '♚' };
     const NAMES = { 1: 'peón', 2: 'caballo', 3: 'alfil', 4: 'torre', 5: 'dama', 6: 'rey' };
     const REASONS = {
-        mate: 'Jaque mate', stalemate: 'Rey ahogado', fifty: 'Regla de las 50 jugadas', repetition: 'Triple repetición',
+        mate: 'Jaque mate', stalemate: 'Rey ahogado', fifty: 'Regla de las 50 jugadas (reclamada)', repetition: 'Triple repetición (reclamada)',
+        fifty75: 'Regla de las 75 jugadas', repetition5: 'Quíntuple repetición',
         material: 'Material insuficiente', resign: 'Abandono', agreement: 'Tablas de mutuo acuerdo', forfeit: 'El rival se desconectó',
         time: 'Sin tiempo', timedraw: 'Sin tiempo, pero el rival no tiene material para dar mate'
     };
@@ -303,6 +304,7 @@
             this.$('#ch-draw').addEventListener('click', () => this.offerDraw());
             this.$('#ch-menu').addEventListener('click', () => this.openMenu());
             this.$('#ch-offer').addEventListener('click', (e) => {
+                if (e.target.closest('[data-claim]')) { this.claimDraw(); return; }
                 const b = e.target.closest('[data-offer]'); if (!b) return;
                 this.answerDraw(b.dataset.offer === 'yes');
             });
@@ -421,7 +423,23 @@
             this.updateSide();
             const st = pos.status();
             if (st.over) { this.finish(st.result, st.reason); return; }
+            this.showClaim();
             if (this.kind === 'cpu' && pos.turn !== this.myColor) this.think();
+        }
+
+        /** Botón «Reclamar tablas» cuando hay 50 jugadas o triple repetición (según la FIDE, hay que reclamarlas). */
+        showClaim() {
+            const c = this.state === 'playing' ? this.pos.claimable() : null, o = this.$('#ch-offer');
+            if (!o || this.offerShown) return;
+            if (!c) { if (o.dataset.claim) { o.hidden = true; o.innerHTML = ''; delete o.dataset.claim; } return; }
+            o.dataset.claim = c; o.hidden = false;
+            o.innerHTML = `<p>⚖️ ${c === 'fifty' ? '50 jugadas sin capturas ni movimientos de peón' : 'La misma posición se ha repetido tres veces'}</p>
+                <div class="ch-offer-btns"><button class="btn btn-primary" data-claim="1" type="button">🤝 Reclamar tablas</button></div>`;
+        }
+        claimDraw() {
+            const c = this.state === 'playing' && this.pos.claimable(); if (!c) return;
+            if (this.kind === 'online' && this.lobby) this.lobby.send({ t: 'claim', r: c });
+            this.finish('1/2-1/2', c);
         }
 
         renderBoardMove(move) {
@@ -662,6 +680,9 @@
             } else if (m.t === 'flag') {
                 // El rival avisa de que a alguien se le ha acabado el tiempo (m.w: color sin tiempo)
                 if (this.state === 'playing' && this.clock && (m.w === WHITE || m.w === BLACK)) this.flagFall(m.w, false);
+            } else if (m.t === 'claim') {
+                // El rival reclama tablas: se comprueba en esta copia de la partida
+                if (this.state === 'playing' && this.pos.claimable()) this.finish('1/2-1/2', this.pos.claimable());
             } else if (m.t === 'resign') {
                 if (this.state === 'playing') this.finish(this.myColor === WHITE ? '1-0' : '0-1', 'resign');
             } else if (m.t === 'draw?') {

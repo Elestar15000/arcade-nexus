@@ -162,10 +162,11 @@
             this.board = g.puzzle.slice();
             this.notes = new Array(81).fill(0);
             this.errors = 0; this.hints = 0; this.history = []; this.sel = -1; this.notesOn = false; this.wrong = [];
+            this.checkAtEnd = !!Nexus.services.settings.get('sudoku.checkAtEnd');
         }
         // Con la partida se guardan las últimas 50 acciones de deshacer (antes se perdían al recargar)
-        serialize() { return { p: this.puzzle, s: this.solution, b: this.board, n: this.notes, e: this.errors, h: this.hints, w: this.wrong, u: this.history.slice(-50) }; }
-        restore(d) { this.puzzle = d.p; this.solution = d.s; this.board = d.b; this.notes = d.n; this.errors = d.e; this.hints = d.h; this.wrong = d.w || []; this.history = Array.isArray(d.u) ? d.u : []; this.sel = -1; this.notesOn = false; }
+        serialize() { return { p: this.puzzle, s: this.solution, b: this.board, n: this.notes, e: this.errors, h: this.hints, w: this.wrong, u: this.history.slice(-50), ce: !!this.checkAtEnd }; }
+        restore(d) { this.puzzle = d.p; this.solution = d.s; this.board = d.b; this.notes = d.n; this.errors = d.e; this.hints = d.h; this.wrong = d.w || []; this.history = Array.isArray(d.u) ? d.u : []; this.sel = -1; this.notesOn = false; this.checkAtEnd = !!d.ce; }
 
         push() { this.history.push({ b: this.board.slice(), n: this.notes.slice(), w: this.wrong.slice() }); if (this.history.length > 200) this.history.shift(); }
         input(n) {
@@ -178,6 +179,14 @@
             if (this.board[i] === n) return;
             this.push();
             this.board[i] = n; this.notes[i] = 0;
+            // «Comprobar al terminar» (sudoku clásico): no se marca el error al momento ni hay límite de 3
+            if (this.checkAtEnd) {
+                this.wrong = [];
+                for (const p of PEERS[i]) this.notes[p] &= ~(1 << n);
+                Nexus.audio.play('click'); this.render();
+                if (this.board.every(v => v)) this.checkFull();
+                return;
+            }
             if (n !== this.solution[i]) {
                 this.errors++; this.wrong = this.wrong.filter(x => x !== i).concat([i]);
                 Nexus.audio.play('error');
@@ -225,13 +234,21 @@
             if (!units.length) return;
             this.$$('.sd-cell').forEach((el, k) => { if (units.some(f => f(k))) { el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); } });
         }
+        /** Tablero lleno en «comprobar al terminar»: si hay errores se marcan y se sigue jugando. */
+        checkFull() {
+            const bad = []; for (let k = 0; k < 81; k++) if (this.board[k] !== this.solution[k]) bad.push(k);
+            if (!bad.length) { this.check(); return; }
+            this.errors++; this.wrong = bad;
+            Nexus.audio.play('error'); this.render();
+            this.toast(`Hay ${bad.length} casilla${bad.length === 1 ? '' : 's'} mal: están marcadas`);
+        }
         check() {
             for (let i = 0; i < 81; i++) if (this.board[i] !== this.solution[i]) return;
             const score = Math.max(100, BASE[this.mode.id] + Math.max(0, 1800 - this.elapsed) - this.errors * 150 - this.hints * 250);
             this.finish({
                 won: true, score, label: formatTime(this.elapsed),
                 stats: [{ label: 'Tiempo', value: formatTime(this.elapsed) }, { label: 'Errores', value: `${this.errors}/${MAX_ERR}` }, { label: 'Pistas', value: String(this.hints) }, { label: 'Puntos', value: formatNumber(score) }],
-                extra: { errors: this.errors, hints: this.hints, level: this.mode.id },
+                extra: { errors: this.errors, hints: this.hints, level: this.mode.id, checkAtEnd: !!this.checkAtEnd },
                 updateExtra: (x) => { x.byLevel = x.byLevel || {}; x.byLevel[this.mode.id] = (x.byLevel[this.mode.id] || 0) + 1; }
             });
         }
@@ -260,8 +277,8 @@
             this.$('#sd-pad').classList.toggle('notes', !!this.notesOn);
             const left = this.board.filter((v, i) => v !== this.solution[i]).length;
             const set = (k, v) => { const e = this.$(`[data-s="${k}"]`); if (e) e.textContent = v; };
-            set('lvl', this.mode.label); set('left', left); set('err', `${this.errors}/${MAX_ERR}`); set('hints', this.hints);
-            this.pill('err', `${this.errors}/${MAX_ERR}`); this.pill('lvl', this.mode.label);
+            set('lvl', this.mode.label); set('left', left); set('err', this.checkAtEnd ? `${this.errors} rev.` : `${this.errors}/${MAX_ERR}`); set('hints', this.hints);
+            this.pill('err', this.checkAtEnd ? `${this.errors} rev.` : `${this.errors}/${MAX_ERR}`); this.pill('lvl', this.mode.label);
         }
     }
 

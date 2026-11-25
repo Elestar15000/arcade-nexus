@@ -44,7 +44,7 @@ check(pos.status().reason === 'stalemate', 'detecta ahogado');
 check(C.Position.fromFen('8/8/4k3/8/8/2B5/4K3/8 w - - 0 1').status().reason === 'material', 'rey y alfil contra rey: tablas');
 // Triple repetición
 pos = C.replay(C.START, ['g1f3', 'g8f6', 'f3g1', 'f6g8', 'g1f3', 'g8f6', 'f3g1', 'f6g8']);
-check(pos.status().reason === 'repetition', 'triple repetición');
+check(!pos.status().over && pos.claimable() === 'repetition', 'triple repetición: se puede reclamar (no es automática)');
 // Enroque y al paso en SAN
 pos = C.replay(C.START, ['e2e4', 'a7a6', 'e4e5', 'd7d5']);
 check(pos.san(pos.fromUci('e5d6')) === 'exd6', 'captura al paso: exd6');

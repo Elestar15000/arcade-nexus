@@ -173,6 +173,8 @@ siempre abren en su modo por defecto.
 - La marca se calcula desde una hora de inicio absoluta guardada en la cuenta: recargar o salir de la página **no la detiene**.
   Las partidas guardadas con la versión anterior (cuenta atrás) se convierten solas.
 - Banco: `src/games/pasapalabra/bank.js` (formato `LETRA|definición|respuesta|alternativas`). `node tests/pasapalabra_bank_test.mjs` valida que cada respuesta empiece/contenga su letra, que no se repitan y que haya 12 por letra y nivel. Un rosco aleatorio evita repetir las definiciones de tus 10 últimos roscos de esa dificultad.
+- Rosco superado con 20 aciertos en Básico, 18 en Medio y en la Diaria, 16 en Difícil y 14 en Profesional. Modo **Concurso** (⚙️):
+  180 s de reloj que se para 3 s mientras se lee cada definición.
 
 ## Tetris Fusion
 
@@ -274,6 +276,7 @@ siempre abren en su modo por defecto.
 - **Reloj online**: el anfitrión elige el control de tiempo en la sala (3+2, 5+0, 10+5, 15+10 o sin reloj; se recuerda). Incremento
   Fischer por jugada; cada jugada viaja con los dos relojes. Quien llega a 0 pierde, salvo que el rival no tenga material para dar
   mate (tablas). Si el rival no avisa de su caída, se reclama con 2 s de margen.
+- Tablas por 50 jugadas y triple repetición: se **reclaman** con un botón (FIDE); son automáticas a las 75 jugadas y a la quinta repetición.
 
 ## Hundir la flota
 
@@ -377,6 +380,9 @@ Los cinco comparten una base (`src/games/shared/puzzle.js`): menú de modos, rel
 - **2048** — clásico 4×4, grande 5×5 (meta 4096), contrarreloj de 3 minutos y reto diario (misma secuencia de fichas para todos,
   150 movimientos). Deslizar o flechas/WASD, animaciones y 3 «deshacer» en los modos sin tiempo.
 - **2048**: la victoria se registra en cuanto llegas al objetivo; puedes seguir en modo infinito (el final cuenta como puntuación).
+- **Sudoku**: ⚙️ «Comprobar al terminar» (sin marcar errores al momento ni límite de 3; al llenar el tablero se señalan los fallos).
+- **Solitario**: puntuación de Windows (−20 por vuelta desde la cuarta en robar 3, −2 cada 10 s, −15 por deshacer), modos **Vegas**
+  (robar 1 y 3), subida automática segura (⚙️), «Terminar» en cuanto todo está boca arriba y aviso cuando no quedan movimientos.
 
 ## Juegos de cartas: Brisca, Guiñote y Chinchón
 
@@ -422,6 +428,18 @@ partidas completas entre bots.
 - **Guiñote**: para salir hacen falta **30 de cartas** (sin cantes; si las dos parejas los tienen, deciden las últimas); en las
   vueltas se declara **«¡Fuera!»** (mal declarado, se pierde; los bots lo hacen solos); se juega a **cotos** (3 partidas) y, con ⚙️
   «Canta la pareja», también canta el compañero de quien gana la baza.
+- **Chinchón**: dos barajas + 2 comodines (82 cartas; cada carta exactamente 2 veces, la segunda copia con sufijo «z»). Mano en el
+  orden que quiera el jugador (arrastrar u «Ordenar» puntual, sin agrupar solo); la carta robada sale resaltada, se ven las 3 últimas del
+  montón y si cada rival robó del mazo o del montón. Cierres: normal (una carta suelta ≤ 5), −10 (7 combinadas), −25 (8 combinadas,
+  sin descartar) y ¡chinchón! (gana la partida). Tras un cierre normal los demás ligan (eligiendo carta y combinación, o «Ligar todo»);
+  en −10, −25 y chinchón no. Marcador como suma por rondas. Se juega a **100 o 50** (opción de mesa en local y online; quien llega al
+  límite queda eliminado). Sin mazo, el montón se da la vuelta empezando por la primera carta que se tiró.
+- Opciones de mesa genéricas: `rules.options` (las elige el anfitrión en la sala o el jugador en «Contra la máquina»; llegan a
+  `rules.setup(n, names, kinds, opts)`).
+- **Póker**: de 2 a 6 asientos, apuesta libre con barra, orden de muestra en el showdown (se puede tirar sin enseñar), ciegas de torneo
+  rápido, lento o fijas (⚙️), fichas delante de cada asiento y resumen de la calle.
+- **Mentiroso**: ventana de acusación para todos tras cada jugada, no se abre con números muertos, variantes «mismo o siguiente» y
+  «ascendente» (⚙️), cartas que dicen la verdad resaltadas y aviso de «vas a mentir».
 
 ## Póker, Mentiroso y Solitario
 

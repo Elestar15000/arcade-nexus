@@ -14,14 +14,17 @@
     // ── Lógica pura ─────────────────────────────────────────
     const SUITS = F.SUITS;
     const rank = F.rankOf, suit = F.suitOf, red = F.isRed;
-    const PTS = { wasteTab: 5, toFound: 10, flip: 5, fromFound: -15, recycle1: -100 };
+    // Puntuación de Windows: robar 1 resta 100 por vuelta; robar 3, 20 por vuelta a partir de la cuarta; −2 cada 10 s; deshacer −15
+    const PTS = { wasteTab: 5, toFound: 10, flip: 5, fromFound: -15, recycle1: -100, recycle3: -20, time10: -2, undo: -15 };
+    /** Vegas: se paga 52 al empezar y cada carta en la fundación vale 5; 1 vuelta al mazo (robar 1) o 3 (robar 3). */
+    const VEGAS = { cost: 52, perCard: 5 };
 
     /** Reparto: 7 columnas (1…7 cartas, sólo la última boca arriba) y el resto al mazo. */
     function deal(r) {
         const d = r.shuffle(F.deck52());
         const tab = [];
         for (let c = 0; c < 7; c++) { tab.push([]); for (let k = 0; k <= c; k++) tab[c].push({ c: d.pop(), up: k === c }); }
-        return { stock: d, waste: [], found: { S: [], H: [], D: [], C: [] }, tab, score: 0, moves: 0, recycles: 0 };
+        return { stock: d, waste: [], found: { S: [], H: [], D: [], C: [] }, tab, score: 0, moves: 0, recycles: 0, vegas: false };
     }
     const top = (a) => a[a.length - 1];
     const canFound = (st, c) => { const f = st.found[suit(c)]; return f.length ? rank(top(f)) === rank(c) - 1 : rank(c) === 1; };
@@ -52,6 +55,15 @@
         if (src.from === 'waste') moved = [st.waste.pop()].map(c => ({ c, up: true }));
         else if (src.from === 'found') moved = [st.found[src.suit].pop()].map(c => ({ c, up: true }));
         else moved = st.tab[src.col].splice(src.idx);
+        if (st.vegas) {
+            // Vegas: sólo cuentan las cartas en la fundación (5 cada una)
+            if (dst.to === 'found') { st.found[suit(cs[0])].push(cs[0]); st.score += VEGAS.perCard; }
+            else { st.tab[dst.col].push(...moved); if (src.from === 'found') st.score -= VEGAS.perCard; }
+            let flipped = false;
+            if (src.from === 'tab') { const t = top(st.tab[src.col]); if (t && !t.up) { t.up = true; flipped = true; } }
+            st.moves++;
+            return { flipped };
+        }
         if (dst.to === 'found') { st.found[suit(cs[0])].push(cs[0]); st.score += src.from === 'found' ? 0 : PTS.toFound; }
         else { st.tab[dst.col].push(...moved); if (src.from === 'waste') st.score += PTS.wasteTab; if (src.from === 'found') st.score += PTS.fromFound; }
         let flipped = false;
@@ -63,15 +75,28 @@
     function draw(st, n) {
         if (!st.stock.length) {
             if (!st.waste.length) return false;
+            if (st.vegas && st.recycles >= (n === 1 ? 0 : 2)) return 'limit';           // Vegas: 1 pasada (robar 1) o 3 (robar 3)
             st.stock = st.waste.reverse(); st.waste = []; st.recycles++;
-            if (n === 1) st.score = Math.max(0, st.score + PTS.recycle1);
+            if (!st.vegas) {
+                if (n === 1) st.score = Math.max(0, st.score + PTS.recycle1);
+                else if (st.recycles >= 4) st.score = Math.max(0, st.score + PTS.recycle3);
+            }
             st.moves++; return 'recycle';
         }
         for (let k = 0; k < n && st.stock.length; k++) st.waste.push(st.stock.pop());
         st.moves++; return 'draw';
     }
     const won = (st) => SUITS.every(s => st.found[s].length === 13);
-    const canAutoFinish = (st) => !st.stock.length && !st.waste.length && st.tab.every(col => col.every(x => x.up));
+    /** Ya está resuelto si no quedan cartas boca abajo (el mazo se puede recorrer): «Terminar» aparece antes. */
+    const canAutoFinish = (st) => st.tab.every(col => col.every(x => x.up)) && (!st.vegas || (!st.stock.length && !st.waste.length));
+    /** Carta segura para subir sola a la fundación: ases, doses o si las dos fundaciones del color contrario ya llegan a r − 1. */
+    function safeFound(st, c) {
+        if (!canFound(st, c)) return false;
+        const r = rank(c); if (r <= 2) return true;
+        const red = suit(c) === 'H' || suit(c) === 'D';
+        const opp = red ? ['S', 'C'] : ['H', 'D'];
+        return opp.every(s => st.found[s].length >= r - 1);
+    }
     /** Mejor destino para una carta/pila tocada: fundación, luego una columna con carta, luego una vacía. */
     function bestTarget(st, src, preferTab) {
         const cs = cardsOf(st, src); if (!cs.length) return null;
@@ -85,7 +110,7 @@
         return null;
     }
     /** Pista: un movimiento útil (o robar). */
-    function hint(st) {
+    function hint(st, noDraw) {
         const srcs = [];
         if (st.waste.length) srcs.push({ from: 'waste' });
         st.tab.forEach((col, c) => { for (let i = 0; i < col.length; i++) if (col[i].up) srcs.push({ from: 'tab', col: c, idx: i }); });
@@ -100,7 +125,7 @@
         }
         // 3) del descarte a una columna
         if (st.waste.length) for (let c = 0; c < 7; c++) if (canMove(st, { from: 'waste' }, { to: 'tab', col: c })) return { src: { from: 'waste' }, dst: { to: 'tab', col: c } };
-        if (st.stock.length || st.waste.length) return { draw: true };
+        if (!noDraw && (st.stock.length || st.waste.length)) return { draw: true };
         return null;
     }
     const clone = (st) => JSON.parse(JSON.stringify(st));
@@ -199,7 +224,9 @@
     const MODES = [
         { id: 'robar1', label: 'Robar 1', emoji: '🂡', desc: 'El clásico: robas de una en una', n: 1 },
         { id: 'robar3', label: 'Robar 3', emoji: '🃏', desc: 'Más difícil: robas de tres en tres', n: 3 },
-        { id: 'diario', label: 'Solitario diario', emoji: '📅', desc: 'El mismo reparto para todos · robar 1', n: 1, daily: true }
+        { id: 'diario', label: 'Solitario diario', emoji: '📅', desc: 'El mismo reparto para todos · robar 1', n: 1, daily: true },
+        { id: 'vegas1', label: 'Vegas · robar 1', emoji: '🎰', desc: 'Pagas 52, ganas 5 por carta subida. Una sola pasada al mazo y sin deshacer', n: 1, vegas: true },
+        { id: 'vegas3', label: 'Vegas · robar 3', emoji: '🎲', desc: 'Pagas 52, ganas 5 por carta subida. Tres pasadas al mazo y sin deshacer', n: 3, vegas: true }
     ];
 
     class Solitaire extends Nexus.games.PuzzleGame {
@@ -213,7 +240,9 @@
                     'En un hueco vacío sólo cabe un <b>Rey</b> (o una pila que empiece por Rey). Al destapar una carta boca abajo, se da la vuelta sola.',
                     'Toca el <b>mazo</b> para robar (1 o 3 cartas según el modo). Cuando se acaba, tócalo otra vez para darle la vuelta al descarte.',
                     '<b>Toca</b> una carta para mandarla a su mejor sitio del tablero (si no hay, a la fundación); <b>doble toque</b> la sube a la fundación; o <b>arrástrala</b> donde quieras. <b>Ctrl+Z</b> deshace, <b>H</b> da una pista y <b>Espacio</b> roba.',
-                    'Puntos: +5 descarte→columna, +10 a la fundación, +5 al destapar, −15 al bajar de la fundación y −100 al dar la vuelta al mazo (en robar 1). Al ganar, bonus por rapidez.'],
+                    'Puntos (como en Windows): +5 descarte→columna, +10 a la fundación, +5 al destapar, −15 al bajar de la fundación, −100 por vuelta al mazo en robar 1 (−20 desde la cuarta en robar 3), −2 cada 10 s y −15 por deshacer. Al ganar, bonus por rapidez.',
+                    '<b>Vegas</b>: pagas 52 y ganas 5 por cada carta que subes; una pasada al mazo (robar 1) o tres (robar 3) y sin deshacer.',
+                    'Con todo boca arriba aparece <b>Terminar</b>. Si recorres el mazo entero sin cambios, te avisa de que no quedan movimientos. ⚙️ «Subida automática segura» sube sola las cartas que ya no hacen falta.'],
                 timer: true
             });
             this.bindGame();
@@ -277,7 +306,10 @@
         }
 
         // El diario siempre tiene solución: se valida con el resolvedor (antes ~1 de cada 5 días nadie podía ganar)
-        newGame(mode, r) { this.st = this.daily ? dailyDeal(this.daily) : deal(r); this.hist = []; this.hintAt = null; }
+        newGame(mode, r) {
+            this.st = this.daily ? dailyDeal(this.daily) : deal(r); this.hist = []; this.hintAt = null; this.lastTick = 0; this.idleCycle = null;
+            if (mode && mode.vegas) { this.st.vegas = true; this.st.score = -VEGAS.cost; }
+        }
         serialize() { return this.st; }
         restore(d) { this.st = d; this.hist = []; }
 
@@ -305,20 +337,58 @@
             if (this.state !== 'playing') return;
             this.push();
             const r = draw(this.st, this.mode.n);
-            if (!r) { this.hist.pop(); this.toast('El mazo está vacío'); return; }
+            if (!r || r === 'limit') { this.hist.pop(); this.toast(r === 'limit' ? 'En Vegas no quedan más pasadas al mazo' : 'El mazo está vacío'); return; }
+            // ¿Se ha recorrido el mazo entero sin hacer nada útil? → aviso de «no hay más movimientos»
+            if (r === 'recycle') {
+                const sig = this.sig();
+                if (this.idleCycle && this.idleCycle === sig && !hint(this.st, true)) this.noMoves();
+                this.idleCycle = sig;
+            }
             this.after(r === 'recycle' ? 'flip' : 'click');
         }
         tryMove(src, dst) {
             if (!canMove(this.st, src, dst)) return false;
             this.push();
             const res = move(this.st, src, dst);
+            this.idleCycle = null;
+            this.autoSafe();
             this.after(dst.to === 'found' ? 'orbCollect' : res.flipped ? 'flip' : 'chessMove');
             return true;
         }
+        /** Subida automática de cartas seguras a la fundación (ajuste solitaire.autoFound). */
+        autoSafe() {
+            if (!Nexus.services.settings.get('solitaire.autoFound')) return;
+            for (let guard = 0; guard < 52; guard++) {
+                let done = false;
+                for (let c = 0; c < 7 && !done; c++) {
+                    const col = this.st.tab[c], t = col[col.length - 1];
+                    if (t && t.up && safeFound(this.st, t.c)) { move(this.st, { from: 'tab', col: c, idx: col.length - 1 }, { to: 'found' }); done = true; }
+                }
+                const w = this.st.waste[this.st.waste.length - 1];
+                if (!done && w && safeFound(this.st, w)) { move(this.st, { from: 'waste' }, { to: 'found' }); done = true; }
+                if (!done) break;
+            }
+        }
+        sig() { return JSON.stringify([this.st.tab.map(c => c.length), SUITS.map(s => this.st.found[s].length), this.st.waste.length + this.st.stock.length]); }
+        noMoves() {
+            Nexus.ui.modal.confirm({ title: 'No hay más movimientos', message: 'Has recorrido el mazo entero sin cambios. ¿Te rindes? (o cancela para deshacer jugadas)', confirmLabel: '🏳️ Rendirse', cancelLabel: '↶ Seguir', icon: '🂠' })
+                .then(ok => { if (ok && !this.destroyed && this.state === 'playing') this.onGiveUp(); });
+        }
         undo() {
             if (this.state !== 'playing' || !this.hist.length) { if (this.state === 'playing') this.toast('Nada que deshacer'); return; }
+            if (this.st.vegas) { this.toast('En Vegas no se puede deshacer'); return; }
+            const before = this.st.score;
             this.st = this.hist.pop(); this.st.moves++;
+            // Deshacer cuesta 15 puntos (antes era gratis, incluso tras ver la carta robada)
+            this.st.score = Math.max(0, Math.min(before, this.st.score) + PTS.undo);
+            this.undos = (this.undos || 0) + 1;
             Nexus.audio.play('click'); this.render(); this.saveRunSoon();
+        }
+        onTick() {
+            // −2 puntos cada 10 s (puntuación estándar; no en Vegas)
+            if (this.state !== 'playing' || this.st.vegas) return;
+            const k = Math.floor(this.elapsed / 10);
+            if (k > (this.lastTick || 0)) { this.st.score = Math.max(0, this.st.score + PTS.time10 * (k - (this.lastTick || 0))); this.lastTick = k; this.pill('score', formatNumber(this.st.score)); }
         }
         showHint() {
             if (this.state !== 'playing') return;
@@ -333,6 +403,9 @@
             this.auto = true; this.$('#sol-auto').hidden = true; this.$('#sol-auto').style.display = 'none';
             const stepF = () => {
                 if (this.destroyed || this.state !== 'playing') return;
+                // Con todo boca arriba, el descarte y el mazo también se suben (robando lo que haga falta)
+                const w = this.st.waste[this.st.waste.length - 1];
+                if (w && canFound(this.st, w)) { move(this.st, { from: 'waste' }, { to: 'found' }); Nexus.audio.play('orbCollect'); this.render(); if (won(this.st)) { this.win(); return; } this.later(stepF, 90); return; }
                 for (let c = 0; c < 7; c++) {
                     const col = this.st.tab[c]; if (!col.length) continue;
                     const src = { from: 'tab', col: c, idx: col.length - 1 };
@@ -346,13 +419,14 @@
                         this.later(stepF, 90); return;
                     }
                 }
+                if (this.st.stock.length || this.st.waste.length) { draw(this.st, 1); this.render(); this.later(stepF, 60); }
             };
             stepF();
         }
 
         win() {
             const t = Math.max(1, this.elapsed);
-            const bonus = t >= 30 ? Math.round(700000 / t) : 0;
+            const bonus = t >= 30 && !this.st.vegas ? Math.round(700000 / t) : 0;
             const total = this.st.score + bonus;
             this.celebrate();
             this.finish({

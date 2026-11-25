@@ -269,10 +269,18 @@
                     if (this.inCheck()) return { over: true, result: this.turn ? '1-0' : '0-1', reason: 'mate' };
                     return { over: true, result: '1/2-1/2', reason: 'stalemate' };
                 }
-                if (this.half >= 100) return { over: true, result: '1/2-1/2', reason: 'fifty' };
-                if (this.repetitions() >= 2) return { over: true, result: '1/2-1/2', reason: 'repetition' };
+                // Reglamento FIDE: 50 jugadas y triple repetición se reclaman (claimable); son automáticas a las 75 y a la quinta
+                if (this.half >= 150) return { over: true, result: '1/2-1/2', reason: 'fifty75' };
+                if (this.repetitions() >= 4) return { over: true, result: '1/2-1/2', reason: 'repetition5' };
                 if (this.insufficient()) return { over: true, result: '1/2-1/2', reason: 'material' };
                 return { over: false, moves };
+            }
+
+            /** Tablas que se pueden reclamar: 'fifty' (50 jugadas sin captura ni peón) o 'repetition' (triple), o null. */
+            claimable() {
+                if (this.half >= 100) return 'fifty';
+                if (this.repetitions() >= 2) return 'repetition';
+                return null;
             }
 
             uci(m) { return sqName(mFrom(m)) + sqName(mTo(m)) + (mPromo(m) ? ' pnbrqk'[mPromo(m)] : ''); }

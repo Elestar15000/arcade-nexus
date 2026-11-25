@@ -142,14 +142,41 @@ const C = R.chinchon;
 check(C.best(['o1', 'o2', 'o3', 'c5', 'e5', 'b5', 'c12']).dead === 10, 'Chinchón: escalera + trío, queda un rey (10)');
 check(C.best(['o6', 'o7', 'o10', 'o11', 'c1', 'e1', 'b1']).dead === 0, 'Chinchón: el 7 enlaza con la sota');
 check(C.isChinchon(['b4', 'b5', 'b6', 'b7', 'b10', 'b11', 'b12']), 'Chinchón: escalera de 7 del mismo palo');
+check(C.deck82().length === 82 && new Set(C.deck82()).size === 82, 'Chinchón: mazo doble con 2 comodines (82 cartas distintas)');
+check(C.best(['o5', 'o5z', 'c5', 'e7', 'e10', 'e11', 'b1']).melds.every(m => new Set(m.map(c => c[0])).size === m.length || m.every(c => c[0] === m[0][0])), 'Chinchón: los grupos no repiten palo');
+{
+    const st = C.setup(2, null, ['me', 'me'], { limit: '50' });
+    check(st.limit === 50, 'Chinchón: se puede jugar a 50');
+    st.phase = 'discard'; st.turnSeat = 0; st.took = null;
+    st.hands[0] = ['o1', 'o2', 'o3', 'c5', 'e5', 'b5', 'o4', 'c11'];
+    check(C.closeKind(st, 0, 'c11') === 'minus10', 'Chinchón: cierre de −10 con las 7 combinadas');
+    st.hands[0] = ['o1', 'o2', 'o3', 'o4', 'c5', 'e5', 'b5', 'o5'];
+    check(C.closeKind(st, 0, null) === 'minus25', 'Chinchón: cierre de −25 con las 8 combinadas');
+    st.hands[0] = ['o1', 'o2', 'o3', 'c5', 'e5', 'b5', 'c4', 'e6'];
+    check(C.closeKind(st, 0, 'c4') === null && C.closeKind(st, 0, 'e6') === 'normal', 'Chinchón: cierre normal sólo con una carta suelta de 5 o menos');
+    st.hands[0] = ['o1', 'o2', 'o3', 'c5', 'e5', 'b5', 'o12', 'c2']; st.hands[1] = ['o4', 'e5z', 'b10', 'b11', 'c1', 'e2', 'e3'];
+    C.apply(st, 0, { type: 'discard', card: 'o12', close: true });
+    check(st.phase === 'ligar' && st.lig.done[1] === false, 'Chinchón: tras un cierre normal se puede ligar');
+    const mi = st.lig.melds.findIndex(m => m.cards.includes('o1'));
+    C.apply(st, 1, { type: 'ligar', card: 'o4', meld: mi });
+    if (st.lig) C.apply(st, 1, { type: 'ligarDone' });
+    check(st.scores[1] === 31 && st.scores[0] === 2, 'Chinchón: la carta ligada no suma');
+    const s2 = C.setup(2, null, ['bot', 'bot'], {}); s2.deck = []; s2.discard = ['o1', 'c2', 'e3']; s2.phase = 'draw'; s2.turnSeat = 0;
+    C.apply(s2, 0, { type: 'draw', from: 'deck' });
+    check(s2.drawn === 'o1' && s2.discard.join() === 'e3', 'Chinchón: sin mazo se da la vuelta al montón empezando por la primera que se tiró');
+}
 check(C.best(['o1', 'c1', 'e1', 'b1', 'o2', 'o3', 'e7']).dead === 7 || C.best(['o1', 'c1', 'e1', 'b1', 'o2', 'o3', 'e7']).dead === 7, 'Chinchón: elige la mejor combinación (cuarteto vs escalera)');
 for (const n of [2, 3, 4]) {
     err = null; let rounds = 0;
     try {
         for (let g = 0; g < 120; g++) {
             const st = play(C, n, (st) => {
-                const total = st.hands.flat().length + st.deck.length + st.discard.length;
-                if (total !== 40) throw new Error('no se conservan las cartas: ' + total);
+                // Mazo doble + 2 comodines: 82 cartas y cada una, como mucho, dos veces
+                const all = st.hands.filter((h, i) => st.active[i] || st.phase === 'over').flat().concat(st.deck, st.discard);
+                const inPlay = st.hands.flat().length + st.deck.length + st.discard.length;
+                if (inPlay !== 82) throw new Error('no se conservan las cartas: ' + inPlay);
+                const cnt = {}; for (const c of all) { const k = c.replace(/z$/, ''); cnt[k] = (cnt[k] || 0) + 1; if (cnt[k] > 2) throw new Error('carta repetida más de 2 veces: ' + k); }
+                st.active.forEach((a, i) => { if (!a && st.scores[i] < st.limit) throw new Error('eliminado sin llegar al límite'); if (a && st.scores[i] >= st.limit) throw new Error('sigue jugando con ' + st.scores[i]); });
             });
             rounds += st.round;
         }

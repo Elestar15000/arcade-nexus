@@ -285,3 +285,75 @@
 .cg-timer.low { background: linear-gradient(90deg, #ef4444 var(--p, 100%), rgba(255,255,255,.12) var(--p, 100%)); animation: cg-timer-pulse .5s ease-in-out infinite alternate; }
 @keyframes cg-timer-pulse { to { filter: brightness(1.35); } }
 @media (prefers-reduced-motion: reduce) { .cg-timer.low { animation: none; } }
+
+/* Chinchón: comodín y cartas ligadas (auditoría F5) */
+.pc.joker { background: linear-gradient(160deg, #fff 0%, #fde68a 100%); color: #7c3aed; display: grid; place-items: center; }
+.pc.joker .pc-joker { font-size: 1.6em; line-height: 1; }
+.pc.joker .pc-n { color: #7c3aed; }
+.cg-rr-cards .pc.tied { opacity: .55; outline: 2px dashed #22c55e; outline-offset: -2px; }
+
+/* Póker: 6 asientos, barra de apuesta libre, fichas delante de cada asiento, resumen de la calle (auditoría F5) */
+.cg-seat[data-pos="topleft"] { top: 16px; left: 5%; }
+.cg-seat[data-pos="topright"] { top: 16px; right: 5%; }
+.cg-poker .cg-seat[data-pos="left"], .cg-poker .cg-seat[data-pos="right"] { top: 58%; }
+.cg-bubble[data-pos="topleft"] { top: 90px; left: 25%; } .cg-bubble[data-pos="topright"] { top: 90px; left: 75%; }
+.pk-raise { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 4px 8px; border-radius: 12px; background: rgba(255,255,255,.05); border: 1px solid var(--border); }
+.pk-raise input[type=range] { width: min(220px, 40vw); accent-color: var(--ax-accent); }
+.pk-raise input[type=number] { width: 78px; padding: 5px 6px; border-radius: 8px; border: 1px solid var(--border-light); background: var(--bg-surface); color: var(--text); font: 700 .9em var(--font-mono, monospace); }
+.pk-bet { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; padding: 1px 7px; border-radius: 99px; background: rgba(250, 204, 21, .16); color: #fde047; font-weight: 800; }
+.pk-bet i { width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle, #fde047 35%, #b45309 36%, #b45309 55%, #fde047 56%); }
+.pk-line { font-size: .78em; color: var(--text-muted); text-align: center; margin-top: 4px; }
+.pk-line b { color: var(--text); font-weight: 700; }
+.pk-tag { white-space: nowrap; }
+@media (max-width: 700px) {
+    .cg-poker .cg-actions { position: sticky; bottom: 0; z-index: 6; background: color-mix(in srgb, var(--bg-base, #0b0b1a) 92%, transparent); padding: 8px; border-top: 1px solid var(--border); backdrop-filter: blur(6px); }
+    .cg-actions .cg-quick { display: none; }   /* en móvil basta con la barra de apuesta libre */
+    /* Mesa de 5-6 en móvil: asientos compactos (fila de arriba y lados) */
+    .cg-poker .cg-seat { padding: 4px 6px; gap: 4px; font-size: .78em; max-width: 31%; }
+    .cg-poker .cg-seat .cg-backs, .cg-poker .cg-seat .cg-av { display: none; }
+    .cg-poker .cg-seat .cg-name b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+    .cg-poker .cg-seat[data-pos="topleft"] { left: 4px; top: 6px; transform: none; }
+    .cg-poker .cg-seat[data-pos="top"] { top: 6px; }
+    .cg-poker .cg-seat[data-pos="topright"] { right: 4px; top: 6px; transform: none; }
+    .cg-poker .cg-seat[data-pos="left"] { left: 4px; top: 40%; }
+    .cg-poker .cg-seat[data-pos="right"] { right: 4px; top: 40%; }
+}
+/* Mentiroso: cartas que dicen la verdad, aviso de mentira, línea de jugadas y ventana de acusación */
+.cg-mentiroso #cg-hand .pc.truth { box-shadow: 0 0 0 2px #22c55e, 0 4px 12px rgba(34, 197, 94, .35); }
+.btn.mt-lie { background: linear-gradient(90deg, #7c3aed, #db2777); border-color: transparent; color: #fff; }
+.mt-line { font-size: .78em; color: var(--text-muted); margin-top: 4px; }
+.mt-line b { color: var(--text); }
+.mt-window { font-size: .8em; font-weight: 800; color: #fca5a5; animation: mt-pulse .8s ease-in-out infinite alternate; }
+@keyframes mt-pulse { to { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .mt-window { animation: none; } }
+
+/* ── Chinchón: carta robada, montón con las 3 últimas, quién robó de dónde, ligar y marcador-suma ── */
+#cg-hand .pc.new { box-shadow: 0 0 0 3px #facc15, 0 0 18px rgba(250, 204, 21, .6); transform: translateY(-10px); }
+#cg-hand .pc.loose { box-shadow: 0 0 0 2px #f97316; }
+#cg-hand .pc.sel { transform: translateY(-14px); box-shadow: 0 0 0 3px #22c55e, 0 8px 18px rgba(0, 0, 0, .4); }
+.ch-discard .ch-fan { position: relative; display: inline-flex; }
+.ch-discard .ch-fan .pc.under { margin-right: -38px; filter: brightness(.82); transform: rotate(calc(var(--i) * 7deg)) translateY(2px); }
+.ch-discard .ch-fan .pc.top { position: relative; z-index: 2; }
+.ch-discard.can .ch-fan .pc.top { box-shadow: 0 0 0 3px var(--ax-accent, #22c55e); }
+.ch-lastdraw { margin-top: 8px; font-size: .82em; color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; background: rgba(255, 255, 255, .06); }
+.ch-lastdraw.discard { background: rgba(250, 204, 21, .14); color: #fde68a; }
+.ch-lastdraw b { color: var(--text); }
+.pc.xs { --cw: 26px; width: 26px; height: 38px; font-size: 9px; }
+.ch-ligar { max-width: 100%; }
+.ch-ligar-tip { font-size: .82em; color: var(--text-muted); margin: 0 0 8px; }
+.ch-lig-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.ch-lig-name { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; min-width: 110px; font-size: .85em; }
+.ch-lig-melds { display: flex; flex-wrap: wrap; gap: 8px; }
+.ch-meld { background: none; border: 2px dashed transparent; border-radius: 10px; padding: 2px; cursor: default; }
+.ch-meld.can { border-color: #22c55e; cursor: pointer; animation: ch-can .9s ease-in-out infinite alternate; }
+@keyframes ch-can { to { box-shadow: 0 0 14px rgba(34, 197, 94, .55); } }
+@media (prefers-reduced-motion: reduce) { .ch-meld.can { animation: none; } }
+.ch-sum { width: 100%; border-collapse: collapse; font-size: .82em; font-variant-numeric: tabular-nums; }
+.ch-sum th, .ch-sum td { padding: 3px 4px; text-align: center; border-bottom: 1px solid var(--border); }
+.ch-sum thead th { font-weight: 700; vertical-align: bottom; }
+.ch-sum thead th small { display: block; max-width: 70px; margin: 0 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .85em; }
+.ch-sum tbody th { color: var(--text-muted); font-weight: 600; text-align: left; }
+.ch-sum td.closer { color: #fde047; font-weight: 800; }
+.ch-sum tfoot td, .ch-sum tfoot th { border-top: 2px solid var(--text-muted); border-bottom: none; font-size: 1.1em; }
+.ch-sum .mine { color: var(--ax-accent, #22c55e); }
+.ch-sum .out { opacity: .5; text-decoration: line-through; }
