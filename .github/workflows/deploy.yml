@@ -12,9 +12,11 @@ permissions:
   pages: write
   id-token: write
 
+# Las publicaciones se ponen en cola: cancelar un despliegue de Pages a medias deja la anterior «en curso» y el
+# siguiente falla con «Deployment request failed … due to in progress deployment» (pasaba al hacer dos push seguidos)
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   backend:
