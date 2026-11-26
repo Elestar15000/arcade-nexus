@@ -43,6 +43,9 @@
         'pong.publicRooms': true,      // las salas nuevas aparecen en el buscador
         'online.publicRooms': true,    // ídem para Ajedrez y Hundir la flota
         'chess.showLegal': true,       // marcar las jugadas legales
+        'beta.unlocked': [],           // modos BETA desbloqueados con código (ids de Nexus.services.settings.BETA)
+        'chess.betaDanger': false,     // BETA: punto rojo si el rival puede capturarte en esa casilla
+        'chess.betaHint': false,       // BETA: la CPU recomienda una jugada (mira 3 respuestas del rival)
     };
 
     const gameStats = () => ({

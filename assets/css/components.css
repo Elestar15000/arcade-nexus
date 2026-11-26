@@ -278,3 +278,11 @@
 .game-settings-btn:hover, .game-settings-btn:focus-visible { border-color: var(--primary); transform: rotate(30deg); }
 .game-settings .setting-row { padding-left: 0; padding-right: 0; }
 .game-settings p { margin: 10px 0 0; }
+
+/* Ajustes · Modos BETA */
+.st-beta-form { display: flex; gap: 8px; margin: 10px 0 6px; }
+.st-beta-form .input { flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: .12em; font-weight: 700; }
+.st-beta-item { display: flex; align-items: center; gap: 10px; }
+.st-beta-item .setting-row { flex: 1; }
+.st-beta-ic { font-size: 1.4em; width: 1.6em; text-align: center; }
+.st-beta-none { margin: 6px 0 0; }

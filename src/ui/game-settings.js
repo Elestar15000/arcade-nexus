@@ -36,12 +36,15 @@
         ],
         brisca: [sw('brisca.showScore', 'Marcador visible', 'Ver los puntos durante la mano (en la mesa real se cuentan de memoria)')],
         guinote: [sw('guinote.partnerCante', 'Canta la pareja', 'También puede cantar el compañero de quien gana la baza')],
-        chess: [sw('chess.showLegal', 'Marcar jugadas legales', 'Al elegir una pieza se señalan sus casillas de destino'), PUBLIC_ROOMS],
+        chess: [sw('chess.showLegal', 'Marcar jugadas legales', 'Al elegir una pieza se señalan sus casillas de destino'),
+            Object.assign(sw('chess.betaDanger', '🧪 BETA · Casillas peligrosas', 'Punto rojo donde el rival podría capturar la pieza'), { beta: 'chess-danger' }),
+            Object.assign(sw('chess.betaHint', '🧪 BETA · Jugada recomendada', 'La CPU te sugiere una jugada mirando 3 respuestas del rival'), { beta: 'chess-hint' }),
+            PUBLIC_ROOMS],
         battleship: [PUBLIC_ROOMS]
     };
 
     function open(gameId) {
-        const defs = DEFS[gameId]; if (!defs) return;
+        const defs = (DEFS[gameId] || []).filter(d => !d.beta || S().betaUnlocked(d.beta)); if (!defs.length) return;
         const game = Nexus.games.registry.get(gameId);
         const body = document.createElement('div');
         body.className = 'game-settings';

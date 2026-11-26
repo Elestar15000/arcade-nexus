@@ -62,7 +62,7 @@
     const glyph = (p) => GLYPH[p & 7] + '︎';
 
     // ── IA en un Web Worker (con alternativa en el hilo principal) ──
-    const Engine = {
+    const makeEngine = () => ({
         worker: null, failed: false, pending: null, seq: 0,
         ensure() {
             if (this.worker || this.failed) return;
@@ -103,7 +103,12 @@
             if (this.pending && this.worker) { this.worker.terminate(); this.worker = null; }
             this.pending = null;
         }
-    };
+    });
+    const Engine = makeEngine();
+    // Motor aparte para el modo BETA «Jugada recomendada» (no interfiere con lo que piensa la CPU rival)
+    const HintEngine = makeEngine();
+    const HINT_OPTS = { depth: 6, time: 2500 };   // tu jugada + 3 respuestas del rival (6 medias jugadas)
+    const BETA_ON = (id) => { const S = Nexus.services.settings; return !!(S.betaOn && S.betaOn(id)); };
 
     class ChessGame {
         constructor(root) {
@@ -122,6 +127,7 @@
             this.selected = -1;
             this.pieceEls = new Map();
             this.thinkSeq = 0; this.thinking = false;
+            this.hintSeq = 0; this.hint = null;
             this.stats = this.newStats();
             this.build();
             this.bind();
@@ -144,7 +150,7 @@
             const code = Nexus.games.OnlineLobby.inviteCode('chess');
             if (code) { this.kind = 'online'; this.overlay.hidden = true; this.lobby.show(); this.lobby.join(code); }
             else if (!this.resumeSaved()) this.showHome();
-            this.unsubSettings = Nexus.bus.on('settings:change', () => this.renderBoard());
+            this.unsubSettings = Nexus.bus.on('settings:change', () => { this.renderBoard(); this.updateSide(); });
         }
 
         newStats() { return { castled: false, promoted: false, ep: false, undos: 0, captures: 0 }; }
@@ -164,6 +170,7 @@
                             <div class="ch-board" id="ch-board" role="grid" aria-label="Tablero de ajedrez">
                                 <div class="ch-squares" id="ch-squares"></div>
                                 <div class="ch-pieces" id="ch-pieces" aria-hidden="true"></div>
+                                <svg class="ch-arrows" id="ch-arrows" viewBox="0 0 8 8" aria-hidden="true"></svg>
                             </div>
                             <div class="ch-promo" id="ch-promo" hidden></div>
                         </div>
@@ -174,6 +181,7 @@
                             <div class="ch-status" id="ch-status" role="status" aria-live="polite">–</div>
                             <div class="ch-offer" id="ch-offer" hidden></div>
                         </div>
+                        <div class="ax-card ch-beta" id="ch-beta" hidden></div>
                         <div class="ax-card ch-moves-card">
                             <h3>Jugadas</h3>
                             <ol class="ch-moves" id="ch-moves"></ol>
@@ -219,6 +227,8 @@
             const showLegal = Nexus.services.settings.get('chess.showLegal') !== false;
             const legalTo = new Map();
             if (this.selected >= 0 && this.canMove()) for (const m of this.legalCache()) if (C.mFrom(m) === this.selected) legalTo.set(C.mTo(m), !!(C.mFlags(m) & C.F_CAP));
+            const danger = BETA_ON('chess-danger') && legalTo.size ? this.dangerSquares(this.selected) : null;
+            const hint = this.hintFor();
             const checkSq = this.pos.inCheck() ? this.pos.kings[this.pos.turn ? 1 : 0] : -1;
             const cells = this.squaresEl.children;
             for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
@@ -228,7 +238,8 @@
                 if (this.lastMove && (s === this.lastMove.from || s === this.lastMove.to)) cls += ' ch-last';
                 if (s === this.selected) cls += ' ch-sel';
                 if (s === checkSq) cls += ' ch-chk';
-                if (showLegal && legalTo.has(s)) cls += legalTo.get(s) ? ' ch-cap' : ' ch-dot';
+                if ((showLegal || danger) && legalTo.has(s)) cls += (legalTo.get(s) ? ' ch-cap' : ' ch-dot') + (danger && danger.has(s) ? ' ch-danger' : '');
+                if (hint && (s === hint.from || s === hint.to)) cls += s === hint.from ? ' ch-hint-from' : ' ch-hint-to';
                 el.className = cls;
                 el.dataset.sq = s;
                 const coord = [];
@@ -239,6 +250,83 @@
                 el.setAttribute('aria-label', C.sqName(s) + (this.pos.b[s] ? ' ' + NAMES[this.pos.b[s] & 7] + (this.pos.b[s] & 8 ? ' negro' : ' blanco') : ''));
             }
             this.syncPieces(null);
+            this.drawArrow(hint);
+        }
+
+        // ── BETA · Casillas peligrosas ──────────────────────
+        /** Destinos de la pieza `from` donde, tras moverla, el rival tiene una jugada legal que la captura. */
+        dangerSquares(from) {
+            const key = this.pos.key() + ':' + this.moves.length + ':' + from;
+            if (this._danger && this._danger.key === key) return this._danger.set;
+            const pos = this.pos, set = new Set();
+            for (const m of this.legalCache()) {
+                if (C.mFrom(m) !== from) continue;
+                const to = C.mTo(m);
+                if (set.has(to) || !pos.make(m)) continue;
+                const mine = pos.b[to];
+                for (const r of pos.legal()) {
+                    pos.make(r); const gone = pos.b[to] !== mine; pos.unmake();
+                    if (gone) { set.add(to); break; }
+                }
+                pos.unmake();
+            }
+            this._danger = { key, set };
+            return set;
+        }
+
+        // ── BETA · Jugada recomendada ───────────────────────
+        hintKey() { return this.startFen + '|' + this.moves.join(' '); }
+        hintWanted() { return BETA_ON('chess-hint') && this.state === 'playing' && this.pos.turn === this.myColor && !this.thinking; }
+        /** La recomendación para la posición actual (o null). */
+        hintFor() {
+            const h = this.hint;
+            if (!h || !h.move || h.key !== this.hintKey() || !this.hintWanted()) return null;
+            const m = this.pos.fromUci(h.move);
+            return m ? { m, from: C.mFrom(m), to: C.mTo(m), score: h.score } : null;
+        }
+        /** Pide la recomendación si hace falta (una vez por posición). */
+        requestHint() {
+            if (!this.hintWanted()) return;
+            const key = this.hintKey();
+            if (this.hint && this.hint.key === key) return;
+            const token = ++this.hintSeq;
+            this.hint = { key, pending: true };
+            HintEngine.think(this.startFen, this.moves, HINT_OPTS).then((r) => {
+                if (this.destroyed || token !== this.hintSeq || !this.hint || this.hint.key !== key) return;
+                this.hint = { key, move: r && r.move, score: r ? r.score : 0, depth: r ? r.depth : 0 };
+                this.renderBoard(); this.renderBeta();
+            }).catch(() => { if (token === this.hintSeq) { this.hint = { key, error: true }; this.renderBeta(); } });
+        }
+        drawArrow(h) {
+            const svg = this.$('#ch-arrows'); if (!svg) return;
+            if (!h) { if (svg.innerHTML) svg.innerHTML = ''; return; }
+            const a = this.xy(h.from), b = this.xy(h.to);
+            const x1 = a.x + .5, y1 = a.y + .5, x2 = b.x + .5, y2 = b.y + .5, d = Math.hypot(x2 - x1, y2 - y1) || 1;
+            const ux = (x2 - x1) / d, uy = (y2 - y1) / d, ex = x2 - ux * .32, ey = y2 - uy * .32;
+            const html = `<line x1="${x1 + ux * .2}" y1="${y1 + uy * .2}" x2="${ex}" y2="${ey}" />
+                <polygon points="${x2 - ux * .05},${y2 - uy * .05} ${ex - uy * .22},${ey + ux * .22} ${ex + uy * .22},${ey - ux * .22}" />`;
+            if (svg.innerHTML !== html) svg.innerHTML = html;
+        }
+        /** Tarjeta lateral de los modos BETA (solo si hay alguno desbloqueado). */
+        renderBeta() {
+            const el = this.$('#ch-beta'); if (!el) return;
+            const S = Nexus.services.settings;
+            const list = (S.BETA || []).filter(b => b.game === 'chess' && S.betaUnlocked(b.id));
+            if (!list.length) { el.hidden = true; return; }
+            el.hidden = false;
+            let info = '';
+            if (BETA_ON('chess-hint') && this.state === 'playing') {
+                const h = this.hint && this.hint.key === this.hintKey() ? this.hint : null, rec = this.hintFor();
+                if (!this.hintWanted()) info = '<p class="ch-hint-txt muted">La recomendación aparece en tu turno.</p>';
+                else if (rec) {
+                    const sc = rec.score, mate = Math.abs(sc) > 20000;
+                    const eval_ = mate ? (sc > 0 ? 'mate a la vista' : 'el rival tiene mate') : `${sc >= 0 ? '+' : ''}${(sc / 100).toFixed(1)}`;
+                    info = `<p class="ch-hint-txt">💡 Te recomiendo <b>${esc(this.pos.san(rec.m))}</b> <small class="muted">(${esc(C.sqName(rec.from))}→${esc(C.sqName(rec.to))} · ${eval_})</small></p>`;
+                } else if (h && h.error) info = '<p class="ch-hint-txt muted">No se pudo calcular la recomendación.</p>';
+                else info = '<p class="ch-hint-txt muted"><span class="ch-thinking"><i></i><i></i><i></i></span> Calculando 3 respuestas del rival…</p>';
+            }
+            const html = `<h3>🧪 Modos BETA</h3><div class="ch-beta-tg">${list.map(b => `<button type="button" class="ch-beta-btn${S.get(b.key) ? ' on' : ''}" data-beta="${esc(b.key)}" aria-pressed="${!!S.get(b.key)}" title="${esc(b.desc)}">${b.icon} ${b.id === 'chess-danger' ? 'Peligro' : 'Recomendación'}</button>`).join('')}</div>${info}`;
+            if (el.innerHTML !== html) el.innerHTML = html;
         }
 
         /** Coloca las piezas reutilizando los elementos (así se animan al moverse). */
@@ -303,6 +391,10 @@
             this.$('#ch-resign').addEventListener('click', () => this.resign());
             this.$('#ch-draw').addEventListener('click', () => this.offerDraw());
             this.$('#ch-menu').addEventListener('click', () => this.openMenu());
+            this.$('#ch-beta').addEventListener('click', (e) => {
+                const b = e.target.closest('[data-beta]'); if (!b) return;
+                const S = Nexus.services.settings; S.set(b.dataset.beta, !S.get(b.dataset.beta)); Nexus.audio.play('click');
+            });
             this.$('#ch-offer').addEventListener('click', (e) => {
                 if (e.target.closest('[data-claim]')) { this.claimDraw(); return; }
                 const b = e.target.closest('[data-offer]'); if (!b) return;
@@ -887,6 +979,8 @@
             this.$('#ch-draw').disabled = !playing || !!this.drawSent;
             this.$('#ch-draw').textContent = this.drawSent ? '🤝 Tablas ofrecidas' : '🤝 Ofrecer tablas';
             this.renderPlayers();
+            this.renderBeta();
+            this.requestHint();
         }
 
         later(fn, ms) {
@@ -914,6 +1008,7 @@
             this.timers.forEach(clearTimeout); this.timers.clear();
             if (this.resultModal) this.resultModal.close();
             this.lobby.destroy();
+            this.hintSeq++; HintEngine.cancel();
         }
     }
 

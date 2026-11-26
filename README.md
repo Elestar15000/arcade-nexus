@@ -139,6 +139,17 @@ modo difícil y alto contraste de Wordle, cuadrícula de Snake, jugadas legales 
 propio juego, en el botón ⚙️ de su cabecera (`src/ui/game-settings.js`). Los juegos ya no tienen un «modo inicial» configurable:
 siempre abren en su modo por defecto.
 
+### Modos BETA
+
+Funciones experimentales que no vienen de serie. Se desbloquean en **Ajustes → Modos BETA** con un código de letras y números
+(se guardan por cuenta; «Restablecer ajustes» no los vuelve a bloquear) y luego se activan o desactivan cuando se quiera: en Ajustes,
+en el ⚙️ del juego o en la tarjeta «🧪 Modos BETA» del propio tablero, también a mitad de partida. Funcionan contra la CPU y online.
+
+- **Ajedrez · Casillas peligrosas**: al elegir una pieza, el punto de destino sale en rojo si el rival tiene una jugada legal que
+  la captura ahí (incluida la captura al paso). Se puede mover igualmente.
+- **Ajedrez · Jugada recomendada**: en tu turno, un motor aparte (no el de la CPU rival) busca a 6 medias jugadas —tu jugada y las 3
+  respuestas siguientes del rival— y marca la jugada con una flecha, sus casillas y su notación con la evaluación.
+
 ## Wordle ES
 
 - Palabras de 5 letras en español; la **Ñ** es una letra propia y las tildes se ignoran al escribir.
@@ -522,6 +533,7 @@ python3 tests/e2e_arcade.py       # Tetris, Pac-Man y Snake
 python3 tests/e2e_pong.py         # Pong: CPU y online entre navegadores (P2P, retransmisión, sala llena, abandono…)
 python3 tests/e2e_admin.py       # panel de administración: Google Authenticator (QR leído con OpenCV), cuentas, pop-ups, mantenimiento, suspensión y borrado
 python3 tests/e2e_turnbased.py    # Ajedrez y Hundir la flota: CPU y online (sincronía, tablas, revancha, anti-trampas, abandono)
+python3 tests/e2e_chess_beta.py   # Modos BETA del ajedrez: códigos, casillas peligrosas y jugada recomendada (CPU y online)
 python3 tests/e2e_cards.py        # Brisca, Guiñote y Chinchón: CPU y online con 2 y 3 navegadores + bot, sustitución, vuelta a la mesa
 python3 tests/e2e_cards_more.py   # Póker y Mentiroso (CPU y online) y Solitario (tocar, arrastrar, deshacer, pista, terminar, diario)
 python3 tests/e2e_mobile.py       # interfaz móvil: Buscaminas girado, Tetris, Pac-Man, Pasapalabra, mini-mapa de la flota, puzles
