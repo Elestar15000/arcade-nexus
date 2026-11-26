@@ -176,11 +176,22 @@
 @keyframes nxp-breathe { 50% { transform: scale(1.02, .98); } }
 @keyframes nxp-blink { 0%, 94%, 100% { transform: none; } 97% { transform: scaleY(.1); } }
 @keyframes nxp-sway { 50% { transform: rotate(6deg); } }
+/* Cúpulas: nieve, burbujas, peces, algas, mariposas y planetas (unidades del dibujo a escala 1620) */
+.nxp-snow { animation: nxp-snow 9s linear infinite; }
+.nxp-bubble { animation: nxp-bubble 7s linear infinite; }
+.nxp-swim { animation: nxp-swim 7s ease-in-out infinite; }
+.nxp-flutter { animation: nxp-flutter 2.6s ease-in-out infinite; }
+.nxp-orbit { animation: nxp-flutter 6s ease-in-out infinite; }
+.nxp-sway { animation: nxp-sway 3.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+@keyframes nxp-snow { 0% { transform: translate(0, 0); opacity: 0; } 8% { opacity: 1; } 50% { transform: translate(24px, 420px); } 92% { opacity: 1; } 100% { transform: translate(-10px, 860px); opacity: 0; } }
+@keyframes nxp-bubble { 0% { transform: translateY(0); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(-820px); opacity: 0; } }
+@keyframes nxp-swim { 50% { transform: translate(-120px, 20px); } }
+@keyframes nxp-flutter { 50% { transform: translate(14px, -30px); } }
 @keyframes nxp-z { 0%, 100% { opacity: .2; transform: translateY(4px); } 50% { opacity: 1; transform: none; } }
 @keyframes nxp-glow { 50% { opacity: .45; } }
 @keyframes nxp-jump { 30% { transform: translateY(-22px) scale(1.05, .95); } 60% { transform: translateY(0) scale(.96, 1.04); } }
 @keyframes nxp-pop { from { opacity: 0; transform: scale(.8); } }
-:root[data-motion="reduced"] .nxp-float, :root[data-motion="reduced"] .nxp-eyes, :root[data-motion="reduced"] .nxp-antenna, :root[data-motion="reduced"] .nxp-zzz text, :root[data-motion="reduced"] .nxp-glow,
+:root[data-motion="reduced"] .nxp-float, :root[data-motion="reduced"] .nxp-eyes, :root[data-motion="reduced"] .nxp-antenna, :root[data-motion="reduced"] .nxp-snow, :root[data-motion="reduced"] .nxp-bubble, :root[data-motion="reduced"] .nxp-swim, :root[data-motion="reduced"] .nxp-flutter, :root[data-motion="reduced"] .nxp-orbit, :root[data-motion="reduced"] .nxp-sway, :root[data-motion="reduced"] .nxp-zzz text, :root[data-motion="reduced"] .nxp-glow,
 :root[data-motion="reduced"] .nxp-aura, :root[data-motion="reduced"] .nxp-light, :root[data-motion="reduced"] .nh-pet-art .nxp-body, :root[data-motion="reduced"] .nxt-bubble { animation: none; }
 
 /* Perfil y rankings */
@@ -219,3 +230,4 @@ html[data-pet-hidden] .nav-item[data-route="pet"] { display: none; }
     .nxt-foods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .nxt-form .input { width: 100%; }
 }
+.nxt-wear-shop { text-decoration: none; }

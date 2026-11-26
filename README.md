@@ -16,8 +16,8 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   segundo plano (se reintenta solo si no hay conexión; indicador de estado junto al avatar).
 - **Progreso por usuario**: XP, niveles y rangos, estadísticas por juego y modo, historial y la racha diaria de **Nexito**, la mascota. No hay exportación de datos.
 - **Logros 2.0**: 219 logros con escaleras Bronce → Nexus, secretos, de evento y Maestría por juego; rareza real (% de jugadores),
-  «Casi lo tienes», misiones diarias y semanales, **Rombos**, pase de batalla gratuito, tienda semanal y cosméticos
-  (marcos, títulos, temas, partículas, fondos de perfil, aspectos de juego y avatares exclusivos). Ver [Logros y recompensas](#logros-y-recompensas).
+  «Casi lo tienes», misiones diarias y semanales, **Rombos**, pase de batalla gratuito, tienda con todo el catálogo y cosméticos
+  de jugador (marcos, títulos, fondos de perfil e iconos) y de Nexito (sombreros, accesorios, ropa y cúpulas). Ver [Logros y recompensas](#logros-y-recompensas).
 - **Rankings globales** (general, puntos de logro y por juego/modo/métrica) y comparación de logros con cualquier jugador.
 - **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
   de la barra lateral y opciones propias de cada juego.
@@ -75,8 +75,11 @@ semana doble y eventos). El % real de cada logro sólo se muestra con 20 jugador
 - **Pase de batalla**: una temporada de 6 semanas (la 1.ª empezó el 2 nov 2026), 30 niveles de 150 Rombos ganados, todos
   gratuitos y con premio (no hay niveles premium). Meta de
   comunidad: si entre todos se juegan 2.000 partidas, quien haya jugado esa temporada recibe un fondo y 300 Rombos.
-- **Tienda**: 6 artículos que cambian cada lunes. **Colección**: equipa marco, título, tema, partículas, fondo de perfil y
-  aspectos de Snake, Tetris, Ajedrez y cartas. Los rangos (niveles 5, 10, 15, 20, 25 y 30) también dan cosméticos.
+- **Cosméticos**: solo dos familias. **Jugador**: marco, título, fondo de perfil e icono de perfil. **Nexito**: sombreros,
+  accesorios, ropa y cúpulas (cada cúpula incluye su pedestal; p. ej. la de Navidad con nieve, abeto, muñeco de nieve y pedestal-regalo).
+  No hay temas de página ni aspectos de juegos: los antiguos se cambian por su cúpula equivalente o se reembolsan en Rombos al iniciar sesión.
+- **Tienda**: muestra siempre todo el catálogo (filtro Todo / Jugador / Nexito); lo que no tiene precio indica cómo se gana.
+  **Colección**: solo lo que ya tienes, para equiparlo. Los rangos (niveles 5, 10, 15, 20, 25 y 30) también dan cosméticos.
 - **Perfil**: escaparate de hasta 3 logros (★ en cada tarjeta), título y fondo. Las legendarias se celebran a pantalla
   completa con confeti y se pueden **compartir** como imagen PNG.
 - **Curva de XP**: crece un 12 % por nivel hasta un tope de 1.500 XP por nivel (nivel 20 ≈ 6.300 XP, 30 ≈ 19.300 XP).
@@ -103,8 +106,8 @@ quedándose con la mejor de las dos.
   enferma: lo peor es «un poco triste». Tras 45 min seguidos sugiere una pausa, sin bloquear nada.
 - **Evolución** por días cuidados en total (nunca retrocede): Huevo, Cría (3), Nexito (7), Nexito Pro (30), Nexito Dorado
   (100) y Leyenda (365). **Hitos de racha**: 60 Rombos (3 días), 200 + bufanda (7), un escudo (14), 1.000 + cúpula (30), título
-  «Inseparables» y marco (100), avatar exclusivo y pedestal (365). Cada hito se cobra una sola vez.
-- **Vestir**: sombrero, gafas, cuello, cúpula y pedestal, en la Colección y la tienda de Cosméticos y en el pase.
+  «Inseparables» y marco (100), avatar exclusivo y Cúpula Leyenda (365). Cada hito se cobra una sola vez.
+- **Vestir**: sombrero, accesorio, ropa y cúpula. En «Vestir» solo aparece lo que ya tienes; el resto está en la Tienda.
 - **Logros**: escalera «Inseparables» (3, 7, 30, 100 y 365 días) y 3 secretos.
 - **Rankings**: pestaña «Rachas de Nexito»; al comparar con otro jugador se ve su Nexito. El perfil muestra el tuyo.
 - **Ajustes**: ocultarlo (la racha sigue contando), avisos de racha, nombre propio y vacaciones.

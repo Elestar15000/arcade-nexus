@@ -3,7 +3,7 @@
    Escenario con cúpula y pedestal, bocadillo, racha con escudos
    · Estado (ánimo) · Necesidades (Comida, Diversión, Descanso)
    · Hoy te toca · Hitos de racha · Actividades: Jugar juntos,
-   Darle comida, Vestir, Evolución y Ajustes (nombre, vacaciones,
+   Darle comida, Vestir, Cómo funciona y Ajustes (nombre, vacaciones,
    ocultar, avisos). Diseño del mockup corregido en el estudio.
    ============================================================ */
 (function () {
@@ -29,11 +29,11 @@
             const needRow = (ic, label, v, cls, help) => `<div class="nxt-need" title="${esc(help)}"><span class="nxt-need-ic ${cls}">${ic}</span><span class="nxt-need-l">${label}</span>${bar(v, cls)}<b>${Math.round(v)}%</b></div>`;
 
             const stagePanel = () => {
-                const p = P(), d = p.data(), st = d.streak, stage = p.stage(), next = p.nextStage();
+                const p = P(), d = p.data(), st = d.streak;
                 const shields = Array.from({ length: Math.max(P().MAX_SHIELDS, st.shields) }, (_, i) => `<i class="${i < st.shields ? 'on' : ''}" title="Escudo de racha">🛡</i>`).join('');
                 return `<section class="nxt-main">
                     <header class="nxt-head"><span class="nxt-logo">${Nexus.ui.brand.logo(48)}</span>
-                        <div><h2>${esc(p.name())}</h2><p>Tu compañero en Nexus Arcade · <b>${esc(stage.name)}</b>${next ? ` · ${next.at - d.caredDays} día${next.at - d.caredDays === 1 ? '' : 's'} cuidados para ${esc(next.name)}` : ''}</p></div>
+                        <div><h2>${esc(p.name())}</h2><p>Tu compañero en Nexus Arcade · <b>${formatNumber(d.caredDays)}</b> día${d.caredDays === 1 ? '' : 's'} cuidado${d.caredDays === 1 ? '' : 's'} juntos</p></div>
                         <button type="button" class="nxt-gear" data-panel="settings" title="Ajustes de ${esc(p.name())}" aria-label="Ajustes">⚙️</button></header>
                     <div class="nxt-stage">
                         <span class="nxt-bubble" aria-live="polite">${esc(p.line())}</span>
@@ -52,8 +52,8 @@
                         <div class="nxt-acts-row">
                             ${(() => { const g = NX().suggestGame(); return g ? `<a class="nxt-act main" href="#/info/${esc(g.id)}" title="Sugerencia: ${esc(g.name)}"><span>🎮</span>Jugar juntos<small>${esc(g.name)}</small></a>` : ''; })()}
                             <button type="button" class="nxt-act${panel === 'food' ? ' on' : ''}" data-panel="food"><span>🍽</span>Darle comida<small>${foodCount()} en la despensa</small></button>
-                            <button type="button" class="nxt-act${panel === 'dress' ? ' on' : ''}" data-panel="dress"><span>🎩</span>Vestir<small>${Object.values(p.outfit()).filter(Boolean).length}/5 puestos</small></button>
-                            <button type="button" class="nxt-act${panel === 'evo' ? ' on' : ''}" data-panel="evo"><span>🥚</span>Evolución<small>${esc(stage.name)}</small></button>
+                            <button type="button" class="nxt-act${panel === 'dress' ? ' on' : ''}" data-panel="dress"><span>🎩</span>Vestir<small>${Object.values(p.outfit()).filter(Boolean).length}/4 puestos</small></button>
+                            <button type="button" class="nxt-act${panel === 'rules' ? ' on' : ''}" data-panel="rules"><span>📖</span>Cómo funciona<small>Racha, escudos y premios</small></button>
                         </div>
                     </section>
                 </section>`;
@@ -66,7 +66,7 @@
                 const ms = P().MILESTONES.slice().filter(x => !st.milestones.includes(x.days) || x.days > st.count).slice(0, 3);
                 const prize = (x) => x.rombos ? rombos(x.rombos, 18) : x.shield ? '🛡 Escudo' : esc(x.items.map(id => (RW().item(id) || {}).name || id).join(' + '));
                 return `<aside class="nxt-side">
-                    <section class="nxt-card"><h3><span>${esc(p.stage().id === 'egg' ? '🥚' : '💛')}</span>Estado de ${esc(p.name())}<span class="nxt-mood t-${esc(m.tone)}"><i></i>${esc(m.label)}</span></h3>
+                    <section class="nxt-card"><h3><span>💛</span>Estado de ${esc(p.name())}<span class="nxt-mood t-${esc(m.tone)}"><i></i>${esc(m.label)}</span></h3>
                         <p class="nxt-sub">${esc(moodText(m.id))}</p></section>
                     <section class="nxt-card"><h3><span>📊</span>Necesidades<button type="button" class="nxt-help" data-panel="rules" title="Cómo sube y baja cada una" aria-label="Ayuda">?</button></h3>
                         ${needRow('🍽', 'Comida', n.food, 'c-food', 'Sube al darle de comer. Baja 4 por hora.')}
@@ -111,22 +111,16 @@
                 const o = P().outfit();
                 return `<section class="nxt-panel"><h3><span>🎩</span>Vestir a ${esc(P().name())}<small>Se compran en la Tienda de Cosméticos, salen en el pase de batalla y algunos se ganan con la racha.</small></h3>
                     ${Object.entries(P().SLOTS).map(([slot, label]) => {
-                        const items = RW().CATALOG.filter(c => c.kind === slot);
+                        const items = RW().CATALOG.filter(c => c.kind === slot && RW().owns(c.id));
                         return `<div class="nxt-slot"><b>${esc(label)}</b><div class="nxt-wear">
                             <button type="button" class="nxt-wear-it${!o[slot] ? ' on' : ''}" data-wear="${slot}" data-id=""><span class="nxt-wear-none">—</span><small>Nada</small></button>
-                            ${items.map(it => { const own = RW().owns(it.id), on = o[slot] === it.id; const prev = Object.assign({}, o, { [slot]: it.id });
-                                return `<button type="button" class="nxt-wear-it${on ? ' on' : ''}${own ? '' : ' locked'}" ${own ? `data-wear="${slot}" data-id="${esc(it.id)}"` : 'disabled'} title="${esc(it.desc)}">
-                                    <span class="nxt-wear-art">${NX().mini({ outfit: prev, scene: slot === 'pet-dome' || slot === 'pet-base', mood: 'happy' })}</span><small>${own ? '' : '🔒 '}${esc(it.name)}</small></button>`; }).join('')}
+                            ${items.map(it => { const on = o[slot] === it.id; const prev = Object.assign({}, o, { [slot]: it.id });
+                                return `<button type="button" class="nxt-wear-it${on ? ' on' : ''}" data-wear="${slot}" data-id="${esc(it.id)}" title="${esc(it.desc)}">
+                                    <span class="nxt-wear-art">${NX().mini({ outfit: prev, scene: slot === 'pet-dome', mood: 'happy' })}</span><small>${esc(it.name)}</small></button>`; }).join('')}
+                            ${items.length ? '' : '<a class="nxt-wear-it nxt-wear-shop" href="#/cosmetics" data-cos-tab="tienda"><span class="nxt-wear-none">🛍</span><small>Ver en la tienda</small></a>'}
                         </div></div>`;
                     }).join('')}
                     <a class="btn btn-ghost" href="#/cosmetics" data-cos-tab="tienda">🛍 Ir a la tienda</a></section>`;
-            };
-            const evoPanel = () => {
-                const d = P().data(), cur = P().stage();
-                return `<section class="nxt-panel"><h3><span>🥚</span>Evolución<small>La fase depende de los días cuidados en total (${d.caredDays}), así que nunca retrocede.</small></h3>
-                    <div class="nxt-evo">${P().STAGES.map(s => { const got = d.caredDays >= s.at;
-                        return `<div class="nxt-evo-it${got ? ' got' : ''}${s.id === cur.id ? ' cur' : ''}"><span class="nxt-evo-art">${got ? NX().mini({ stage: s.id, mood: 'content', outfit: {} }) : '<span class="nxt-evo-q">?</span>'}</span>
-                            <b>${esc(s.name)}</b><small>${s.at} día${s.at === 1 ? '' : 's'}</small></div>`; }).join('')}</div></section>`;
             };
             const rulesPanel = () => `<section class="nxt-panel nxt-rules"><h3><span>ℹ</span>Cómo funciona la racha</h3>
                 <ul>
@@ -153,7 +147,7 @@
             const draw = () => {
                 const p = P(); if (!p.data()) return;
                 p.tick();
-                const body = { food: foodPanel, dress: dressPanel, evo: evoPanel, rules: rulesPanel, settings: settingsPanel }[panel] || foodPanel;
+                const body = { food: foodPanel, dress: dressPanel, rules: rulesPanel, settings: settingsPanel }[panel] || foodPanel;
                 root.innerHTML = `<div class="page-body nxt-page">
                     ${p.isHidden() ? `<p class="nxt-alert calm">${esc(p.name())} está oculto en Inicio y el menú. <button type="button" class="btn btn-ghost btn-sm" data-unhide>Mostrarlo otra vez</button></p>` : ''}
                     <div class="nxt-grid">${stagePanel()}${side()}</div>

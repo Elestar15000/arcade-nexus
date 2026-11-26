@@ -92,8 +92,7 @@
     class TetrisGame {
         constructor(root) {
             // Aspecto de las piezas equipado en Logros · Colección
-            const skin = Nexus.services.rewards && Nexus.services.rewards.skin('tetris');
-            Object.assign(COLORS, BASE_COLORS, skin && !Array.isArray(skin) ? skin : {});
+            Object.assign(COLORS, BASE_COLORS);
             this.root = root;
             this.destroyed = false;
             this.timers = new Set();

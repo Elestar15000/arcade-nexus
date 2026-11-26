@@ -2,8 +2,8 @@
    NEXUS ARCADE · ui/pages/cosmetics.js — Cosméticos
    Pestañas:
      · Pase de batalla: 30 niveles gratuitos por temporada
-     · Tienda: 6 artículos que rotan cada lunes
-     · Colección: cosméticos propios, para equipar
+     · Tienda: todo el catálogo, siempre (de jugador y de Nexito)
+     · Colección: solo los cosméticos que ya tienes, para equipar
    Los Rombos se ganan en Logros (logros, misiones y rachas).
    ============================================================ */
 (function () {
@@ -15,20 +15,16 @@
     const CEL = () => Nexus.ui.celebrate;
     const TABS = [['pase', 'Pase de batalla', '🎖️'], ['tienda', 'Tienda', '🛍'], ['coleccion', 'Colección', '🎨']];
     const rombos = (n) => `<span class="rw-amount">${CEL().diamond(16)}${formatNumber(n)}</span>`;
-    const untilMonday = () => { const d = new Date(); const days = (8 - d.getDay()) % 7 || 7; return days === 1 ? 'mañana' : `en ${days} días`; };
+    let family = 'all';
 
     /** Vista previa de un cosmético. */
     function preview(it) {
         const k = it.kind;
-        if (/^pet-/.test(k) && Nexus.ui.nexito) return `<span class="rw-prev pet">${Nexus.ui.nexito.mini({ outfit: { [k]: it.id }, mood: 'happy', scene: k === 'pet-dome' || k === 'pet-base' })}</span>`;
+        if (/^pet-/.test(k) && Nexus.ui.nexito) return `<span class="rw-prev pet${k === 'pet-dome' ? ' dome' : ''}">${Nexus.ui.nexito.mini({ outfit: { [k]: it.id }, mood: 'happy', scene: k === 'pet-dome' })}</span>`;
         if (k === 'frame') return `<span class="rw-prev frame">${Nexus.ui.avatar.user(Object.assign({}, Nexus.services.users.current(), { frame: it.id }), 'lg')}</span>`;
         if (k === 'title') return `<span class="rw-prev title"><span class="rw-title-chip">${esc(it.name)}</span></span>`;
         if (k === 'avatar') return `<span class="rw-prev avatar">${Nexus.ui.avatar.html(it.id.slice(3), { size: 256 })}</span>`;
-        if (k === 'theme') return `<span class="rw-prev theme t-${esc(it.id)}"><i></i><i></i><i></i></span>`;
-        if (k === 'particles') return `<span class="rw-prev particles p-${esc(it.id)}"></span>`;
         if (k === 'banner') return `<span class="rw-prev banner b-${esc(it.id)}"></span>`;
-        if (it.palette) return `<span class="rw-prev swatch">${Object.values(it.palette).map(c => `<i style="background:${esc(c)}"></i>`).join('')}</span>`;
-        if (it.colors) return `<span class="rw-prev swatch">${it.colors.map(c => `<i style="background:${esc(c)}"></i>`).join('')}</span>`;
         return '<span class="rw-prev"></span>';
     }
     Nexus.ui.rewardPreview = preview;
@@ -73,43 +69,51 @@
                     }).join('')}</div>`;
             };
 
-            // ── Tienda ──
+            const familyBar = () => `<div class="segmented rw-family" role="group" aria-label="Tipo de cosmético">
+                ${[['all', 'Todo', '✨']].concat(RW().GROUPS.map(g => [g.id, g.name, g.icon])).map(([id, label, ic]) => `<button type="button" data-family="${id}" class="${family === id ? 'active' : ''}">${ic} ${label}</button>`).join('')}</div>`;
+            const groups = () => RW().GROUPS.filter(g => family === 'all' || g.id === family);
+
+            // ── Tienda: todo el catálogo, siempre ──
             const drawTienda = () => {
-                const items = RW().shopItems(), bal = RW().balance();
+                const bal = RW().balance(), all = RW().shopItems();
+                const card = (it) => {
+                    const own = RW().owns(it.id);
+                    return `<div class="rw-item${own ? ' owned' : ''}${!own && !it.price ? ' earn' : ''}" data-item="${esc(it.id)}">${preview(it)}<b>${esc(it.name)}</b><small>${esc(it.desc)}</small>
+                        ${own ? '<span class="rw-ok">✓ Ya es tuyo</span>'
+                            : it.price ? `<button type="button" class="btn ${bal >= it.price ? 'btn-primary' : 'btn-ghost'} btn-sm" data-buy="${esc(it.id)}">${rombos(it.price)}</button>`
+                            : '<span class="rw-earn">🏅 Se consigue jugando</span>'}</div>`;
+                };
                 return `
                     <section class="section">
-                        <h3 class="section-title"><span>🛍</span> Tienda de la semana <small class="muted">cambia ${untilMonday()}</small></h3>
-                        <p class="muted small">Todo es cosmético. Lo comprado se equipa en Colección. Tienes ${rombos(bal)}.</p>
-                        <div class="rw-shop">${items.map(it => {
-                            const own = RW().owns(it.id);
-                            return `<div class="rw-item${own ? ' owned' : ''}">${preview(it)}<b>${esc(it.name)}</b><small>${esc(RW().KINDS[it.kind])} · ${esc(it.desc)}</small>
-                                ${own ? '<span class="rw-ok">✓ Ya es tuyo</span>' : `<button type="button" class="btn ${bal >= it.price ? 'btn-primary' : 'btn-ghost'} btn-sm" data-buy="${esc(it.id)}">${rombos(it.price)}</button>`}</div>`;
-                        }).join('')}</div>
+                        <div class="rw-shop-head"><h3 class="section-title"><span>🛍</span> Tienda <small class="muted">${all.length} cosméticos · siempre disponibles</small></h3>${familyBar()}</div>
+                        <p class="muted small">Todo es cosmético. Lo comprado se equipa en Colección. Lo que no tiene precio se gana con logros, rachas de Nexito, el pase o eventos. Tienes ${rombos(bal)}.</p>
+                        ${groups().map(g => `<h3 class="rw-family-title"><span>${g.icon}</span> ${esc(g.name)}</h3>` + g.kinds.map(k => {
+                            const list = all.filter(it => it.kind === k);
+                            const own = list.filter(it => RW().owns(it.id)).length;
+                            return `<h4 class="rw-kind-title">${esc(RW().KINDS[k])} <small class="muted">${own}/${list.length}</small></h4><div class="rw-shop">${list.map(card).join('')}</div>`;
+                        }).join('')).join('')}
                     </section>
                     <section class="section card-surface"><h3 class="section-title"><span>🧾</span> Últimos movimientos</h3>
                         ${(RW().data().log || []).length ? `<ul class="rw-log">${RW().data().log.slice(0, 10).map(l => `<li><span>${esc(l.why)}</span><b class="${l.n < 0 ? 'neg' : ''}">${l.n > 0 ? '+' : ''}${formatNumber(l.n)}</b></li>`).join('')}</ul>` : '<p class="muted">Todavía no has ganado Rombos. Juega, completa misiones y desbloquea logros.</p>'}</section>`;
             };
 
-            // ── Colección ──
+            // ── Colección: solo lo que ya tienes ──
             const drawColeccion = () => {
-                const kinds = Object.keys(RW().KINDS);
-                return kinds.map(k => {
-                    const all = RW().CATALOG.filter(c => c.kind === k);
-                    const owned = RW().data().cosmetics.owned.filter(id => (RW().item(id) || {}).kind === k);
-                    const masterTitles = k === 'title' ? owned.filter(id => /^t-master-/.test(id)).map(id => RW().item(id)) : [];
-                    const list = all.concat(masterTitles);
-                    const eq = RW().equipped(k);
-                    const canEquip = k !== 'avatar';
-                    return `<section class="section"><h3 class="section-title">${esc(RW().KINDS[k])} <small class="muted">${owned.length}/${list.length}</small></h3>
+                const owned = RW().data().cosmetics.owned.map(id => RW().item(id)).filter(it => it && RW().KINDS[it.kind]);
+                const body = groups().map(g => `<h3 class="rw-family-title"><span>${g.icon}</span> ${esc(g.name)}</h3>` + g.kinds.map(k => {
+                    const list = owned.filter(it => it.kind === k);
+                    const eq = RW().equipped(k), canEquip = k !== 'avatar';
+                    if (!list.length) return `<h4 class="rw-kind-title">${esc(RW().KINDS[k])}</h4><p class="muted small rw-empty">Aún no tienes ninguno. <a href="#/cosmetics" data-goto-shop>Ver en la tienda</a></p>`;
+                    return `<h4 class="rw-kind-title">${esc(RW().KINDS[k])} <small class="muted">${list.length}</small></h4>
                         <div class="rw-shop">${canEquip ? `<div class="rw-item${!eq ? ' equipped' : ''}"><span class="rw-prev none">—</span><b>Ninguno</b><small>Por defecto</small>${eq ? `<button type="button" class="btn btn-ghost btn-sm" data-equip="${k}" data-id="">Usar</button>` : '<span class="rw-ok">En uso</span>'}</div>` : ''}
                             ${list.map(it => {
-                                const own = RW().owns(it.id), on = eq === it.id;
-                                return `<div class="rw-item${own ? '' : ' locked'}${on ? ' equipped' : ''}">${preview(it)}<b>${esc(it.name)}</b><small>${esc(it.desc)}</small>
-                                    ${!own ? `<span class="muted small">🔒 ${it.price ? 'Tienda o pase' : 'Por conseguir'}</span>`
-                                        : !canEquip ? '<button type="button" class="btn btn-ghost btn-sm" data-avatar-pick>Elegir avatar</button>'
+                                const on = eq === it.id;
+                                return `<div class="rw-item${on ? ' equipped' : ''}" data-item="${esc(it.id)}">${preview(it)}<b>${esc(it.name)}</b><small>${esc(it.desc)}</small>
+                                    ${!canEquip ? '<button type="button" class="btn btn-ghost btn-sm" data-avatar-pick>Elegir icono</button>'
                                         : on ? '<span class="rw-ok">En uso</span>' : `<button type="button" class="btn btn-primary btn-sm" data-equip="${k}" data-id="${esc(it.id)}">Usar</button>`}</div>`;
-                            }).join('')}</div></section>`;
-                }).join('');
+                            }).join('')}</div>`;
+                }).join('')).join('');
+                return `<section class="section"><div class="rw-shop-head"><h3 class="section-title"><span>🎨</span> Tu colección <small class="muted">${owned.length} cosmético${owned.length === 1 ? '' : 's'}</small></h3>${familyBar()}</div>${body}</section>`;
             };
 
             const draw = () => {
@@ -127,8 +131,10 @@
                     draw();
                 }));
                 $$('[data-equip]', root).forEach(b => b.addEventListener('click', () => {
-                    if (RW().equip(b.dataset.equip, b.dataset.id)) { if (b.dataset.equip === 'theme') Nexus.services.settings.apply(); Nexus.ui.toast('Equipado', { type: 'success' }); draw(); }
+                    if (RW().equip(b.dataset.equip, b.dataset.id)) { Nexus.ui.toast('Equipado', { type: 'success' }); draw(); }
                 }));
+                $$('[data-family]', root).forEach(b => b.addEventListener('click', () => { family = b.dataset.family; Nexus.audio.play('click'); draw(); }));
+                $$('[data-goto-shop]', root).forEach(b => b.addEventListener('click', (e) => { e.preventDefault(); tab = 'tienda'; draw(); }));
                 $$('[data-avatar-pick]', root).forEach(b => b.addEventListener('click', () => Nexus.ui.avatarPicker.open()));
             };
 

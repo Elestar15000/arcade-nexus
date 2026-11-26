@@ -51,9 +51,7 @@
         apply() {
             const root = document.documentElement;
             const theme = THEMES.some(t => t.id === this.get('theme')) ? this.get('theme') : 'neon';
-            // Un tema exclusivo equipado (Colección) tiene prioridad sobre el tema de Ajustes
-            const RW = Nexus.services.rewards, ex = RW && RW.data() ? RW.equipped('theme') : '';
-            root.dataset.theme = ex ? ex.replace(/^th-/, '') : theme;
+            root.dataset.theme = theme;
             root.dataset.motion = this.get('reduceMotion') ? 'reduced' : 'full';
             root.dataset.colorblind = this.get('wordle.colorblind') ? 'on' : 'off';
             const particles = document.getElementById('bg-particles');

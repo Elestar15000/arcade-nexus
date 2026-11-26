@@ -47,87 +47,118 @@
     }
 
     // ── Catálogo de cosméticos ──────────────────────────────
-    // kind: frame | title | theme | particles | banner | snake | cards | chess | tetris | avatar
+    // Solo dos familias:
+    //   · Jugador: frame (marco) | title (título) | banner (fondo de perfil) | avatar (icono de perfil)
+    //   · Nexito:  pet-hat (sombreros) | pet-glasses (accesorios) | pet-scarf (ropa) | pet-dome (cúpulas)
+    // price > 0 → se compra en la tienda; sin precio → se gana (logro, racha, pase, rango o evento).
     const C = (id, kind, name, desc, price = 0, extra = {}) => Object.assign({ id, kind, name, desc, price }, extra);
     const CATALOG = [
+        // Jugador · Marcos
         C('fr-silver', 'frame', 'Anillo de plata', 'Un anillo metálico alrededor de tu avatar.', 400),
         C('fr-gold', 'frame', 'Anillo de oro', 'El amarillo Nexus alrededor de tu avatar.', 700),
         C('fr-neon', 'frame', 'Neón', 'Un anillo de luz que late.', 600),
         C('fr-diamond', 'frame', 'Rombos', 'Rombos dorados girando alrededor del avatar.', 900),
         C('fr-fire', 'frame', 'Fuego', 'Un aro de llamas naranjas.', 800),
-        C('fr-mastery', 'frame', 'Maestría', 'Corona dorada: para quien completa un juego entero.'),
-        C('fr-legend', 'frame', 'Leyenda', 'El marco de quien tiene 50 logros.'),
+        C('fr-mastery', 'frame', 'Maestría', 'Corona dorada: completa un juego entero.'),
+        C('fr-legend', 'frame', 'Leyenda', 'Consigue 50 logros.'),
         C('fr-nexito', 'frame', 'Nexito', 'Nexito asomado a tu avatar: 100 días de racha.'),
-        C('t-inseparables', 'title', 'Inseparables', '100 días de racha con Nexito.'),
-        C('av:rw-nexito', 'avatar', 'Nexito Leyenda', 'Avatar exclusivo: 365 días de racha con Nexito.'),
-
-        // Nexito: sombreros, gafas, cuello, cúpula y pedestal (services/pet.js · SLOTS)
-        C('nx-gorra', 'pet-hat', 'Gorra Nexus', 'Gorra amarilla con el rombo.', 400),
-        C('nx-auriculares', 'pet-hat', 'Auriculares gamer', 'Para concentrarse en la partida.', 500),
-        C('nx-copa', 'pet-hat', 'Sombrero de copa', 'Elegancia de casino.', 600),
-        C('nx-corona', 'pet-hat', 'Corona', 'El rey del arcade.', 900),
-        C('nx-gafas-sol', 'pet-glasses', 'Gafas de sol', 'Estilo de verano.', 400),
-        C('nx-gafas-pixel', 'pet-glasses', 'Gafas pixeladas', 'Deal with it.', 600),
-        C('nx-bufanda', 'pet-scarf', 'Bufanda', 'Hito: 7 días de racha.'),
-        C('nx-pajarita', 'pet-scarf', 'Pajarita', 'Para las ocasiones especiales.', 350),
-        C('nx-capa', 'pet-scarf', 'Capa de héroe', 'Una capa roja al viento.', 800),
-        C('nx-cupula-estrellas', 'pet-dome', 'Cúpula estrellada', 'Hito: 30 días de racha.'),
-        C('nx-cupula-neon', 'pet-dome', 'Cúpula neón', 'Luz rosa y cian.', 600),
-        C('nx-cupula-oro', 'pet-dome', 'Cúpula dorada', 'Cristal tintado en oro.', 900),
-        C('nx-base-arcade', 'pet-base', 'Pedestal arcade', 'Con luces de recreativa.', 500),
-        C('nx-base-oro', 'pet-base', 'Pedestal de oro', 'Oro macizo (o casi).', 700),
-        C('nx-base-leyenda', 'pet-base', 'Pedestal Leyenda', 'Hito: 365 días de racha.'),
-
-        C('t-campeon', 'title', 'Campeón', '100 victorias.'),
-        C('t-explorador', 'title', 'Explorador', 'Ha probado todos los juegos.'),
-        C('t-coleccionista', 'title', 'Coleccionista', '10 logros desbloqueados.'),
-        C('t-kamikaze', 'title', 'Kamikaze', 'Logro secreto.'),
-        C('t-insomne', 'title', 'El Insomne', 'Logro secreto.'),
-        C('t-maratoniano', 'title', 'Maratoniano', 'Logro secreto.'),
-        C('t-buscador', 'title', 'Buscador de secretos', 'Logro secreto.'),
-        C('t-cazafantasmas', 'title', 'Cazafantasmas', 'Evento de Halloween.'),
-        C('t-leyenda', 'title', 'Leyenda', 'Rango Leyenda (nivel 30).'),
-        C('t-veterano', 'title', 'Veterano de temporada', 'Nivel 29 del pase.'),
+        // Jugador · Títulos
         C('t-estratega', 'title', 'Estratega', 'Piensa antes de mover.', 250),
         C('t-pixel', 'title', 'Píxel perfecto', 'Para los amantes de lo retro.', 250),
         C('t-tahur', 'title', 'Tahúr', 'Maestro de las cartas… y de los faroles.', 250),
         C('t-cerebro', 'title', 'Cerebrito', 'Palabras, números y lógica.', 250),
-
-        C('th-oro', 'theme', 'Oro Nexus', 'Tema exclusivo: negro y oro.', 1200),
-        C('th-nocturno', 'theme', 'Neón nocturno', 'Tema exclusivo: magenta y cian sobre negro.', 1200),
-        C('pt-rombos', 'particles', 'Lluvia de rombos', 'Rombos dorados flotando en el fondo.', 600),
-        C('pt-estrellas', 'particles', 'Estrellas fugaces', 'Estelas que cruzan el fondo.', 900),
+        C('t-campeon', 'title', 'Campeón', 'Consigue 100 victorias.'),
+        C('t-explorador', 'title', 'Explorador', 'Prueba todos los juegos.'),
+        C('t-coleccionista', 'title', 'Coleccionista', 'Desbloquea 10 logros.'),
+        C('t-kamikaze', 'title', 'Kamikaze', 'Logro secreto.'),
+        C('t-insomne', 'title', 'El Insomne', 'Logro secreto.'),
+        C('t-maratoniano', 'title', 'Maratoniano', 'Logro secreto.'),
+        C('t-buscador', 'title', 'Buscador de secretos', 'Descubre 5 logros secretos.'),
+        C('t-cazafantasmas', 'title', 'Cazafantasmas', 'Evento de Halloween.'),
+        C('t-leyenda', 'title', 'Leyenda', 'Rango Leyenda (nivel 30).'),
+        C('t-veterano', 'title', 'Veterano de temporada', 'Nivel 29 del pase de batalla.'),
+        C('t-inseparables', 'title', 'Inseparables', '100 días de racha con Nexito.'),
+        // Jugador · Fondos de perfil
         C('bn-galaxia', 'banner', 'Galaxia', 'Fondo de perfil con nebulosas.', 350),
         C('bn-arcade', 'banner', 'Recreativa', 'Fondo de perfil con rejilla de neón.', 350),
         C('bn-oro', 'banner', 'Oro', 'Fondo de perfil dorado.', 500),
+        C('bn-aurora', 'banner', 'Aurora', 'Luces del norte en verde y violeta.', 450),
+        C('bn-atardecer', 'banner', 'Atardecer', 'Naranja y rosa de última hora.', 400),
+        C('bn-oceano', 'banner', 'Océano', 'Azules profundos con reflejos.', 400),
+        C('bn-navidad', 'banner', 'Navidad', 'Nieve sobre verde y rojo.', 450),
         C('bn-comunidad', 'banner', 'Comunidad', 'Meta de comunidad conseguida.'),
-
-        C('sk-snake-gold', 'snake', 'Serpiente dorada', 'Snake Neón con escamas de oro.', 500, { colors: ['#fde047', '#b45309'] }),
-        C('sk-snake-ice', 'snake', 'Serpiente de hielo', 'Snake Neón en azul hielo.', 500, { colors: ['#a5f3fc', '#0e7490'] }),
-        C('sk-snake-lava', 'snake', 'Serpiente de lava', 'Snake Neón al rojo vivo.', 500, { colors: ['#fb923c', '#991b1b'] }),
-        C('sk-cards-indigo', 'cards', 'Reverso índigo', 'Reverso de cartas índigo con rombos.', 400, { colors: ['#3a3f9e', '#1d2072'] }),
-        C('sk-cards-gold', 'cards', 'Reverso dorado', 'Reverso de cartas dorado.', 400, { colors: ['#FFD43B', '#b36b00'] }),
-        C('sk-cards-xmas', 'cards', 'Reverso navideño', 'Evento de Navidad.', 0, { colors: ['#16a34a', '#b91c1c'] }),
-        C('sk-chess-wood', 'chess', 'Tablero de madera', 'Casillas de madera clara y oscura.', 500, { colors: ['#f0d9b5', '#b58863'] }),
-        C('sk-chess-ocean', 'chess', 'Tablero océano', 'Casillas en azules.', 500, { colors: ['#dbeafe', '#3b82f6'] }),
-        C('sk-tetris-pastel', 'tetris', 'Piezas pastel', 'Tetris en tonos pastel.', 500,
-            { palette: { I: '#a5f3fc', O: '#fde68a', T: '#ddd6fe', S: '#bbf7d0', Z: '#fecaca', J: '#bfdbfe', L: '#fed7aa' } }),
-        C('sk-tetris-neon', 'tetris', 'Piezas neón', 'Tetris con colores fosforito.', 500,
-            { palette: { I: '#00f5ff', O: '#ffe600', T: '#ff00e6', S: '#39ff14', Z: '#ff3131', J: '#3d5afe', L: '#ff9100' } }),
-
-        C('av:rw-nexo-gold', 'avatar', 'Nexo dorado', 'Avatar exclusivo: nivel 30 del pase.'),
-        C('av:rw-pad-gold', 'avatar', 'Pad dorado', 'Avatar exclusivo: nivel 10 del pase o tienda.', 800),
-        C('av:rw-detective-gold', 'avatar', 'Detective de oro', 'Avatar exclusivo.', 800),
-        C('av:rw-crown-neon', 'avatar', 'Reina neón', 'Avatar exclusivo: nivel 20.'),
-        C('av:rw-phoenix-gold', 'avatar', 'Fénix dorado', 'Avatar exclusivo: nivel 15 del pase.'),
-        C('av:rw-legend', 'avatar', 'Leyenda', 'Avatar exclusivo: nivel 30.'),
+        // Jugador · Iconos de perfil
+        C('av:rw-pad-gold', 'avatar', 'Pad dorado', 'Icono exclusivo de mando dorado.', 800),
+        C('av:rw-detective-gold', 'avatar', 'Detective de oro', 'Icono exclusivo.', 800),
+        C('av:rw-phoenix-gold', 'avatar', 'Fénix dorado', 'Nivel 15 del pase de batalla.'),
+        C('av:rw-crown-neon', 'avatar', 'Reina neón', 'Rango nivel 20.'),
+        C('av:rw-nexo-gold', 'avatar', 'Nexo dorado', 'Nivel 30 del pase de batalla.'),
+        C('av:rw-legend', 'avatar', 'Leyenda', 'Rango Leyenda (nivel 30).'),
         C('av:rw-ghost', 'avatar', 'Fantasma', 'Evento de Halloween.'),
-        C('av:rw-xmas', 'avatar', 'Duende navideño', 'Evento de Navidad.')
+        C('av:rw-xmas', 'avatar', 'Duende navideño', 'Evento de Navidad.'),
+        C('av:rw-nexito', 'avatar', 'Nexito Leyenda', '365 días de racha con Nexito.'),
+
+        // Nexito · Sombreros
+        C('nx-gorra', 'pet-hat', 'Gorra Nexus', 'Gorra índigo con el rombo.', 400),
+        C('nx-auriculares', 'pet-hat', 'Auriculares gamer', 'Para concentrarse en la partida.', 500),
+        C('nx-copa', 'pet-hat', 'Sombrero de copa', 'Elegancia de casino.', 600),
+        C('nx-corona', 'pet-hat', 'Corona', 'El rey del arcade.', 900),
+        C('nx-gorro-navidad', 'pet-hat', 'Gorro de Papá Noel', 'Rojo, blanco y con borla.', 500),
+        C('nx-gorro-lana', 'pet-hat', 'Gorro de lana', 'Calentito, a rayas y con pompón.', 350),
+        C('nx-reno', 'pet-hat', 'Cuernos de reno', 'Evento de Navidad: gana 3 partidas de Cartas.'),
+        C('nx-bruja', 'pet-hat', 'Sombrero de bruja', 'Puntiagudo, con hebilla dorada.', 500),
+        C('nx-vaquero', 'pet-hat', 'Sombrero vaquero', '¡Yiijaa!', 450),
+        C('nx-chef', 'pet-hat', 'Gorro de chef', 'Para la hora de la merienda.', 400),
+        C('nx-fiesta', 'pet-hat', 'Gorro de fiesta', 'Para celebrar cada hito.', 300),
+        C('nx-flores', 'pet-hat', 'Corona de flores', 'Margaritas y amapolas.', 450),
+        C('nx-pirata', 'pet-hat', 'Sombrero pirata', 'Tricornio con calavera.', 600),
+        C('nx-boina', 'pet-hat', 'Boina', 'Toque de artista.', 300),
+        C('nx-aureola', 'pet-hat', 'Aureola', 'Logro secreto: Buscador de secretos.'),
+        // Nexito · Accesorios
+        C('nx-gafas-sol', 'pet-glasses', 'Gafas de sol', 'Estilo de verano.', 400),
+        C('nx-gafas-pixel', 'pet-glasses', 'Gafas pixeladas', 'Deal with it.', 600),
+        C('nx-gafas-redondas', 'pet-glasses', 'Gafas redondas', 'Montura dorada fina.', 350),
+        C('nx-gafas-corazon', 'pet-glasses', 'Gafas de corazón', 'Enamorado del arcade.', 400),
+        C('nx-gafas-3d', 'pet-glasses', 'Gafas 3D', 'Rojo y cian, como en el cine.', 350),
+        C('nx-gafas-esqui', 'pet-glasses', 'Gafas de esquí', 'Para la cúpula nevada.', 450),
+        C('nx-monoculo', 'pet-glasses', 'Monóculo', 'Con cadenita dorada.', 500),
+        C('nx-parche', 'pet-glasses', 'Parche pirata', '¡Al abordaje!', 300),
+        C('nx-bigote', 'pet-glasses', 'Bigote', 'Muy distinguido.', 250),
+        // Nexito · Ropa
+        C('nx-bufanda', 'pet-scarf', 'Bufanda', 'Hito: 7 días de racha.'),
+        C('nx-pajarita', 'pet-scarf', 'Pajarita', 'Para las ocasiones especiales.', 350),
+        C('nx-capa', 'pet-scarf', 'Capa de héroe', 'Una capa roja al viento.', 800),
+        C('nx-jersey-navidad', 'pet-scarf', 'Jersey navideño', 'Punto rojo con copos y renos.', 600),
+        C('nx-bufanda-navidad', 'pet-scarf', 'Bufanda navideña', 'Rayas rojas y verdes.', 400),
+        C('nx-corbata', 'pet-scarf', 'Corbata', 'Lista para la reunión.', 300),
+        C('nx-collar-flores', 'pet-scarf', 'Collar hawaiano', 'Aloha.', 350),
+        C('nx-medalla', 'pet-scarf', 'Medalla de oro', 'Campeón de la cúpula.', 500),
+        C('nx-bandana', 'pet-scarf', 'Pañuelo', 'Bandana roja de explorador.', 300),
+        C('nx-capa-mago', 'pet-scarf', 'Capa de mago', 'Violeta y llena de estrellas.', 800),
+        // Nexito · Cúpulas (cristal + pedestal)
+        C('nx-cupula-navidad', 'pet-dome', 'Cúpula de Navidad', 'Nieve que cae, abeto con luces, muñeco de nieve y pedestal envuelto como un regalo.', 1500),
+        C('nx-cupula-estrellas', 'pet-dome', 'Cúpula estrellada', 'Hito: 30 días de racha.'),
+        C('nx-cupula-neon', 'pet-dome', 'Cúpula neón', 'Cristal rosa con brillo.', 600),
+        C('nx-cupula-oro', 'pet-dome', 'Cúpula dorada', 'Cristal y pedestal de oro.', 900),
+        C('nx-cupula-arcade', 'pet-dome', 'Cúpula arcade', 'Rejilla de neón, marcianitos y luces de recreativa.', 900),
+        C('nx-cupula-oceano', 'pet-dome', 'Cúpula acuario', 'Agua, burbujas, peces y algas.', 1000),
+        C('nx-cupula-espacio', 'pet-dome', 'Cúpula espacial', 'Planetas y estrellas alrededor de Nexito.', 1000),
+        C('nx-cupula-jardin', 'pet-dome', 'Cúpula jardín', 'Flores, césped y mariposas.', 800),
+        C('nx-cupula-playa', 'pet-dome', 'Cúpula playa', 'Sol, arena y una palmera.', 800),
+        C('nx-cupula-halloween', 'pet-dome', 'Cúpula de Halloween', 'Calabazas, murciélagos y telarañas.', 1000),
+        C('nx-cupula-leyenda', 'pet-dome', 'Cúpula Leyenda', 'Hito: 365 días de racha.')
     ];
     const BY_ID = new Map(CATALOG.map(c => [c.id, c]));
-    const KINDS = { frame: 'Marcos', title: 'Títulos', theme: 'Temas', particles: 'Efectos de fondo', banner: 'Fondos de perfil',
-        snake: 'Snake', cards: 'Cartas', chess: 'Ajedrez', tetris: 'Tetris', avatar: 'Avatares',
-        'pet-hat': 'Nexito · Sombreros', 'pet-glasses': 'Nexito · Gafas', 'pet-scarf': 'Nexito · Cuello', 'pet-dome': 'Nexito · Cúpulas', 'pet-base': 'Nexito · Pedestales' };
+    const KINDS = { frame: 'Marcos', title: 'Títulos', banner: 'Fondos de perfil', avatar: 'Iconos de perfil',
+        'pet-hat': 'Sombreros', 'pet-glasses': 'Accesorios', 'pet-scarf': 'Ropa', 'pet-dome': 'Cúpulas' };
+    const GROUPS = [
+        { id: 'player', name: 'Jugador', icon: '👤', kinds: ['frame', 'title', 'banner', 'avatar'] },
+        { id: 'pet', name: 'Nexito', icon: '💛', kinds: ['pet-hat', 'pet-glasses', 'pet-scarf', 'pet-dome'] }
+    ];
+    // Cosméticos retirados (temas, efectos, aspectos de juegos, pedestales sueltos): se cambian o reembolsan una vez
+    const RETIRED = { 'nx-base-oro': 'nx-cupula-oro', 'nx-base-arcade': 'nx-cupula-arcade', 'nx-base-leyenda': 'nx-cupula-leyenda',
+        'th-oro': 1200, 'th-nocturno': 1200, 'pt-rombos': 600, 'pt-estrellas': 900, 'sk-snake-gold': 500, 'sk-snake-ice': 500, 'sk-snake-lava': 500,
+        'sk-cards-indigo': 400, 'sk-cards-gold': 400, 'sk-cards-xmas': 400, 'sk-chess-wood': 500, 'sk-chess-ocean': 500, 'sk-tetris-pastel': 500, 'sk-tetris-neon': 500 };
 
     /** Cosmético por id (los títulos de Maestría se crean al vuelo: t-master-<juego>). */
     function item(id) {
@@ -140,11 +171,11 @@
     // ── Pase de temporada y rangos ──────────────────────────
     const R = (n) => ({ rombos: n });
     const SEASON_REWARDS = [
-        R(50), 'bn-galaxia', R(75), 't-estratega', 'sk-snake-ice', 'nx-pajarita', 'fr-neon', R(100), 'sk-tetris-pastel', 'av:rw-pad-gold',
-        R(100), 'sk-cards-indigo', R(125), 't-pixel', 'av:rw-phoenix-gold', R(125), 'sk-chess-ocean', R(150), 'bn-oro', 'pt-rombos',
-        'nx-cupula-neon', 'sk-snake-gold', R(175), 't-tahur', 'th-oro', R(200), 'fr-diamond', R(200), 't-veterano', 'av:rw-nexo-gold'
+        R(50), 'bn-galaxia', R(75), 't-estratega', 'nx-gorro-lana', 'nx-pajarita', 'fr-neon', R(100), 'nx-gafas-redondas', 'av:rw-pad-gold',
+        R(100), 'nx-fiesta', R(125), 't-pixel', 'av:rw-phoenix-gold', R(125), 'bn-aurora', R(150), 'bn-oro', 'nx-corbata',
+        'nx-cupula-neon', 'nx-cupula-jardin', R(175), 't-tahur', 'nx-vaquero', R(200), 'fr-diamond', R(200), 't-veterano', 'av:rw-nexo-gold'
     ];
-    const RANK_REWARDS = { 5: ['fr-silver'], 10: ['bn-arcade'], 15: ['fr-gold'], 20: ['av:rw-crown-neon'], 25: ['th-nocturno'], 30: ['av:rw-legend', 't-leyenda'] };
+    const RANK_REWARDS = { 5: ['fr-silver'], 10: ['bn-arcade'], 15: ['fr-gold'], 20: ['av:rw-crown-neon'], 25: ['nx-cupula-espacio'], 30: ['av:rw-legend', 't-leyenda'] };
 
     // ── Misiones ────────────────────────────────────────────
     const isDailyMode = (e) => /diari|daily|phrase|frase/.test(e.mode || '');
@@ -179,7 +210,7 @@
     const STREAK_PRIZES = { 3: 60, 7: 200, 30: 1000 };
 
     const Rewards = {
-        CATALOG, KINDS, SEASON_REWARDS, RANK_REWARDS, LEVEL_COST, SEASON_LEVELS, COMMUNITY_GOAL, MISSION_ROMBOS, TIER_LABEL, STREAK_PRIZES,
+        CATALOG, KINDS, GROUPS, SEASON_REWARDS, RANK_REWARDS, LEVEL_COST, SEASON_LEVELS, COMMUNITY_GOAL, MISSION_ROMBOS, TIER_LABEL, STREAK_PRIZES,
         item, seasonOf, weekKey, isWeekend,
 
         data() { const d = U().data(); return d ? d.rewards : null; },
@@ -235,17 +266,22 @@
         },
         title() { const id = this.equipped('title'); const it = id && item(id); return it ? it.name : ''; },
         frame() { return this.equipped('frame'); },
-        /** Colores / paleta del aspecto equipado para un juego (o null). */
-        skin(kind) { const id = this.equipped(kind); const it = id && item(id); return it ? (it.palette || it.colors || null) : null; },
-
-        /** Aplica lo visual que no depende de una página: variables de los aspectos, tema exclusivo y efecto de fondo. */
-        apply() {
-            const root = document.documentElement.style;
-            const set = (k, v) => (v ? root.setProperty(k, v) : root.removeProperty(k));
-            const cards = this.skin('cards'), chess = this.skin('chess');
-            set('--skin-back-a', cards && cards[0]); set('--skin-back-b', cards && cards[1]);
-            set('--skin-sq-light', chess && chess[0]); set('--skin-sq-dark', chess && chess[1]);
-            document.documentElement.dataset.particles = this.equipped('particles') || '';
+        /** Los cosméticos solo afectan al perfil y a Nexito: no hay nada global que aplicar. */
+        apply() {},
+        /** Cambia o reembolsa (una vez) los cosméticos de tipos retirados y limpia lo equipado que ya no existe. */
+        migrate() {
+            const r = this.data(); if (!r) return false;
+            const c = r.cosmetics, eq = c.equipped; let changed = false;
+            for (const id of c.owned.slice()) {
+                if (!(id in RETIRED)) continue;
+                c.owned.splice(c.owned.indexOf(id), 1); changed = true;
+                const to = RETIRED[id];
+                if (typeof to === 'string') { if (!c.owned.includes(to)) c.owned.push(to); if (eq['pet-base'] === id && !eq['pet-dome']) eq['pet-dome'] = to; }
+                else { r.rombos += to; r.earned += to; r.log.unshift({ at: Date.now(), n: to, why: 'Reembolso: cosmético retirado' }); }
+            }
+            for (const k of Object.keys(eq)) if (!KINDS[k] || (eq[k] && (!c.owned.includes(eq[k]) || (item(eq[k]) || {}).kind !== k))) { delete eq[k]; changed = true; }
+            if (r.log.length > 30) r.log.length = 30;
+            return changed;
         },
 
         // ── Logros, Maestría y rangos ───────────────────────
@@ -301,17 +337,11 @@
         },
 
         // ── Tienda ──────────────────────────────────────────
-        shopItems(week = weekKey()) {
-            const pool = CATALOG.filter(c => c.price > 0);
-            const r = rng('shop:' + week), out = [];
-            const copy = pool.slice();
-            while (out.length < 6 && copy.length) out.push(copy.splice(Math.floor(r() * copy.length), 1)[0]);
-            return out;
-        },
+        /** La tienda muestra siempre todo el catálogo (lo que no tiene precio indica cómo se consigue). */
+        shopItems() { return CATALOG.slice(); },
         buy(id) {
             const it = item(id), r = this.data();
             if (!it || !r || !it.price || this.owns(id)) return { ok: false, error: this.owns(id) ? 'Ya lo tienes.' : 'No está a la venta.' };
-            if (!this.shopItems().some(x => x.id === id)) return { ok: false, error: 'Este artículo ya no está en la tienda.' };
             if (r.rombos < it.price) return { ok: false, error: `Te faltan ${it.price - r.rombos} Rombos.` };
             this.spend(it.price, `Tienda: ${it.name}`);
             this.grant(id, 'Tienda');
@@ -445,15 +475,12 @@
         sync() {
             const r = this.data(); if (!r) return;
             r.points = A().points();
-            this.ensureMissions(); this.ensureSeason(); this.checkRanks(); this.apply();
+            if (this.migrate()) U().saveData();
+            this.ensureMissions(); this.ensureSeason(); this.checkRanks();
         }
     };
 
     Nexus.services.rewards = Rewards;
     Nexus.bus.on('user:login', () => setTimeout(() => Rewards.sync(), 0));
     Nexus.bus.on('progress:update', () => { if (Rewards.checkRanks().length) U().saveData(); });
-    Nexus.bus.on('user:logout', () => {
-        ['--skin-back-a', '--skin-back-b', '--skin-sq-light', '--skin-sq-dark'].forEach(k => document.documentElement.style.removeProperty(k));
-        document.documentElement.dataset.particles = '';
-    });
 })();

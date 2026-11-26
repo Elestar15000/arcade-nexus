@@ -1,5 +1,5 @@
 """Nexito, la mascota de racha: regla del día, necesidades, escudos, rescate, rotura, vacaciones,
-hitos, evolución, comida de misiones, migración de las rachas antiguas, Worker y la interfaz.
+hitos, forma única (sin evolución), comida de misiones, migración de las rachas antiguas, Worker y la interfaz.
 python3 tests/e2e_pet.py"""
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
@@ -31,7 +31,7 @@ with sync_playwright() as p:
     # ── Estado inicial ──
     s = page.evaluate("st()")
     check(s['count'] == 0 and s['shields'] == 1, 'cuenta nueva: racha 0 y 1 escudo')
-    check(page.evaluate("P.stage().id") == 'egg', 'empieza como Huevo')
+    check(page.evaluate("P.STAGES.length") == 1 and page.evaluate("P.stage().id") == 'nexito', 'Nexito tiene una sola forma (sin crecimiento)')
     check(page.evaluate("P.data().today.snack") is True, 'merienda gratis disponible')
 
     # ── Regla del día: 1 partida + 1 comida ──
@@ -42,13 +42,13 @@ with sync_playwright() as p:
     check(not page.evaluate("P.feed('merienda', T(0) + 7e4).ok"), 'una sola merienda al día')
     check(page.evaluate("P.data().caredDays") == 1, 'días cuidados: 1')
 
-    # ── Días seguidos, hito de 3 días y evolución ──
+    # ── Días seguidos e hito de 3 días ──
     bal = page.evaluate("Nexus.services.rewards.balance()")
     page.evaluate("care(1); care(2)")
     s = page.evaluate("st()")
     check(s['count'] == 3 and s['best'] == 3, 'tres días seguidos: racha 3')
     check(3 in s['milestones'] and page.evaluate("Nexus.services.rewards.balance()") >= bal + 60, 'hito de 3 días: 60 Rombos')
-    check(page.evaluate("P.stage().id") == 'baby', '3 días cuidados: evoluciona a Cría')
+    check(page.evaluate("P.stage().id") == 'nexito' and page.evaluate("P.data().caredDays") == 3, '3 días cuidados: sigue siendo el mismo Nexito')
     check(page.evaluate("Nexus.services.achievements.isUnlocked('days_3')"), 'logro «Constancia» con la racha de Nexito')
 
     # ── Necesidades con el tiempo real ──
@@ -81,7 +81,6 @@ with sync_playwright() as p:
     page.evaluate("noWeekly(T(8)); P.tick(T(8))")
     s = page.evaluate("st()")
     check(s['count'] == 0 and s['best'] == 5, 'sin escudo ni rescate: la racha vuelve a 0 y se guarda la mejor')
-    check(page.evaluate("P.stage().id") == 'baby', 'la fase no retrocede al romper la racha')
     page.evaluate("care(8)")
     check(page.evaluate("st().count") == 1, 'empieza una racha nueva')
 
@@ -115,9 +114,10 @@ with sync_playwright() as p:
     check(page.evaluate("Nexus.services.rewards.balance()") == 0, 'un hito no se cobra dos veces')
 
     # ── Vestir y logro secreto ──
-    for it in ['nx-gorra', 'nx-gafas-sol', 'nx-cupula-neon', 'nx-base-oro']: page.evaluate(f"Nexus.services.rewards.grant('{it}', 'test')")
-    page.evaluate("['pet-hat','nx-gorra','pet-glasses','nx-gafas-sol','pet-scarf','nx-bufanda','pet-dome','nx-cupula-neon','pet-base','nx-base-oro'].forEach((v, i, a) => { if (i % 2 === 0) P.equip(v, a[i + 1]); })")
-    check(page.evaluate("Object.values(P.outfit()).filter(Boolean).length") == 5, 'Nexito vestido con 5 prendas')
+    for it in ['nx-gorra', 'nx-gafas-sol', 'nx-cupula-navidad']: page.evaluate(f"Nexus.services.rewards.grant('{it}', 'test')")
+    page.evaluate("['pet-hat','nx-gorra','pet-glasses','nx-gafas-sol','pet-scarf','nx-bufanda','pet-dome','nx-cupula-navidad'].forEach((v, i, a) => { if (i % 2 === 0) P.equip(v, a[i + 1]); })")
+    check(page.evaluate("Object.keys(P.SLOTS).join()") == 'pet-hat,pet-glasses,pet-scarf,pet-dome', 'Nexito: sombrero, accesorio, ropa y cúpula')
+    check(page.evaluate("Object.values(P.outfit()).filter(Boolean).length") == 4, 'Nexito vestido con 4 prendas')
     check(page.evaluate("Nexus.services.achievements.isUnlocked('sx_pet_dress')"), 'logro secreto «De punta en blanco»')
     check(not page.evaluate("P.equip('pet-hat', 'nx-corona')"), 'no se equipa lo que no se tiene')
 
@@ -145,10 +145,12 @@ with sync_playwright() as p:
     check('12' in page.inner_text('.nxt-streak'), 'página: racha actual visible')
     check(page.locator('.nav-item[data-route="pet"]').count() == 1, 'entrada «Nexito» en el menú')
     page.click('.nxt-act[data-panel=dress]'); page.wait_for_timeout(300)
-    check(page.locator('.nxt-slot').count() == 5, 'vestir: 5 huecos')
+    check(page.locator('.nxt-slot').count() == 4, 'vestir: 4 huecos')
+    check(page.locator('.nxt-wear-it.locked').count() == 0 and page.locator('.nxt-wear-it[data-id=nx-corona]').count() == 0, 'vestir: solo lo que tiene')
+    check(page.locator('.nxt-scene .nxp-snow').count() > 10, 'cúpula de Navidad con nieve')
     page.screenshot(path=str(OUT / 'pet_dress.png'), full_page=True)
-    page.click('.nxt-act[data-panel=evo]'); page.wait_for_timeout(300)
-    check(page.locator('.nxt-evo-it').count() == 6 and page.locator('.nxt-evo-it.cur').count() == 1, 'evolución: 6 fases')
+    check(page.locator('.nxt-act[data-panel=evo]').count() == 0 and page.locator('.nxt-act[data-panel=rules]').count() == 1, 'sin panel de evolución')
+    check(page.locator('.nxt-scene svg.nx-scene .nxp-face').count() == 1 and page.locator('.nxt-scene .nxp-egg').count() == 0, 'nuevo diseño en la cúpula')
     page.click('.nxt-act[data-panel=food]'); page.wait_for_timeout(300)
     check(page.locator('.nxt-food').count() == 7, 'despensa: 7 comidas')
     page.click('.nxt-gear'); page.wait_for_timeout(300)
@@ -175,11 +177,8 @@ with sync_playwright() as p:
     page.goto(URL + '#/settings'); page.wait_for_timeout(400)
     check(page.locator('#st-pet-show').count() == 1, 'ajustes: sección Nexito')
 
-    # Celebración de evolución
-    page.evaluate("Nexus.ui.nexito.evolveOverlay(Nexus.services.pet.STAGES[3])"); page.wait_for_timeout(700)
-    check(page.locator('.nxt-evolve').count() == 1, 'celebración de evolución')
-    page.screenshot(path=str(OUT / 'pet_evolve.png'))
-    page.keyboard.press('Escape'); page.goto(URL + '#/home'); page.wait_for_timeout(300)
+    check(page.evaluate("typeof Nexus.ui.nexito.evolveOverlay") == 'undefined', 'sin celebración de evolución')
+    page.goto(URL + '#/home'); page.wait_for_timeout(300)
 
     # Persistencia
     c = page.evaluate("st().count")

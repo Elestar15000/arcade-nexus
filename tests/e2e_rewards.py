@@ -27,8 +27,14 @@ with sync_playwright() as p:
     # Deterministas: el mismo día da las mismas misiones
     same = page.evaluate(f"JSON.stringify({R}._daily(Nexus.util.dayKey()).map(x => x.id)) === JSON.stringify({R}.missions().daily.map(x => x.id))")
     check(same, 'misiones deterministas por día')
-    check(page.evaluate(f"{R}.shopItems('2026-W47').map(i => i.id).join() === {R}.shopItems('2026-W47').map(i => i.id).join()"), 'tienda determinista por semana')
-    check(page.evaluate(f"{R}.shopItems().length") == 6, 'tienda con 6 artículos')
+    check(page.evaluate(f"{R}.shopItems().length === {R}.CATALOG.length"), 'la tienda muestra todo el catálogo')
+    check(page.evaluate(f"[...new Set({R}.CATALOG.map(c => c.kind))].sort().join()") == 'avatar,banner,frame,pet-dome,pet-glasses,pet-hat,pet-scarf,title', 'solo cosméticos de jugador y de Nexito')
+    check(page.evaluate(f"{R}.CATALOG.filter(c => c.kind === 'pet-dome').length") >= 10 and page.evaluate(f"!!{R}.item('nx-cupula-navidad')"), 'muchas cúpulas, incluida la de Navidad')
+    # Migración: los cosméticos retirados se cambian o se reembolsan
+    page.evaluate(f"(() => {{ const c = {R}.data().cosmetics; c.owned.push('th-oro', 'nx-base-arcade'); c.equipped.theme = 'th-oro'; c.equipped['pet-base'] = 'nx-base-arcade'; }})()")
+    b0 = page.evaluate(f"{R}.balance()"); page.evaluate(f"{R}.migrate()")
+    check(page.evaluate(f"{R}.owns('nx-cupula-arcade') && !{R}.owns('th-oro') && !{R}.owns('nx-base-arcade')") and page.evaluate(f"{R}.balance()") == b0 + 1200, 'migración: pedestal → cúpula y tema reembolsado')
+    check(page.evaluate(f"Object.keys({R}.data().cosmetics.equipped).every(k => {R}.KINDS[k])"), 'migración: sin tipos retirados equipados')
 
     # Primera partida: logro «first_game» + Rombos
     res = page.evaluate(PLAY)
@@ -51,7 +57,7 @@ with sync_playwright() as p:
     check(bool(r1) and not r2, 'cambiar misión: una vez al día')
 
     # Tienda: sin saldo no se compra; con saldo sí y una sola vez
-    item = page.evaluate(f"{R}.shopItems()[0]")
+    item = page.evaluate(f"{R}.shopItems().find(i => i.price > 0 && !{R}.owns(i.id))")
     page.evaluate(f"{R}.data().rombos = 0")
     check(not page.evaluate(f"{R}.buy('{item['id']}').ok"), 'sin saldo no se compra')
     page.evaluate(f"{R}.data().rombos = 5000")
@@ -138,7 +144,13 @@ with sync_playwright() as p:
     check(page.locator('.rw-tier').count() == 30, 'pase de batalla: 30 niveles')
     check(page.locator('.rw-tier.big, .rw-tier.premium').count() == 0, 'pase sin niveles premium')
     page.click('.rw-tab[data-tab=tienda]'); page.wait_for_timeout(200)
-    check(page.locator('.rw-shop .rw-item').count() == 6, 'tienda: 6 artículos')
+    check(page.locator('.rw-shop .rw-item').count() == page.evaluate(f"{R}.CATALOG.length"), 'tienda: todos los cosméticos')
+    page.click('[data-family=pet]'); page.wait_for_timeout(200)
+    check(page.locator('.rw-shop .rw-item').count() == page.evaluate(f"{R}.CATALOG.filter(c => /^pet-/.test(c.kind)).length"), 'tienda: filtro Nexito')
+    page.click('.rw-tab[data-tab=coleccion]'); page.wait_for_timeout(200)
+    page.click('[data-family=all]'); page.wait_for_timeout(200)
+    owned = page.evaluate(f"{R}.data().cosmetics.owned.filter(id => {R}.item(id) && {R}.KINDS[{R}.item(id).kind]).length")
+    check(page.locator('.rw-shop .rw-item[data-item]').count() == owned and page.locator('.rw-item.locked').count() == 0, f'colección: solo lo que se tiene ({owned})')
     page.goto(URL + '#/profile'); page.wait_for_timeout(400)
     page.click('[data-cos-tab=coleccion]'); page.wait_for_selector('.cos-page')
     check(page.locator('.rw-tab.active[data-tab=coleccion]').count() == 1, 'Perfil → Personalizar abre la Colección')

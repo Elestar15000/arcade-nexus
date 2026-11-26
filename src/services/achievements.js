@@ -328,12 +328,12 @@
             icon: '🥚', rarity: 'common', test: (c) => (R(c).zeroes || 0) >= 5 },
         { id: 'sx_pet_night', name: 'Merienda de medianoche', desc: 'Da de comer a Nexito entre las 0:00 y las 5:00.', hint: 'Nexito también tiene hambre de noche', hidden: true,
             icon: '🌙', rarity: 'rare', test: (c) => (PET(c).stats || {}).nightFeeds > 0 },
-        { id: 'sx_pet_dress', name: 'De punta en blanco', desc: 'Viste a Nexito con sombrero, gafas, cuello, cúpula y pedestal a la vez.', hint: 'Nexito, de gala', hidden: true,
-            icon: '🎩', rarity: 'epic', test: (c) => { const e = (R(c).cosmetics || {}).equipped || {}; return ['pet-hat', 'pet-glasses', 'pet-scarf', 'pet-dome', 'pet-base'].every(k => !!e[k]); } },
+        { id: 'sx_pet_dress', name: 'De punta en blanco', desc: 'Viste a Nexito con sombrero, accesorio, ropa y cúpula a la vez.', hint: 'Nexito, de gala', hidden: true,
+            icon: '🎩', rarity: 'epic', test: (c) => { const e = (R(c).cosmetics || {}).equipped || {}; return ['pet-hat', 'pet-glasses', 'pet-scarf', 'pet-dome'].every(k => !!e[k]); } },
         { id: 'sx_pet_wake', name: 'Despertador', desc: 'Despierta a Nexito 10 veces.', hint: 'Zzz…', hidden: true,
             icon: '⏰', rarity: 'rare', test: (c) => (PET(c).stats || {}).wakes >= 10 },
         { id: 'sx_secrets', name: 'Buscador de secretos', desc: 'Descubre 5 logros secretos.', hint: 'Hay más de lo que se ve', hidden: true, meta: true,
-            icon: '🔮', rarity: 'legendary', reward: 'pt-estrellas', title: 't-buscador',
+            icon: '🔮', rarity: 'legendary', reward: 'nx-aureola', title: 't-buscador',
             test: () => defs.filter(d => d.hidden && d.id !== 'sx_secrets' && Achievements.isUnlocked(d.id)).length >= 5 }
     ]);
 
@@ -348,7 +348,7 @@
         { id: 'ev_xmas_10', name: 'Espíritu navideño', desc: 'Juega 10 partidas durante la Navidad.', icon: '🎁', rarity: 'rare',
             window: { from: '12-20', to: '01-06', event: 'navidad' }, reward: 'av:rw-xmas', ...counter(evPlays('navidad'), 10) },
         { id: 'ev_xmas_cards', name: 'Partida de Nochebuena', desc: 'Gana 3 partidas de Cartas durante la Navidad.', icon: '🃏', rarity: 'epic',
-            window: { from: '12-20', to: '01-06', event: 'navidad' }, reward: 'sk-cards-xmas', ...counter(evWins('navidad', 'cartas'), 3) }
+            window: { from: '12-20', to: '01-06', event: 'navidad' }, reward: 'nx-reno', ...counter(evWins('navidad', 'cartas'), 3) }
     ]);
     Achievements.isNight = isNight;
     Achievements.inWindow = inWindow;

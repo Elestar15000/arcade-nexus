@@ -3,8 +3,9 @@
    Una sola racha diaria: un día cuenta cuando Nexito ha jugado
    contigo y ha comido (1 partida + 1 comida). Escudos (1 gratis
    cada lunes, máx. 2), rescate (3 misiones al día siguiente, 1
-   vez cada 30 días), modo vacaciones (14 días al año), hitos y
-   6 fases de evolución por días cuidados en total.
+   vez cada 30 días), modo vacaciones (14 días al año) e hitos.
+   Nexito no crece ni evoluciona: siempre es igual (se personaliza
+   con la ropa, la cúpula y la base).
    Necesidades (Comida, Diversión, Descanso) calculadas con el
    tiempo real desde la última visita: no hay temporizadores.
    Nunca muere, enferma ni se va; lo peor es «un poco triste».
@@ -31,21 +32,15 @@
     const VACATION_DAYS = 14;                             // por año
     const NAME_RE = /^[\p{L}\p{N} _-]{2,16}$/u;
 
-    const STAGES = [
-        { id: 'egg', name: 'Huevo', at: 0, desc: 'Se mueve un poco. ¡Algo va a salir!' },
-        { id: 'baby', name: 'Cría', at: 3, desc: 'Pequeño, curioso y con unos ojos enormes.' },
-        { id: 'nexito', name: 'Nexito', at: 7, desc: 'Ya tiene brazos y pies para jugar contigo.' },
-        { id: 'pro', name: 'Nexito Pro', at: 30, desc: 'Visera de jugador y brillo propio.' },
-        { id: 'gold', name: 'Nexito Dorado', at: 100, desc: 'Acabado dorado con destellos.' },
-        { id: 'legend', name: 'Leyenda', at: 365, desc: 'Aura de colores y pedestal propio.' }
-    ];
+    // Sin crecimiento: una sola forma (se mantiene para compatibilidad con datos y rankings antiguos)
+    const STAGES = [{ id: 'nexito', name: 'Nexito', at: 0, desc: 'Tu compañero de juego.' }];
     const MILESTONES = [
         { days: 3, rombos: 60 },
         { days: 7, rombos: 200, items: ['nx-bufanda'] },
         { days: 14, shield: 1 },
         { days: 30, rombos: 1000, items: ['nx-cupula-estrellas'] },
         { days: 100, items: ['t-inseparables', 'fr-nexito'] },
-        { days: 365, items: ['av:rw-nexito', 'nx-base-leyenda'] }
+        { days: 365, items: ['av:rw-nexito', 'nx-cupula-leyenda'] }
     ];
     /** Comidas: las cuatro primeras se ganan con misiones; los caprichos se compran con Rombos. */
     const FOOD = {
@@ -58,7 +53,7 @@
         pizza: { name: 'Pizza', icon: '🍕', food: 60, fun: 10, price: 80, desc: 'Capricho de la tienda.' }
     };
     const TIER_FOOD = { easy: 'galleta', medium: 'bocadillo', hard: 'tarta', weekly: 'banquete' };
-    const SLOTS = { 'pet-hat': 'Sombrero', 'pet-glasses': 'Gafas', 'pet-scarf': 'Cuello', 'pet-dome': 'Cúpula', 'pet-base': 'Pedestal' };
+    const SLOTS = { 'pet-hat': 'Sombrero', 'pet-glasses': 'Accesorio', 'pet-scarf': 'Ropa', 'pet-dome': 'Cúpula' };
     const MOODS = {
         happy: { label: 'Feliz', tone: 'good' },
         content: { label: 'Contento', tone: 'good' },
@@ -193,20 +188,14 @@
             if (!p.today.played || !p.today.fed || p.today.cared) return null;
             p.today.cared = true;
             p.caredDays++;
-            const before = this.stage().id;
-            if (st.danger) { emit('pet:cared', { pending: true }); this._evolve(before); return { pending: true }; }   // cuenta cuando se rescate
+            if (st.danger) { emit('pet:cared', { pending: true }); return { pending: true }; }   // cuenta cuando se rescate
             st.count = st.last === addDays(today, -1) ? st.count + 1 : 1;
             st.last = today;
             st.best = Math.max(st.best, st.count);
             const prizes = this._milestone(st.count);
             emit('pet:cared', { count: st.count, prizes });
-            this._evolve(before);
             this._checkAch(now);
             return { count: st.count, prizes };
-        },
-        _evolve(before) {
-            const now = this.stage();
-            if (now.id !== before) { this.data().stageSeen = ''; emit('pet:evolve', { stage: now }); }
         },
         _milestone(count) {
             const m = MILESTONES.find(x => x.days === count), p = this.data();
@@ -278,13 +267,7 @@
         },
 
         // ── Estado ──────────────────────────────────────────
-        stage(days) {
-            const n = days === undefined ? (this.data() || { caredDays: 0 }).caredDays : days;
-            let s = STAGES[0];
-            for (const x of STAGES) if (n >= x.at) s = x;
-            return s;
-        },
-        nextStage() { const s = this.stage(); return STAGES[STAGES.indexOf(s) + 1] || null; },
+        stage() { return STAGES[0]; },
         nextMilestone() { const st = (this.data() || {}).streak || { count: 0 }; return MILESTONES.find(m => m.days > st.count) || null; },
         mood(now = this.now()) {
             const p = this.data(); if (!p) return Object.assign({ id: 'content' }, MOODS.content);

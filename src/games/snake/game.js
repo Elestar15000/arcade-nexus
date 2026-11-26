@@ -1000,7 +1000,7 @@
                     ctx.strokeStyle = `rgba(96,165,250,${0.25 + 0.15 * Math.sin(this.t * 6)})`; ctx.lineWidth = 2;
                     ctx.beginPath(); ctx.arc((h.x + 0.5) * CELL, (h.y + 0.5) * CELL, CELL * 5.5, 0, Math.PI * 2); ctx.stroke();
                 }
-                this.drawSnake(this.snake, this.prev, this.alpha, (Nexus.services.rewards && Nexus.services.rewards.skin('snake')) || PLAYER_COLORS, this.dir, false, ghost ? 0.5 + 0.15 * Math.sin(this.t * 10) : 1);
+                this.drawSnake(this.snake, this.prev, this.alpha, PLAYER_COLORS, this.dir, false, ghost ? 0.5 + 0.15 * Math.sin(this.t * 10) : 1);
             }
 
             // Efectos de estado
