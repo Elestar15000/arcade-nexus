@@ -390,6 +390,7 @@
         yarn: '<circle cx="12" cy="12" r="9"/><path d="M5 6.5c4 0 9 3 11 9M3.5 11c3.5 0 7.5 2.5 8.5 9.5M9 3.3c4 1.2 8.5 5.3 9.5 12.5M19 7c-3.5.5-7 3.5-8 9"/>',
         violin: '<path d="M14 4 20 2l2 2-2 6M14 10l-4.5 4.5"/><path d="M9.5 9.5c-2-1-4.5 0-5.5 2s-.5 3.5.5 4.5c-1 1-.5 3 .5 4s3 1.5 4 .5c1 1 2.5 1.5 4.5.5s3-3.5 2-5.5"/><path d="M8 14l2 2"/>',
         football: '<circle cx="12" cy="12" r="9"/><path d="m12 7 3.8 2.8-1.4 4.5H9.6L8.2 9.8z" ' + F + '/><path d="M12 7V3M15.8 9.8l3.8-1.3M14.4 14.3l2.4 3.4M9.6 14.3l-2.4 3.4M8.2 9.8 4.4 8.5"/>',
+        eightBall: '<circle cx="12" cy="12" r="9.5"/><circle cx="12" cy="11.6" r="4.7"/><circle cx="12" cy="10" r="1.2" stroke-width="1.4"/><circle cx="12" cy="13.05" r="1.5" stroke-width="1.4"/>',
         pingPong: '<circle cx="9.5" cy="9.5" r="6.5"/><path d="m14 14 6.5 6.5a1.4 1.4 0 0 1-2 2L12 16"/><circle cx="19" cy="5" r="2.2" ' + F + '/>',
         rosco: '<circle cx="12" cy="4" r="1.6"/><circle cx="17.7" cy="6.3" r="1.6"/><circle cx="20" cy="12" r="1.6"/><circle cx="17.7" cy="17.7" r="1.6"/><circle cx="12" cy="20" r="1.6" ' + F + '/><circle cx="6.3" cy="17.7" r="1.6" ' + F + '/><circle cx="4" cy="12" r="1.6"/><circle cx="6.3" cy="6.3" r="1.6" ' + F + '/>',
         blocks: '<rect x="3" y="13" width="6" height="6" rx="1"/><rect x="9" y="13" width="6" height="6" rx="1"/><rect x="9" y="7" width="6" height="6" rx="1"/><rect x="15" y="13" width="6" height="6" rx="1" ' + S + '/>',
@@ -467,7 +468,7 @@
         '🎭': 'masks', '🔮': 'crystalBall',
         // Transporte, ropa, deporte
         '🚢': 'ship', '⚓': 'anchor', '🛟': 'lifebuoy', '🚆': 'train', '🚂': 'locomotive', '🚃': 'tram', '🚜': 'tractor',
-        '👕': 'shirt', '🧥': 'coat', '💍': 'ring', '🧶': 'yarn', '🎻': 'violin', '⚽': 'football', '🏓': 'pingPong', '🎡': 'rosco',
+        '👕': 'shirt', '🧥': 'coat', '💍': 'ring', '🧶': 'yarn', '🎻': 'violin', '⚽': 'football', '🏓': 'pingPong', '🎱': 'eightBall', '🎡': 'rosco',
         '🧱': 'bricks', '🫀': 'user',
         // Colores
         '🟩': ['sq', '#22c55e'], '🟨': ['sq', '#eab308'], '🟧': ['sq', '#f97316'], '🟦': ['sq', '#3b82f6'], '🟥': ['sq', '#ef4444'],
@@ -485,7 +486,7 @@
     const LOGOS = {
         minesweeper: 'bomb', wordle: 'wordle', pasapalabra: 'rosco', tetris: 'blocks', pacman: 'pacman', snake: 'snake',
         escape: 'oldKey', sudoku: 'sudoku', crossword: 'crossword', wordsearch: 'wordsearch', connections: 'connections',
-        g2048: 'grid2048', solitaire: 'cardAce', pong: 'pingPong', chess: 'chessKnight', battleship: 'ship',
+        g2048: 'grid2048', solitaire: 'cardAce', pong: 'pingPong', chess: 'chessKnight', battleship: 'ship', billiards: 'eightBall',
         brisca: 'copa', guinote: 'cards', chinchon: 'cardsFan', poker: 'spade', mentiroso: 'faceLiar'
     };
     // Cada icono recibe un carácter de uso privado (U+E100…) que viaja por el código como si fuera un emoji

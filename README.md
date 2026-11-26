@@ -30,7 +30,7 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   y Ajustes, casilla obligatoria al crear la cuenta y aviso único para aceptar la versión vigente (se guarda en la cuenta).
   El responsable y el correo de contacto se configuran en `config.js` (`LEGAL`).
 - **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón**, los puzles **Sudoku**, **Crucigrama**,
-  **Sopa de letras**, **Conexiones** y **2048**, el **Solitario**, y los multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez**, **Hundir la flota** y los de cartas **Brisca**,
+  **Sopa de letras**, **Conexiones** y **2048**, el **Solitario**, y los multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez**, **Hundir la flota**, **Billar** y los de cartas **Brisca**,
   **Guiñote**, **Chinchón**, **Póker** y **Mentiroso**.
 
 ## Iconos
@@ -332,6 +332,40 @@ privada, unirse con código, enlace (`#/game/<juego>/<CÓDIGO>`) o buscador, sal
 va. Lo usan Ajedrez y Hundir la flota sobre la misma red de `src/core/net.js` que Pong.
 - **Tiempo por disparo online**: 35 s por disparo (se reinicia con cada disparo); al agotarse se dispara al azar a una casilla sin tocar.
 
+## Billar
+
+Billar americano a la **bola 8** (`src/games/billiards/logic.js` + `game.js`), en la colección «Tablero y estrategia».
+
+- **Modos**: contra la máquina (4 niveles), **online 1 contra 1** (vestíbulo compartido, 60 s por tiro) y **práctica** (mete las 15
+  bolas en el menor número de tiros). Las partidas contra la CPU y de práctica se guardan y se recuperan al volver.
+- **Física propia** con paso fijo de 1/480 s (determinista): rozamiento de rodadura, choques elásticos entre bolas, bandas como
+  segmentos con los labios de las troneras y **efecto** en la blanca: alto (sigue), bajo (retrocede) y lateral (cambia la salida
+  de la banda). Mesa de 1000 × 500 (proporción 2:1), bolas de radio 11 y 6 troneras.
+- **Reglas** (simplificadas de la WPA, sin cantar tronera): saque desde detrás de la línea con bola en mano; mesa abierta tras el
+  saque; la primera bola metida sin falta decide lisas o rayadas; sigues mientras metas de las tuyas; con tu grupo limpio juega la 8.
+  **Faltas** (bola en mano para el rival en cualquier sitio): blanca dentro, no tocar nada, tocar primero una que no es tuya o
+  que ninguna bola toque banda tras el golpe. Pierdes si metes la 8 antes de tiempo o con falta; si entra en el saque, vuelve a su sitio.
+- **Controles**: ratón para apuntar, arrastrar hacia atrás y soltar para tirar (o barra de fuerza y botón «Tirar»), botones ◀ ▶
+  para afinar, bola de efecto en el panel y teclado (← → apuntar, Mayús fino, ↑ ↓ fuerza, espacio tirar). En móvil se apunta
+  arrastrando el dedo, la mesa se gira en vertical y la fuerza y «Tirar» flotan sobre la mesa. Guía con bola fantasma y salida de
+  la bola objetivo; en ⚙️ se elige guía larga (también la salida de la blanca y el rebote) o corta.
+- **CPU**: busca tiros directos (bola → tronera) con camino libre, calcula la fuerza y, desde Normal, **simula** los mejores
+  candidatos con la propia física y descarta los que fallan o hacen falta. Con bola en mano coloca la blanca detrás de la bola
+  fantasma. Si no hay tiro, juega una seguridad que no sea falta. Medido con `node tests/billiards_test.mjs` (CPU contra CPU):
+
+  | Nivel | Juego | Bolas por tiro | Multiplicador |
+  |---|---|---|---|
+  | 🌱 Fácil | apunta a ojo, error grande | ~0,25 | ×1 |
+  | 🎯 Normal | simula 8 tiros, error medio | ~0,45 | ×1,6 |
+  | 🔥 Difícil | simula 18 tiros con fuerza y efecto | ~0,6 | ×2,5 |
+  | 💀 Maestro | simula 28 y juega la posición para la siguiente | ~0,75 | ×4 |
+
+- **Online**: el anfitrión elige la semilla del rack (el mismo en los dos navegadores) y quién rompe (se alterna en la revancha).
+  Quien tira manda el golpe y los dos lo ven rodar a la vez; al pararse, quien tiró manda posiciones y estado, que el otro adopta.
+  Se ve cómo apunta y coloca la blanca el rival. Si se agota el tiempo: bola en mano para el rival.
+- **Logros** (14): ganar en cada nivel, saque con 2 bolas, 3 bolas de un tiro, meter por banda, racha de 5, **tacada limpia**
+  (7 bolas y la 8 en un turno), ganar sin faltas, mesa limpia en ≤ 30 tiros de práctica y los de online.
+
 ## Panel de administración
 
 Una o varias cuentas pueden ser **administradoras**. Desde el panel de control (`🛡️ Administración` en la barra lateral, o
@@ -553,6 +587,8 @@ python3 tests/e2e_audit.py        # correcciones de la auditoría de juegos (fas
                                   # (las tres anteriores arrancan brokers MQTT locales: tests/mqtt_test_broker.mjs; sin Internet)
 node tests/chess_engine_test.mjs  # perft, reglas especiales, SAN, FEN y búsqueda del motor de ajedrez
 node tests/battleship_ai_test.mjs # flotas válidas y fuerza de los 4 niveles de IA
+node tests/billiards_test.mjs     # billar: rack, física determinista, faltas, la 8 y CPU contra CPU
+python3 tests/e2e_billiards.py    # billar: CPU, bola en mano, ratón, guardado, victoria, práctica, online y móvil
 python3 tests/e2e_puzzles.py      # Sudoku, Crucigrama, Sopa, Conexiones y 2048: partidas con la interfaz, diarios, continuar, móvil
 node tests/puzzles_logic_test.mjs # generadores: sudoku único, crucigramas válidos, sopas, conexiones sin ambigüedad, lógica de 2048
 node tests/cardgames_rules_test.mjs # reglas de Brisca, Guiñote y Chinchón con cientos de partidas entre bots

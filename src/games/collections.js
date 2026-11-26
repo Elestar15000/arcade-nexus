@@ -14,8 +14,8 @@
             games: ['guinote', 'brisca', 'chinchon', 'poker', 'mentiroso', 'solitaire'] },
         { id: 'mentales', name: 'Retos mentales', emoji: '🧠', color: '#A879FF', desc: 'Palabras, lógica y acertijos. Muchos con reto diario.',
             games: ['wordle', 'pasapalabra', 'crossword', 'wordsearch', 'connections', 'sudoku'] },
-        { id: 'estrategia', name: 'Tablero y estrategia', emoji: '♟️', color: '#4B8DFF', desc: 'Piensa cada movimiento: contra la IA o contra otra persona.',
-            games: ['chess', 'battleship'] }
+        { id: 'estrategia', name: 'Tablero y estrategia', emoji: '♟️', color: '#4B8DFF', desc: 'Piensa cada movimiento (o cada tiro): contra la IA o contra otra persona.',
+            games: ['chess', 'battleship', 'billiards'] }
     ];
     const OTHER = { id: 'otros', name: 'Otros', emoji: '✨', color: '#94a3b8', desc: 'Más juegos de la colección.', games: [] };
 
@@ -29,7 +29,7 @@
         chess: 'violet', solitaire: 'blue', snake: 'green', minesweeper: 'orange', g2048: 'royal', tetris: 'purple',
         poker: 'teal', wordle: 'green', pacman: 'yellow', battleship: 'blue', sudoku: 'royal', pong: 'cyan',
         crossword: 'violet', wordsearch: 'teal', connections: 'purple', pasapalabra: 'orange', escape: 'yellow',
-        brisca: 'yellow', guinote: 'red', chinchon: 'green', mentiroso: 'pink'
+        brisca: 'yellow', guinote: 'red', chinchon: 'green', mentiroso: 'pink', billiards: 'teal'
     };
     const ORDER = Object.keys(PALETTE);
     /** [claro, oscuro] de la ficha de un juego (los que no están en la tabla reciben uno fijo según su id). */

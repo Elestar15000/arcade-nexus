@@ -1,0 +1,87 @@
+/* ============================================================
+   Billar (bola 8)
+   ============================================================ */
+.billiards .bi-stage { border-radius: 30px; background: #120a05; border-color: rgba(52, 211, 153, .4); box-shadow: 0 18px 50px rgba(0, 0, 0, .5), 0 0 50px rgba(52, 211, 153, .12); }
+.billiards .bi-stage canvas { touch-action: none; cursor: crosshair; outline: none; }
+.bi-side { flex-basis: 300px; }
+
+/* Jugadores */
+.bi-players { gap: 8px; }
+.bi-pl { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-dark); transition: border-color .2s, box-shadow .2s; }
+.bi-pl.turn { border-color: var(--ax-accent); box-shadow: 0 0 16px rgba(52, 211, 153, .22); }
+.bi-pl-av { width: 40px; height: 40px; flex: none; display: grid; place-items: center; }
+.bi-pl-av .avatar, .bi-pl-av img { width: 40px; height: 40px; }
+.bi-pl-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bi-pl-info b { font-size: .92em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bi-pl-info b small { color: var(--text-muted); font-weight: 600; }
+.bi-pl-info > small { color: var(--text-muted); font-size: .76em; }
+.bi-chips { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 3px; }
+.bi-chip { --c: #fff; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; font: 800 9px/1 var(--font-body, system-ui); font-style: normal; color: #111;
+    background: radial-gradient(circle at 50% 50%, #fbfaf5 0 34%, var(--c) 36%); box-shadow: inset -2px -2px 3px rgba(0, 0, 0, .35); }
+.bi-chip.st { background: radial-gradient(circle at 50% 50%, #fbfaf5 0 34%, transparent 36%), linear-gradient(#f4f1e8 0 22%, var(--c) 22% 78%, #f4f1e8 78%); }
+.bi-chip.gone { opacity: .22; filter: grayscale(.6); }
+.bi-thinking { display: inline-flex; gap: 3px; }
+.bi-thinking i { width: 6px; height: 6px; border-radius: 50%; background: var(--ax-accent); animation: bi-dot 1s infinite; }
+.bi-thinking i:nth-child(2) { animation-delay: .15s; } .bi-thinking i:nth-child(3) { animation-delay: .3s; }
+@keyframes bi-dot { 0%, 100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+
+/* Estado */
+.bi-status { font-weight: 800; text-align: center; display: flex; flex-direction: column; gap: 4px; }
+.bi-status small { font-weight: 600; color: var(--text-muted); font-size: .78em; }
+.bi-clock { align-self: center; padding: 3px 12px; border-radius: 999px; background: rgba(255, 255, 255, .06); font: 700 .92rem/1.3 var(--font-mono, ui-monospace, monospace); font-variant-numeric: tabular-nums; }
+.bi-clock.low { background: #dc2626; color: #fff; }
+.bi-clock[hidden] { display: none; }
+
+/* Controles del tiro */
+.bi-controls.off { opacity: .45; pointer-events: none; }
+.bi-power { display: flex; flex-direction: column; gap: 6px; font-size: .86em; color: var(--text-dim); }
+.bi-power span { display: flex; justify-content: space-between; }
+.bi-power b { color: var(--text); font-variant-numeric: tabular-nums; }
+.bi-power input { width: 100%; accent-color: var(--ax-accent); height: 22px; }
+.bi-ctl-row { display: flex; gap: 12px; align-items: center; }
+.bi-spin { position: relative; width: 78px; height: 78px; flex: none; border-radius: 50%; cursor: crosshair; touch-action: none;
+    background: radial-gradient(circle at 38% 34%, #ffffff, #e9e4d6 45%, #b9b2a0 100%); box-shadow: inset -4px -6px 10px rgba(0, 0, 0, .25), 0 0 0 2px rgba(255, 255, 255, .12); }
+.bi-spin::before, .bi-spin::after { content: ''; position: absolute; background: rgba(0, 0, 0, .12); }
+.bi-spin::before { left: 50%; top: 12%; bottom: 12%; width: 1px; } .bi-spin::after { top: 50%; left: 12%; right: 12%; height: 1px; }
+.bi-spin:focus-visible { outline: 2px solid var(--ax-accent); outline-offset: 3px; }
+.bi-spin i { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: #2563eb; box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(0, 0, 0, .4); left: 50%; top: 50%; pointer-events: none; }
+.bi-ctl-btns { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.bi-fine { display: flex; gap: 6px; } .bi-fine .btn { flex: 1; justify-content: center; }
+.bi-shoot { justify-content: center; font-size: 1.02em; }
+.bi-tip { margin: 0; line-height: 1.4; }
+.bi-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; }
+.bi-actions .btn { justify-content: center; padding: 8px 6px; font-size: .84em; }
+.bi-actions .btn[hidden] { display: none; }
+.bi-actions .btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Menús */
+.bi-overlay { z-index: 18; }
+.bi-logo { font-family: var(--font-title); font-weight: 800; font-size: clamp(2em, 6vw, 3.2em); letter-spacing: .06em; line-height: 1; display: flex; align-items: center; justify-content: center; gap: 14px;
+    background: linear-gradient(90deg, #ecfdf5, #34d399); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.bi-logo-ball { width: 1.05em; height: 1.05em; border-radius: 50%; display: grid; place-items: center; flex: none;
+    background: radial-gradient(circle at 50% 50%, #fbfaf5 0 32%, #111 34%); box-shadow: inset -6px -8px 14px rgba(255, 255, 255, .12), 0 6px 20px rgba(0, 0, 0, .5); }
+.bi-choices { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.bi-choice { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 12px; border-radius: 16px; cursor: pointer; color: var(--text); font: inherit;
+    background: linear-gradient(160deg, rgba(52, 211, 153, .16), var(--bg-surface)); border: 2px solid rgba(52, 211, 153, .45); transition: transform .15s, box-shadow .15s; }
+.bi-choice:hover, .bi-choice:focus-visible { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(52, 211, 153, .22); }
+.bi-choice span { font-size: 2.1em; line-height: 1.1; } .bi-choice strong { font-family: var(--font-title); font-size: 1em; } .bi-choice small { color: var(--text-muted); font-size: .76em; }
+.bi-rules { text-align: left; font-size: .86em; color: var(--text-dim); background: var(--bg-dark); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; }
+.bi-rules summary { cursor: pointer; font-weight: 700; color: var(--text); }
+.bi-rules ul { margin: 8px 0 2px; padding-left: 18px; display: grid; gap: 5px; }
+
+.bi-logo-ball b { font-size: .42em; -webkit-text-fill-color: #111; color: #111; line-height: 1; }
+@media (max-width: 900px) {
+    .bi-choices { grid-template-columns: 1fr; }
+    .billiards .ax-stage-wrap { height: min(70vh, 640px); }
+}
+@media (prefers-reduced-motion: reduce) { .bi-thinking i { animation: none; } }
+
+/* Controles flotantes en pantallas táctiles: fuerza y tirar sin bajar al panel */
+.bi-touch { display: none; }
+@media (pointer: coarse) {
+    .bi-touch.on { display: flex; position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 5; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px;
+        background: color-mix(in srgb, var(--bg-card) 78%, transparent); backdrop-filter: blur(4px); border: 1px solid var(--border); }
+    .bi-touch label { flex: 1; display: flex; align-items: center; gap: 8px; font-size: .8em; color: var(--text-dim); }
+    .bi-touch input { flex: 1; accent-color: var(--ax-accent); height: 26px; }
+    .bi-shoot-m { flex: none; padding: 10px 14px; }
+}

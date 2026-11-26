@@ -40,7 +40,8 @@
             Object.assign(sw('chess.betaDanger', '🧪 BETA · Casillas peligrosas', 'Punto rojo donde el rival podría capturar la pieza'), { beta: 'chess-danger' }),
             Object.assign(sw('chess.betaHint', '🧪 BETA · Jugada recomendada', 'La CPU te sugiere una jugada mirando 3 respuestas del rival'), { beta: 'chess-hint' }),
             PUBLIC_ROOMS],
-        battleship: [PUBLIC_ROOMS]
+        battleship: [PUBLIC_ROOMS],
+        billiards: [sw('billiards.guide', 'Guía larga', 'Muestra hacia dónde saldrán la bola objetivo y la blanca, y el rebote en la banda'), PUBLIC_ROOMS]
     };
 
     function open(gameId) {

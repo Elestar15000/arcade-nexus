@@ -103,6 +103,10 @@
         bsSplash:       () => { noise(0.05, 0.35); tone(320, 0.2, 'sine', 0.04, 0.05); },
         bsHit:          () => { noise(0.22, 0.3); tone(90, 0.3, 'sawtooth', 0.06); },
         bsSunk:         () => { noise(0.25, 0.6); [196, 147, 110].forEach((f, i) => tone(f, 0.3, 'sawtooth', 0.05, i * 0.14)); },
+        biCue:          (p = 0.5) => { tone(180 + p * 120, 0.05, 'triangle', 0.05 + p * 0.05); noise(0.03 + p * 0.06, 0.04); },
+        biClack:        (v = 0.5) => { tone(1500 + v * 900, 0.025, 'square', 0.015 + v * 0.05); tone(900, 0.03, 'triangle', 0.02 + v * 0.04); },
+        biRail:         () => tone(120, 0.06, 'sine', 0.06),
+        biPocket:       () => { tone(140, 0.12, 'sine', 0.08); tone(95, 0.18, 'triangle', 0.06, 0.06); },
         levelup:        () => [523, 659, 784, 988, 1175].forEach((f, i) => tone(f, 0.16, 'triangle', 0.09, i * 0.09))
     };
 
