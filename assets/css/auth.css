@@ -114,3 +114,7 @@
     .auth-facts { display: none; }
     .auth-form { padding: 20px 12px 12px; }
 }
+.auth-accept { display: flex; gap: 10px; align-items: flex-start; font-size: .84em; color: var(--text-dim); line-height: 1.45; margin-top: 4px; cursor: pointer; }
+.auth-accept input { margin-top: 3px; width: 17px; height: 17px; accent-color: var(--primary); flex: 0 0 auto; }
+.auth-accept a, .auth-legal a { color: var(--secondary); }
+.auth-legal { margin: 8px 0 0; font-size: .8em; color: var(--text-muted); text-align: center; }

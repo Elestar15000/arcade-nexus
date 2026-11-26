@@ -17,12 +17,8 @@
 
     /** Ajustes por defecto (por usuario). Claves planas con punto. */
     const DEFAULT_SETTINGS = {
-        'theme': 'neon',               // neon | ocean | sunset | forest
-        'reduceMotion': false,
-        'particles': true,
         'sound': true,
         'volume': 0.6,
-        'autoCollapseSidebar': true,   // plegar la barra lateral al entrar en un juego
         'minesweeper.longPressFlag': true,
         'wordle.hardMode': false,
         'wordle.colorblind': false,

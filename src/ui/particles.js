@@ -37,8 +37,7 @@
         }
 
         shouldRun() {
-            const s = Nexus.services.settings;
-            return !document.hidden && !Nexus.ui.fx.reduced() && (!s || s.get('particles'));
+            return !document.hidden && !Nexus.ui.fx.reduced();
         }
 
         sync() {

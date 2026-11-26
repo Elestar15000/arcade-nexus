@@ -247,22 +247,6 @@ body > .rw-confetti { position: fixed; z-index: 1400; }
 .rk-cmp-head { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
 .rk-cmp-head > div { display: flex; flex-direction: column; gap: 4px; }
 
-/* ── Temas exclusivos ─────────────────────────────────────── */
-[data-theme="oro"] {
-    --bg-darkest: #0d0b06; --bg-dark: #14110a; --bg-surface: #1c170d; --bg-card: #262013; --bg-hover: #33291a;
-    --primary: #ffcc33; --primary-rgb: 255, 204, 51; --primary-light: #ffe08a; --primary-dark: #c79200; --on-primary: #1c1406;
-    --secondary: #fff1c2; --secondary-rgb: 255, 241, 194; --secondary-light: #fff8de;
-    --accent: #ff9f43; --accent-rgb: 255, 159, 67;
-    --text-dim: #d8c9a1; --text-muted: #9c8c66; --edge: #4a3b17; --panel-border: rgba(255, 204, 51, .18);
-}
-[data-theme="nocturno"] {
-    --bg-darkest: #07020f; --bg-dark: #0c0418; --bg-surface: #140826; --bg-card: #1d0c36; --bg-hover: #2a1149;
-    --primary: #ff2bd6; --primary-rgb: 255, 43, 214; --primary-light: #ff86eb; --primary-dark: #c3009f; --on-primary: #1a0216;
-    --secondary: #23f0ff; --secondary-rgb: 35, 240, 255; --secondary-light: #8af7ff;
-    --accent: #ffe600; --accent-rgb: 255, 230, 0;
-    --text-dim: #c7a9e8; --text-muted: #8c6fb1; --edge: #3b1766; --panel-border: rgba(255, 43, 214, .2);
-}
-
 @media (max-width: 900px) { .rw-missions { grid-template-columns: minmax(0, 1fr); } .rw-season-head { grid-template-columns: minmax(0, 1fr); } }
 /* Tienda y colección por familias (Jugador / Nexito) */
 .rw-shop-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }

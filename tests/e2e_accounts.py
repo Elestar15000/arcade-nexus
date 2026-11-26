@@ -26,7 +26,12 @@ with sync_playwright() as p:
     check('6' in page.locator('#au-error').inner_text(), 'contraseña corta rechazada')
     page.fill('#au-pass', 'secreta1'); page.fill('#au-pass2', 'otra-cosa'); page.click('#au-submit')
     check(page.locator('#au-error').inner_text().strip() != '', 'contraseñas distintas rechazadas')
-    page.fill('#au-pass2', 'secreta1'); page.click('#au-submit'); page.wait_for_selector('#shell:not([hidden])')
+    page.fill('#au-pass2', 'secreta1'); page.click('#au-submit'); page.wait_for_timeout(200)
+    check('Términos' in page.locator('#au-error').inner_text() and page.locator('#shell').is_hidden(), 'sin aceptar los términos no se crea la cuenta')
+    page.click('.auth-accept a[data-legal=privacy]'); page.wait_for_selector('.legal-modal')
+    check('Responsable del tratamiento' in page.inner_text('.legal-modal') and 'Agencia Española de Protección de Datos' in page.inner_text('.legal-modal'), 'la política de privacidad se puede leer antes de registrarse')
+    page.click('.legal-modal .modal-buttons .btn-primary'); page.wait_for_timeout(300)
+    page.check('#au-accept'); page.click('#au-submit'); page.wait_for_selector('#shell:not([hidden])')
     check(page.inner_text('#user-name') == 'Ana_01', 'registro correcto')
 
     # Avatares PNG: bienvenida tras el registro, filas por colección y confirmación antes → después
@@ -113,7 +118,7 @@ with sync_playwright() as p:
 
     # Segundo usuario: nombres únicos y ranking
     page.evaluate("Nexus.services.users.logout()"); page.wait_for_selector('#auth-screen:not([hidden])')
-    page.click('.auth-tab[data-tab=register]'); page.fill('#au-name', 'ANA_01'); page.fill('#au-pass', 'secreta1'); page.fill('#au-pass2', 'secreta1'); page.click('#au-submit'); page.wait_for_timeout(400)
+    page.click('.auth-tab[data-tab=register]'); page.fill('#au-name', 'ANA_01'); page.fill('#au-pass', 'secreta1'); page.fill('#au-pass2', 'secreta1'); page.check('#au-accept'); page.click('#au-submit'); page.wait_for_timeout(400)
     check('uso' in page.locator('#au-error').inner_text().lower() or page.locator('#au-error').inner_text().strip() != '', 'nombre duplicado (sin distinguir mayúsculas) rechazado')
     page.fill('#au-name', 'Beto'); page.click('#au-submit'); page.wait_for_selector('#shell:not([hidden])')
     skip_avatar_onboarding(page)

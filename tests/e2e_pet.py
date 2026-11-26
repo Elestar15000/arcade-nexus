@@ -175,7 +175,11 @@ with sync_playwright() as p:
 
     # Ajustes generales
     page.goto(URL + '#/settings'); page.wait_for_timeout(400)
-    check(page.locator('#st-pet-show').count() == 1, 'ajustes: sección Nexito')
+    check(page.locator('#st-pet-show').count() == 0 and page.locator('.page-settings .section').count() == 2, 'ajustes: solo sonido y modos BETA (Nexito se ajusta en su página)')
+    page.click('#topbar-user-btn'); page.wait_for_timeout(150)
+    check(page.locator('#topbar-menu a[href="#/pet"]').count() == 0 and page.locator('#topbar-menu a[href="#/stats"]').count() == 1, 'menú de usuario: estadísticas sí, Nexito no')
+    check(page.locator('#sidebar a[href="#/pet"]').count() == 1 and page.locator('#sidebar a[href="#/stats"]').count() == 0, 'barra de navegación: Nexito sí, estadísticas no')
+    page.keyboard.press('Escape')
 
     check(page.evaluate("typeof Nexus.ui.nexito.evolveOverlay") == 'undefined', 'sin celebración de evolución')
     page.goto(URL + '#/home'); page.wait_for_timeout(300)

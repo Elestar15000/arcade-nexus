@@ -9,6 +9,10 @@
 window.NEXUS_CONFIG = {
     API_URL: 'https://nexus-arcade-api.elestar150.workers.dev'
 
+    // Política de privacidad y Términos y condiciones (#/privacy, #/terms): responsable y correo de contacto
+    // para ejercer los derechos de protección de datos. Rellénalos antes de publicar.
+    , LEGAL: { OWNER: '', EMAIL: '', CITY: '' }
+
     // Panel de administración en MODO LOCAL (sólo desarrollo, sin API_URL). Con servidor se configura en el Worker
     // (ADMIN_USERS y ADMIN_KEY, ver backend/README.md), nunca aquí.
     // (key = clave de alta para vincular Google Authenticator; luego se entra con los códigos de la app)

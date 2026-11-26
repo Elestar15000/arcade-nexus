@@ -66,6 +66,7 @@
                                     ? 'Servidor de cuentas no configurado: sólo se puede entrar con cuentas del repositorio de datos (ver backend/README.md).'
                                     : remote ? 'Conectando con el servidor…' : 'Modo local de desarrollo: las cuentas se guardan sólo en este navegador'}</div>
                                 <button type="button" class="auth-admin-link" id="au-admin">🛡️ Panel de administración</button>
+                                <p class="auth-legal"><a href="#" data-legal="privacy">Política de privacidad</a> · <a href="#" data-legal="terms">Términos y condiciones</a></p>
                             </div>
                         </div>
                         ${Nexus.storage.volatile ? '<p class="auth-warning">Tu navegador bloquea el almacenamiento local: no se podrá mantener la sesión al recargar.</p>' : ''}
@@ -110,7 +111,9 @@
                 <label class="field auth-field"><span class="sr-only">Repite la contraseña</span>
                     <span class="auth-ic">${Nexus.ui.brand.icon('lock', 20)}</span>
                     <input class="input" id="au-pass2" type="password" placeholder="Repite la contraseña" autocomplete="new-password" /></label>
-                <p class="field-hint" style="margin:0">No podemos recuperar contraseñas olvidadas: guárdala en un lugar seguro.</p>`;
+                <p class="field-hint" style="margin:0">No podemos recuperar contraseñas olvidadas: guárdala en un lugar seguro.</p>
+                <label class="auth-accept"><input type="checkbox" id="au-accept" /><span>Tengo al menos 14 años (o autorización de mis padres) y acepto los
+                    <a href="#" data-legal="terms">Términos y condiciones</a> y la <a href="#" data-legal="privacy">Política de privacidad</a>.</span></label>`;
         },
 
         bind(el) {
@@ -135,6 +138,7 @@
             }
             $('#au-admin', el).addEventListener('click', () => Nexus.ui.admin.openStandalone());
             $('#auth-form', el).addEventListener('submit', (e) => { e.preventDefault(); this.submit(); });
+            el.querySelectorAll('[data-legal]').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); Nexus.ui.legal.open(a.dataset.legal); }));
         },
 
         async ping() {
@@ -166,18 +170,21 @@
                     msg = U.validatePassword(pass);
                     if (msg) return this.setError(msg, 'au-pass');
                     if (pass !== $('#au-pass2').value) return this.setError('Las contraseñas no coinciden.', 'au-pass2');
+                    if (!$('#au-accept').checked) return this.setError('Para crear la cuenta tienes que aceptar los Términos y condiciones y la Política de privacidad.', 'au-accept');
                 } else if (!name || !pass) {
                     return this.setError('Escribe tu usuario y tu contraseña.', name ? 'au-pass' : 'au-name');
                 }
                 if (Nexus.backend.unavailable) return this.setError('El servidor de cuentas no está configurado.');
                 btn.classList.add('is-loading'); btn.disabled = true;
                 if (this.mode === 'register') {
+                    Nexus.ui.legal.acceptNextLogin();   // aceptó con la casilla al registrarse
                     await U.register({ name, password: pass, avatar: Nexus.services.avatars.DEFAULT });
                     // Paso de bienvenida: elegir avatar (se puede dejar para más tarde)
                     setTimeout(() => Nexus.ui.avatarPicker.open({ onboarding: true }), 450);
                 } else await U.login(name, pass);
                 // user:login se encarga de mostrar la aplicación
             } catch (e) {
+                Nexus.ui.legal.acceptNextLogin(false);
                 btn.classList.remove('is-loading'); btn.disabled = false;
                 const field = (e.status === 409 || e.status === 404) ? 'au-name' : (this.mode === 'login' && e.status === 401 ? 'au-pass' : null);
                 this.setError(e.message || 'No se pudo completar la operación.', field);

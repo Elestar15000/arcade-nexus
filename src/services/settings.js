@@ -1,19 +1,12 @@
 /* ============================================================
    NEXUS ARCADE · services/settings.js
-   Ajustes por usuario (se guardan dentro de sus datos) y
-   preferencias de interfaz globales (estado de la sidebar).
+   Ajustes por usuario (sonido, modos BETA y opciones de cada
+   juego; se guardan en sus datos) y el estado de la barra lateral.
    ============================================================ */
 (function () {
     'use strict';
 
     const DEFAULTS = Nexus.schema.DEFAULT_SETTINGS;
-
-    const THEMES = [
-        { id: 'neon',   name: 'Recreativa', colors: ['#ffd23f', '#3de0f5'] },
-        { id: 'ocean',  name: 'Océano',     colors: ['#4fd1ff', '#8affc1'] },
-        { id: 'sunset', name: 'Atardecer',  colors: ['#ff7a59', '#ffd166'] },
-        { id: 'forest', name: 'Bosque',     colors: ['#b6f03c', '#4fe3a8'] }
-    ];
 
     // Modos BETA: funciones experimentales que se desbloquean en Ajustes con un código y luego se activan o desactivan
     // cuando se quiera (también a mitad de partida). Los códigos se guardan como huella, no en claro.
@@ -26,7 +19,6 @@
     ];
 
     const Settings = {
-        THEMES,
         DEFAULTS,
         BETA,
 
@@ -75,15 +67,14 @@
             Nexus.bus.emit('settings:change', { key: '*', value: null });
         },
 
-        /** Aplica al documento los ajustes visuales. */
+        /** El estilo es el mismo para todos (sin temas ni opciones de apariencia). Sólo se respeta «reducir movimiento»
+         *  del sistema operativo, por accesibilidad, y el alto contraste propio de Wordle. */
         apply() {
             const root = document.documentElement;
-            const theme = THEMES.some(t => t.id === this.get('theme')) ? this.get('theme') : 'neon';
-            root.dataset.theme = theme;
-            root.dataset.motion = this.get('reduceMotion') ? 'reduced' : 'full';
+            delete root.dataset.theme;
+            const mq = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)');
+            root.dataset.motion = mq && mq.matches ? 'reduced' : 'full';
             root.dataset.colorblind = this.get('wordle.colorblind') ? 'on' : 'off';
-            const particles = document.getElementById('bg-particles');
-            if (particles) particles.style.display = this.get('particles') ? '' : 'none';
         },
 
         // ── Preferencias globales de interfaz (no dependen del usuario) ──

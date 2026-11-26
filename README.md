@@ -19,10 +19,16 @@ Colección de minijuegos en JavaScript puro (sin dependencias ni build). Se ejec
   «Casi lo tienes», misiones diarias y semanales, **Rombos**, pase de batalla gratuito, tienda con todo el catálogo y cosméticos
   de jugador (marcos, títulos, fondos de perfil e iconos) y de Nexito (sombreros, accesorios, ropa y cúpulas). Ver [Logros y recompensas](#logros-y-recompensas).
 - **Rankings globales** (general, puntos de logro y por juego/modo/métrica) y comparación de logros con cualquier jugador.
-- **Ajustes** por usuario: 4 temas, partículas, reducir animaciones, sonido y volumen, comportamiento
-  de la barra lateral y opciones propias de cada juego.
-- **Barra lateral desplegable**: se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`,
-  se pliega sola al jugar (configurable) y recuerda su estado.
+- **Estilo único**: el mismo aspecto para todos los usuarios (sin temas ni opciones de apariencia); sólo se respeta
+  «reducir movimiento» del sistema operativo, por accesibilidad.
+- **Ajustes** por usuario: sólo sonido y volumen y [modos BETA](#modos-beta). Las opciones de cada juego están en su ⚙️ y
+  las de Nexito en su propia página.
+- **Barra lateral desplegable**: Inicio, Biblioteca, Logros, Nexito, Cosméticos y Rankings (las estadísticas propias están en el
+  menú del icono de usuario). Se pliega a iconos con tooltips, cajón en móvil, atajo `Ctrl/Cmd + B`, se pliega sola al jugar y
+  recuerda su estado.
+- **Política de privacidad y Términos y condiciones** (`src/ui/legal.js`, `#/privacy` y `#/terms`): enlazados desde el acceso
+  y Ajustes, casilla obligatoria al crear la cuenta y aviso único para aceptar la versión vigente (se guarda en la cuenta).
+  El responsable y el correo de contacto se configuran en `config.js` (`LEGAL`).
 - **Juegos**: Buscaminas Quantum, **Wordle ES**, **Pasapalabra**, **Tetris Fusion**, **Pac-Man Nexus**, **Snake Neón**, los puzles **Sudoku**, **Crucigrama**,
   **Sopa de letras**, **Conexiones** y **2048**, el **Solitario**, y los multijugador online sin servidor propio: **Pong Turbo**, **Ajedrez**, **Hundir la flota** y los de cartas **Brisca**,
   **Guiñote**, **Chinchón**, **Póker** y **Mentiroso**.
@@ -113,7 +119,7 @@ quedándose con la mejor de las dos.
 - **Vestir**: sombrero, accesorio, ropa y cúpula. En «Vestir» solo aparece lo que ya tienes; el resto está en la Tienda.
 - **Logros**: escalera «Inseparables» (3, 7, 30, 100 y 365 días) y 3 secretos.
 - **Rankings**: pestaña «Rachas de Nexito»; al comparar con otro jugador se ve su Nexito. El perfil muestra el tuyo.
-- **Ajustes**: ocultarlo (la racha sigue contando), avisos de racha, nombre propio y vacaciones.
+- **Ajustes de Nexito** (en su página): ocultarlo (la racha sigue contando), avisos de racha, nombre propio y vacaciones.
 - **Servidor**: el Worker acota `pet` (días cuidados ≤ días desde que nació, sin fechas futuras, necesidades 0–100, escudos ≤ 3)
   y expone la cabecera `Date`: con servidor, Nexito usa su hora y adelantar el reloj del dispositivo no sirve.
 
@@ -137,7 +143,7 @@ cuentas del modo local no se migran al servidor.
 
 ## Ajustes de cada juego
 
-La página **Ajustes** sólo tiene lo general (tema, sonido, animaciones, interfaz). Las opciones de cada juego (pieza fantasma,
+La página **Ajustes** sólo tiene el sonido y los modos BETA. Las opciones de cada juego (pieza fantasma,
 modo difícil y alto contraste de Wordle, cuadrícula de Snake, jugadas legales del ajedrez, salas públicas…) están dentro del
 propio juego, en el botón ⚙️ de su cabecera (`src/ui/game-settings.js`). Los juegos ya no tienen un «modo inicial» configurable:
 siempre abren en su modo por defecto.
@@ -525,6 +531,7 @@ tools/        avatars/export.mjs (prepara los PNG de avatar y sincroniza la list
 pip install playwright && playwright install chromium
 python3 tests/e2e_smoke.py        # flujo completo + capturas
 python3 tests/e2e_accounts.py     # registro/login, sesión, partidas persistentes, ranking, borrar cuenta
+python3 tests/e2e_legal.py        # privacidad y términos (registro, páginas, aviso único), Ajustes y menús
 python3 tests/e2e_rewards.py      # Rombos, misiones, temporada, tienda, cosméticos, escaleras, secretos, rareza real, celebraciones
 python3 tests/e2e_pet.py          # Nexito: regla del día, necesidades, escudos, rescate, rotura, vacaciones, hitos, evolución, migración, interfaz
 python3 tests/e2e_minesweeper.py

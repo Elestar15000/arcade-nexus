@@ -263,9 +263,21 @@ div.setting-row { cursor: default; }
 .setting-text { display: flex; flex-direction: column; gap: 2px; } .setting-text small { color: var(--text-muted); font-size: .8em; }
 .range-wrap { display: flex; align-items: center; gap: 12px; }
 input[type=range] { accent-color: var(--primary); width: 140px; }
-.theme-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
-.theme-opt { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 10px; background: var(--bg-dark); border: 1px solid var(--panel-border); cursor: pointer; font-size: .86em; font-weight: 700; color: var(--text); }
-.theme-opt:hover { border-color: var(--text-muted); }
-.theme-opt.active { border-color: var(--primary); background: rgba(var(--primary-rgb), .15); }
-.theme-swatch { width: 18px; height: 18px; border-radius: 50%; background: linear-gradient(135deg, var(--a), var(--b)); }
-@media (max-width: 600px) { .setting-row { flex-direction: column; align-items: flex-start; } .theme-grid { justify-content: flex-start; } }
+@media (max-width: 600px) { .setting-row { flex-direction: column; align-items: flex-start; } }
+
+/* ── Política de privacidad y Términos ── */
+.legal-card { padding: 26px 30px; }
+.legal-doc { line-height: 1.65; color: var(--text-dim); }
+.legal-doc .lg-meta { font-size: .82em; color: var(--text-muted); margin: 0 0 14px; }
+.legal-doc .lg-lead { font-size: 1.05em; color: var(--text); margin: 0 0 18px; }
+.legal-doc .lg-sec { margin: 0 0 18px; }
+.legal-doc h3 { font-family: var(--font-title); font-size: 1.05em; color: var(--text); margin: 0 0 6px; }
+.legal-doc h3 span { color: var(--primary); }
+.legal-doc p { margin: 0 0 8px; }
+.legal-doc ul { margin: 0 0 8px; padding-left: 20px; display: grid; gap: 6px; }
+.legal-doc b { color: var(--text); }
+.legal-doc a { color: var(--secondary); }
+.legal-modal .modal-body { max-height: min(70vh, 640px); overflow: auto; }
+.st-legal a { color: var(--text-dim); }
+@media (max-width: 600px) { .legal-card { padding: 18px; } }
+.legal-accept a { color: var(--secondary); text-decoration: underline; }

@@ -418,11 +418,11 @@
             }
         }
 
-        staticDemo() { return !!Nexus.services.settings.get('reduceMotion') || window.matchMedia('(pointer: coarse)').matches; }
-        calm() { return !!Nexus.services.settings.get('reduceMotion') || !Nexus.services.settings.get('pong.shake'); }
+        staticDemo() { return Nexus.ui.fx.reduced() || window.matchMedia('(pointer: coarse)').matches; }
+        calm() { return Nexus.ui.fx.reduced() || !Nexus.services.settings.get('pong.shake'); }
 
         sparks(x, y, color, n, speed, dir) {
-            if (Nexus.services.settings.get('reduceMotion')) n = Math.ceil(n / 3);
+            if (Nexus.ui.fx.reduced()) n = Math.ceil(n / 3);
             for (let i = 0; i < n; i++) {
                 const a = dir ? (dir > 0 ? 0 : Math.PI) + rand(-1.1, 1.1) : rand(0, Math.PI * 2);
                 const v = speed * rand(0.25, 1);

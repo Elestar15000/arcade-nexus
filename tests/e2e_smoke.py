@@ -25,7 +25,7 @@ with sync_playwright() as p:
 
     # Crear cuenta con contraseña
     page.click('.auth-tab[data-tab=register]')
-    page.fill('#au-name', 'Ana'); page.fill('#au-pass', 'abcd12'); page.fill('#au-pass2', 'abcd12')
+    page.fill('#au-name', 'Ana'); page.fill('#au-pass', 'abcd12'); page.fill('#au-pass2', 'abcd12'); page.check('#au-accept')
     page.click('#au-submit')
     page.wait_for_selector('#shell:not([hidden])')
     skip_avatar_onboarding(page)
@@ -144,7 +144,7 @@ with sync_playwright() as p:
     check(page.inner_text('#user-name') == 'Ana', 'login con contraseña correcta')
     check(page.evaluate("Nexus.services.progress.stats('wordle').played") >= 1, 'el progreso se conserva al volver a entrar')
     page.click('#btn-switch-user'); page.wait_for_selector('#auth-screen:not([hidden])')
-    page.click('.auth-tab[data-tab=register]'); page.fill('#au-name', '<b>Bob</b>'); page.fill('#au-pass', 'abcd12'); page.fill('#au-pass2', 'abcd12'); page.click('#au-submit'); page.wait_for_timeout(300)
+    page.click('.auth-tab[data-tab=register]'); page.fill('#au-name', '<b>Bob</b>'); page.fill('#au-pass', 'abcd12'); page.fill('#au-pass2', 'abcd12'); page.check('#au-accept'); page.click('#au-submit'); page.wait_for_timeout(300)
     check(page.locator('#au-error').inner_text().strip() != '' and page.locator('#shell:not([hidden])').count() == 0, 'nombres con HTML no se admiten')
     page.fill('#au-name', 'Bob'); page.click('#au-submit'); page.wait_for_selector('#shell:not([hidden])')
     skip_avatar_onboarding(page)

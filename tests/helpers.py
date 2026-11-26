@@ -4,6 +4,7 @@ def register(page, name='Tester', pw='secreta1'):
     page.wait_for_selector('#auth-screen:not([hidden])')
     page.click('.auth-tab[data-tab=register]')
     page.fill('#au-name', name); page.fill('#au-pass', pw); page.fill('#au-pass2', pw)
+    page.check('#au-accept')
     page.click('#au-submit')
     page.wait_for_selector('#shell:not([hidden])')
     skip_avatar_onboarding(page)
@@ -22,6 +23,17 @@ def login(page, name='Tester', pw='secreta1'):
     page.fill('#au-name', name); page.fill('#au-pass', pw)
     page.click('#au-submit')
     page.wait_for_selector('#shell:not([hidden])')
+    accept_legal(page)
+
+def accept_legal(page, timeout=1500):
+    """Cuentas sin la versión vigente de la Política de privacidad y los Términos: aviso único que hay que aceptar."""
+    try:
+        page.wait_for_selector('.legal-accept', timeout=timeout)
+        page.click('.legal-accept .modal-buttons .btn-primary')
+        page.wait_for_selector('.legal-accept', state='detached', timeout=3000)
+        return True
+    except Exception:
+        return False
 
 def local_mode(page, brokers=None, force_relay=False):
     """Fuerza el modo local (sin servidor de cuentas) aunque config.js tenga API_URL, y opcionalmente

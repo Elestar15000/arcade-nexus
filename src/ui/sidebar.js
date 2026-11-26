@@ -4,7 +4,7 @@
    - Escritorio: se pliega a una columna de iconos (con tooltips)
      y se vuelve a desplegar; el estado se recuerda.
    - Móvil/tablet: cajón deslizante con fondo oscuro.
-   - Al entrar en un juego se pliega sola (ajustable) para dar
+   - Al entrar en un juego se pliega sola para dar
      más espacio al tablero, y se restaura al salir.
    - Atajo: Ctrl/Cmd + B.
    ============================================================ */
@@ -20,8 +20,7 @@
         { route: 'achievements', icon: '🏅', label: 'Logros' },
         { route: 'pet', icon: '💛', label: 'Nexito' },
         { route: 'cosmetics', icon: '💎', label: 'Cosméticos' },
-        { route: 'rankings', icon: '🏆', label: 'Rankings' },
-        { route: 'stats', icon: '📊', label: 'Estadísticas' }
+        { route: 'rankings', icon: '🏆', label: 'Rankings' }
     ];
     const NAV_BOTTOM = [
         { route: 'profile', icon: '👤', label: 'Perfil' },
@@ -167,7 +166,7 @@
 
         enterGame() {
             this.inGame = true;
-            this.temp = (Nexus.services.settings.get('autoCollapseSidebar') && !this.pref) ? true : null;
+            this.temp = !this.pref ? true : null;   // al jugar se pliega sola (y se restaura al salir)
             this.apply();
         },
         exitGame() {
