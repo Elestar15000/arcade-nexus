@@ -167,6 +167,14 @@
             }
         }
 
+        _adoptRewards(rewards, notes) {
+            const fixed = Nexus.schema.normalize(Object.assign({}, this._data, { rewards }));
+            this._data.rewards = fixed.rewards;
+            if (notes && notes.length) console.info('[sync] el servidor corrigió las recompensas:', notes.join(' · '));
+            Nexus.bus.emit('rewards:change', { kind: 'server' });
+            Nexus.bus.emit('progress:update', { synced: true });
+        }
+
         _adopt(data, at) {
             this._data = data; this._serverAt = at; this._dirty = false;
             Nexus.services.settings.apply();
@@ -245,6 +253,8 @@
                     const r = await B().saveData(token, data, small);
                     if (this._token !== token) return;
                     this._serverAt = r.updatedAt;
+                    // El servidor controla Rombos, cosméticos y racha: si corrigió algo (o tiene un ajuste del administrador), manda lo suyo
+                    if (r.rewards && this._data === data && data.meta.updatedAt === stamp) this._adoptRewards(r.rewards, r.control);
                     if (data.meta.updatedAt === stamp) this._dirty = false;
                     this._writeCache();
                     this._setSync(this._dirty ? 'pending' : 'synced');

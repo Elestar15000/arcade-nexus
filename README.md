@@ -83,7 +83,10 @@ semana doble y eventos). El % real de cada logro sólo se muestra con 20 jugador
 - **Perfil**: escaparate de hasta 3 logros (★ en cada tarjeta), título y fondo. Las legendarias se celebran a pantalla
   completa con confeti y se pueden **compartir** como imagen PNG.
 - **Curva de XP**: crece un 12 % por nivel hasta un tope de 1.500 XP por nivel (nivel 20 ≈ 6.300 XP, 30 ≈ 19.300 XP).
-- **Servidor**: el Worker guarda `rewards` (en `users/<nombre>/rewards.json`) con topes (saldo, ids de cosméticos y logros, escaparate ≤ 3, nivel de pase ≤ 30) y
+- **Servidor**: el Worker guarda los Rombos en `users/<nombre>/wallet.json`, los cosméticos (propios, equipados, origen) en
+  `cosmetics.json`, Nexito y su racha en `streak.json` y el resto en `rewards.json`. Al guardar **controla** que los Rombos, las
+  compras, lo equipado y la racha sean posibles frente a lo guardado y corrige lo que no (ver `backend/README.md`); el panel de
+  administración permite ajustar Rombos, cosméticos y racha de cada cuenta. Además pone topes (escaparate ≤ 3, nivel de pase ≤ 30) y
   publica en el ranking sólo lo necesario: ids de logros (rareza real), puntos, escaparate, título, marco y partidas de la
   temporada.
 
@@ -547,7 +550,8 @@ python3 tests/e2e_puzzles.py      # Sudoku, Crucigrama, Sopa, Conexiones y 2048:
 node tests/puzzles_logic_test.mjs # generadores: sudoku único, crucigramas válidos, sopas, conexiones sin ambigüedad, lógica de 2048
 node tests/cardgames_rules_test.mjs # reglas de Brisca, Guiñote y Chinchón con cientos de partidas entre bots
 node tests/cards_more_test.mjs     # Póker (manos, botes secundarios, partidas de bots), Mentiroso y lógica del Solitario
-node tests/worker_test.mjs        # API del Worker contra un GitHub falso en memoria
+node tests/worker_test.mjs        # API del Worker contra un GitHub falso en memoria (incluye el control de Rombos, cosméticos y racha)
+node tools/cosmetics/sync.mjs     # tras cambiar el catálogo de cosméticos: lo copia al Worker (--check sólo comprueba)
 node tests/avatars_test.mjs       # catálogo de avatares, equivalencias, lista del Worker e imágenes (--strict: exige todas)
 ```
 

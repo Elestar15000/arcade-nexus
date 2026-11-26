@@ -272,3 +272,20 @@ body.admin-standalone #modal-root .modal-overlay { z-index: 1950; }
     .adm-table td.adm-acts { grid-column: 1 / -1; text-align: left; display: flex; gap: 6px; }
     .adm-table td.adm-acts .adm-ic { flex: 1; }
 }
+
+/* Ficha · Rombos, cosméticos y racha */
+.adm-rw { margin-top: 6px; }
+.adm-rw .adm-minis { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+.adm-rw-btns { margin: 8px 0 12px; flex-wrap: wrap; }
+.adm-rw-kind { margin: 8px 0; }
+.adm-rw-kind > b { display: block; font-size: .82em; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.adm-rw-items { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm-rw-it { display: inline-flex; align-items: center; gap: 6px; padding: 5px 6px 5px 10px; border-radius: 999px; background: var(--bg-darkest); border: 1px solid var(--panel-border); font-size: .86em; }
+.adm-rw-it.on { border-color: var(--success); }
+.adm-rw-it small { color: var(--text-muted); font-size: .8em; }
+.adm-rw-it button { border: 0; background: rgba(255, 255, 255, .06); color: var(--text-muted); width: 22px; height: 22px; border-radius: 50%; cursor: pointer; line-height: 1; }
+.adm-rw-it button:hover { background: var(--danger); color: #fff; }
+.adm-rw-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow: auto; font-size: .88em; }
+.adm-rw-log li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 8px; background: var(--panel); }
+.adm-rw-log b { color: var(--success); } .adm-rw-log b.neg { color: var(--danger); }
+.adm-rw-log small { color: var(--text-muted); white-space: nowrap; }

@@ -35,6 +35,15 @@ with sync_playwright() as p:
     b0 = page.evaluate(f"{R}.balance()"); page.evaluate(f"{R}.migrate()")
     check(page.evaluate(f"{R}.owns('nx-cupula-arcade') && !{R}.owns('th-oro') && !{R}.owns('nx-base-arcade')") and page.evaluate(f"{R}.balance()") == b0 + 1200, 'migración: pedestal → cúpula y tema reembolsado')
     check(page.evaluate(f"Object.keys({R}.data().cosmetics.equipped).every(k => {R}.KINDS[k])"), 'migración: sin tipos retirados equipados')
+    # Control del servidor: lo gastado se lleva aparte (saldo = ganado − gastado) y las compras se marcan para que el servidor exija el pago
+    page.evaluate(f"{R}.data().rombos += 2000; {R}.data().earned += 2000")
+    s0 = page.evaluate(f"{R}.data().spent"); bought = page.evaluate(f"{R}.buy('nx-corona').ok")
+    check(bought and page.evaluate(f"{R}.data().spent") == s0 + 900 and page.evaluate(f"{R}.data().cosmetics.via['nx-corona']") == 'shop', 'compra: suma a lo gastado y queda marcada como compra')
+    check(page.evaluate(f"(() => {{ const r = {R}.data(); return r.rombos === r.earned - r.spent; }})()"), 'saldo = ganado − gastado')
+    # Si el servidor corrige (o hay un ajuste del administrador), el cliente adopta sus recompensas
+    page.evaluate(f"""(() => {{ const r = JSON.parse(JSON.stringify({R}.data())); r.rombos = 7; r.earned = r.spent + 7; r.cosmetics.owned = r.cosmetics.owned.filter(x => x !== 'nx-corona');
+        Nexus.services.users._adoptRewards(r, ['Cosmético sin pagar descartado: nx-corona']); }})()""")
+    check(page.evaluate(f"{R}.balance()") == 7 and not page.evaluate(f"{R}.owns('nx-corona')"), 'el cliente adopta las recompensas corregidas por el servidor')
 
     # Primera partida: logro «first_game» + Rombos
     res = page.evaluate(PLAY)

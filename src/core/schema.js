@@ -73,13 +73,13 @@
 
     /** Datos del sistema de recompensas. */
     const rewardsData = () => ({
-        rombos: 0, earned: 0,                       // saldo y total ganado
+        rombos: 0, earned: 0, spent: 0,             // saldo, total ganado y total gastado (saldo = ganado − gastado)
         day: { key: '', earned: 0 },                // tope diario de Rombos
         log: [],                                    // últimos movimientos [{ at, n, why }]
         missions: { day: '', list: [], rerolled: false, week: '', weekly: null, completed: 0,
             streak: { count: 0, best: 0, last: '', freezeWeek: '' } },
         season: { id: 0, earned: 0, level: 0, played: 0 },
-        cosmetics: { owned: [], equipped: {} },
+        cosmetics: { owned: [], equipped: {}, via: {} },   // via[id] = 'shop' si se compró (el servidor exige el pago)
         shop: { week: '', bought: [] },
         showcase: [], tracked: '',
         mastery: {}, ranks: [], community: [],
@@ -121,6 +121,7 @@
     function normalize(raw) {
         const d = (raw && typeof raw === 'object') ? raw : {};
         const hadPet = !!(d.rewards && d.rewards.pet && d.rewards.pet.migrated);
+        const hadSpent = !!(d.rewards && typeof d.rewards.spent === 'number');
         const isNew = !d.meta;
         Nexus.util.fillDefaults(d, userData());
         d.v = SCHEMA_VERSION;
@@ -137,6 +138,9 @@
         if (!Array.isArray(r.cosmetics.owned)) r.cosmetics.owned = [];
         if (!Array.isArray(r.missions.list)) r.missions.list = [];
         r.rombos = Math.max(0, r.rombos | 0);
+        r.earned = Math.max(r.rombos, r.earned | 0);
+        if (!hadSpent) r.spent = Math.max(0, r.earned - r.rombos);   // cuentas anteriores: lo gastado se deduce
+        if (!r.cosmetics.via || typeof r.cosmetics.via !== 'object') r.cosmetics.via = {};
         const p = r.pet;
         if (!hadPet) { if (isNew) { p.migrated = true; p.born = Nexus.util.dayKey(); } else migratePet(d); }
         for (const k of ['shieldLog', 'milestones']) if (!Array.isArray(p.streak[k])) p.streak[k] = [];

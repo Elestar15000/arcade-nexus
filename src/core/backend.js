@@ -40,7 +40,7 @@
             ach: Object.keys(data.achievements || {}), points: rw.points | 0,
             showcase: (rw.showcase || []).slice(0, 3), title: eq.title || '', frame: eq.frame || '',
             season: { id: (rw.season || {}).id | 0, played: (rw.season || {}).played | 0 },
-            pet: (() => { const p = rw.pet || {}, s = p.streak || {}, days = p.caredDays | 0, st = Nexus.services.pet ? Nexus.services.pet.stage(days).id : 'egg';
+            pet: (() => { const p = rw.pet || {}, s = p.streak || {}, days = p.caredDays | 0, st = 'nexito';
                 return { name: p.name || 'Nexito', best: s.best | 0, count: s.count | 0, days, stage: st, hat: eq['pet-hat'] || '', dome: eq['pet-dome'] || '', hidden: !!p.hidden }; })()
         };
     }
@@ -93,7 +93,8 @@
             remove: (t, p) => http('POST', '/api/admin/delete', { token: t, body: p }),
             message: (t, p) => http('POST', '/api/admin/message', { token: t, body: p }),
             cancelMessage: (t, p) => http('POST', '/api/admin/message/cancel', { token: t, body: p }),
-            maintenance: (t, p) => http('POST', '/api/admin/maintenance', { token: t, body: p })
+            maintenance: (t, p) => http('POST', '/api/admin/maintenance', { token: t, body: p }),
+            rewards: (t, p) => http('POST', '/api/admin/rewards', { token: t, body: p })
         }
     };
 
@@ -158,6 +159,56 @@
         if (!rec) throw fail(404, 'No existe esa cuenta.');
         if (!allowAdmin && isLocalAdmin(rec.name)) throw fail(403, 'No se puede aplicar a una cuenta administradora.');
         return rec;
+    }
+    // Rombos, cosméticos y racha en el panel (mismo formato que el Worker: rewardsView / adminRewardsOp)
+    const RWS = () => Nexus.services.rewards;
+    function rewardsView(r) {
+        r = r || {}; const c = r.cosmetics || {}, acq = c.acquired || {}, pet = r.pet || {}, s = pet.streak || {};
+        const info = (id) => RWS() && RWS().item(id);
+        return {
+            rombos: r.rombos | 0, earned: r.earned | 0, spent: typeof r.spent === 'number' ? r.spent : Math.max(0, (r.earned | 0) - (r.rombos | 0)),
+            log: (r.log || []).slice(0, 15), audit: (r.audit || []).slice(0, 30),
+            owned: (c.owned || []).filter(info).map(id => ({ id, kind: info(id).kind, price: info(id).price || 0, at: (acq[id] || {}).at || null, via: (acq[id] || {}).via || '' })),
+            equipped: c.equipped || {}, revoked: c.revoked || [],
+            streak: { name: pet.name || 'Nexito', count: s.count | 0, best: s.best | 0, last: s.last || '', shields: s.shields | 0, caredDays: pet.caredDays | 0, danger: s.danger || '' },
+            catalog: RWS() ? RWS().CATALOG.length : 0
+        };
+    }
+    function adminRewardsOp(r, p, by) {
+        const now = Date.now(), note = clean(p.reason, 120);
+        r.spent = typeof r.spent === 'number' ? r.spent : Math.max(0, (r.earned | 0) - (r.rombos | 0));
+        const c = r.cosmetics = r.cosmetics || { owned: [], equipped: {} };
+        c.acquired = c.acquired || {}; c.revoked = c.revoked || []; c.equipped = c.equipped || {};
+        let what;
+        if (p.op === 'rombos') {
+            const n = Math.trunc(Number(p.amount) || 0);
+            if (!n || Math.abs(n) > 1000000) throw fail(400, 'Indica una cantidad de Rombos (±1 000 000 como mucho).');
+            const delta = n > 0 ? n : -Math.min(-n, r.earned - r.spent);
+            if (delta > 0) r.earned += delta; else r.spent -= delta;
+            r.rombos = r.earned - r.spent;
+            what = `${delta >= 0 ? '+' : '−'}${Math.abs(delta)} Rombos`;
+            r.log = [{ at: now, n: delta, why: ('Ajuste del administrador' + (note ? ': ' + note : '')).slice(0, 60) }].concat(r.log || []).slice(0, 30);
+        } else if (p.op === 'grant' || p.op === 'revoke') {
+            const id = String(p.id || '');
+            if (!RWS() || !RWS().item(id)) throw fail(400, 'Ese cosmético no existe.');
+            if (p.op === 'grant') { if (!c.owned.includes(id)) c.owned.push(id); c.acquired[id] = { at: now, via: 'admin' }; c.revoked = c.revoked.filter(x => x !== id); what = `da ${id}`; }
+            else {
+                if (!c.owned.includes(id)) throw fail(400, 'La cuenta no tiene ese cosmético.');
+                c.owned = c.owned.filter(x => x !== id); delete c.acquired[id];
+                Object.keys(c.equipped).forEach(k => { if (c.equipped[k] === id) c.equipped[k] = ''; });
+                if (!c.revoked.includes(id)) c.revoked.push(id);
+                what = `retira ${id}`;
+            }
+        } else if (p.op === 'streak') {
+            const pet = r.pet; if (!pet) throw fail(400, 'Esta cuenta todavía no tiene a Nexito.');
+            const s = pet.streak = pet.streak || {}, parts = [];
+            if (p.count !== undefined && p.count !== '') { const n = Math.max(0, Math.min(4000, p.count | 0)); s.count = n; s.best = Math.max(s.best | 0, n); s.danger = ''; if (n) s.last = Nexus.util.dayKey(); pet.caredDays = Math.max(pet.caredDays | 0, n); parts.push(`racha ${n}`); }
+            if (p.shields !== undefined && p.shields !== '') { s.shields = Math.max(0, Math.min(3, p.shields | 0)); parts.push(`escudos ${s.shields}`); }
+            if (!parts.length) throw fail(400, 'Indica la racha o los escudos.');
+            what = parts.join(', ');
+        } else throw fail(400, 'Acción desconocida.');
+        r.audit = [{ at: now, by, what: what + (note ? ' · ' + note : '') }].concat(r.audit || []).slice(0, 60);
+        return what;
     }
     const nextTick = (v) => new Promise(r => setTimeout(() => r(v), 40));
     const run = (fn) => new Promise((res, rej) => setTimeout(() => {
@@ -291,6 +342,7 @@
                 const r = target(d, name, true), data = Nexus.schema.normalize(JSON.parse(JSON.stringify(r.data)));
                 return { account: { id: r.id, name: r.name, avatar: r.avatar, color: r.color, createdAt: r.createdAt, lastLoginAt: r.lastLoginAt || null, admin: isLocalAdmin(r.name), totp: !!r.totp, suspended: activeSusp(r.suspended) },
                     updatedAt: r.updatedAt, data: { xp: data.xp, meta: data.meta, stats: data.stats, achievements: data.achievements, history: data.history.slice(0, 40) },
+                    rewards: rewardsView(data.rewards),
                     summary: summarize(pub(r), data), messages: A.messages[r.name.toLowerCase()] || [] };
             }),
             suspend: (t, { name, reason, days }) => run(() => {
@@ -332,6 +384,14 @@
                 const list = (A.messages[n] || []).filter(m => m.id !== id);
                 if (list.length) A.messages[n] = list; else delete A.messages[n];
                 logAction(A, by, 'cancel', n); saveDb(d); return { ok: true };
+            }),
+            rewards: (t, p) => run(() => {
+                const { d, A, by } = adminAuthed(t), r = target(d, p.name, String(p.name || '').toLowerCase() === by.toLowerCase());
+                r.data = Nexus.schema.normalize(r.data);
+                const what = adminRewardsOp(r.data.rewards, p, by);
+                r.updatedAt = Date.now();
+                logAction(A, by, 'rewards', r.name, what); saveDb(d);
+                return { ok: true, rewards: rewardsView(r.data.rewards) };
             }),
             maintenance: (t, { on, message }) => run(() => {
                 const { d, A, by } = adminAuthed(t);

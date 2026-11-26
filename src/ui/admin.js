@@ -20,7 +20,7 @@
     const KIND = Object.fromEntries(KINDS.map(([k, i, l]) => [k, { icon: i, label: l }]));
     const ACTIONS = {
         login: ['🔑', 'Acceso al panel'], 'totp-setup': ['📱', 'Google Authenticator vinculado'], suspend: ['⛔', 'Suspensión'], unsuspend: ['✅', 'Reactivación'], delete: ['🗑️', 'Cuenta eliminada'],
-        message: ['📨', 'Pop-up enviado'], cancel: ['↩️', 'Pop-up retirado'], 'maintenance-on': ['🛠️', 'Mantenimiento activado'], 'maintenance-off': ['🟢', 'Mantenimiento desactivado']
+        rewards: ['💎', 'Rombos, cosméticos o racha'], message: ['📨', 'Pop-up enviado'], cancel: ['↩️', 'Pop-up retirado'], 'maintenance-on': ['🛠️', 'Mantenimiento activado'], 'maintenance-off': ['🟢', 'Mantenimiento desactivado']
     };
     const TABS = [['overview', '📊', 'Resumen'], ['accounts', '👥', 'Cuentas'], ['messages', '📨', 'Pop-ups'], ['maintenance', '🛠️', 'Mantenimiento'], ['log', '📜', 'Registro']];
     const dateTime = (t) => (t ? new Date(t).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
@@ -446,6 +446,7 @@
                         ${stats.map(([g, s]) => { const G = gameOf(g); return `<tr><td>${esc(G.emoji)} ${esc(G.name)}</td><td>${formatNumber(s.played)}</td><td>${formatNumber(s.wins || 0)} <small class="muted">${pctOf(s.wins || 0, s.played)}%</small></td>
                             <td>${s.bestScore ? formatNumber(s.bestScore) : '—'}</td><td>${s.bestTime !== null && s.bestTime !== undefined ? formatTime(s.bestTime) : '—'}</td><td>${s.bestStreak || 0}</td></tr>`; }).join('')}
                     </tbody></table></div>` : '<p class="muted">Todavía no ha jugado ninguna partida.</p>'}
+                    ${r.rewards ? this.rewardsHtml(r.rewards) : ''}
                     <div class="adm-grid2">
                         <div><h3 class="adm-h3">🕑 Últimas partidas</h3>
                             ${d.history.length ? `<ul class="history-list">${d.history.slice(0, 8).map(Nexus.ui.components.historyRow).join('')}</ul>` : '<p class="muted">Sin partidas.</p>'}</div>
@@ -453,6 +454,12 @@
                             ${r.messages.length ? `<ul class="adm-msgs">${r.messages.slice().reverse().map(x => `<li class="kind-${esc(x.kind)}"><b>${esc((KIND[x.kind] || KIND.info).icon)} ${esc(x.title)}</b><small>${esc(dateTime(x.at))} · ${x.readAt ? '✓ leído ' + esc(timeAgo(x.readAt)) : '⏳ pendiente'}</small></li>`).join('')}</ul>` : '<p class="muted">Ninguno.</p>'}</div>
                     </div>
                 </div>`;
+            const rw = $('.adm-rw', m.body);
+            if (rw) rw.addEventListener('click', (e) => {
+                const b = e.target.closest('[data-rw]'); if (!b) return;
+                m.close();
+                setTimeout(() => this.rewardsAction(lname, b.dataset.rw, b.dataset.id, r.rewards), 120);
+            });
             const btns = document.createElement('div');
             btns.className = 'modal-buttons';
             btns.innerHTML = `<button type="button" class="btn btn-ghost" data-u="msg">✉️ Enviar pop-up</button>
@@ -464,6 +471,78 @@
                 m.close();
                 const act = { msg: () => this.composeTo([lname]), susp: () => this.suspend(lname), unsusp: () => this.unsuspend(lname), del: () => this.remove(lname) }[b.dataset.u];
                 setTimeout(act, 120);
+            });
+        }
+
+        // ── Rombos, cosméticos y racha (users/<nombre>/wallet.json, cosmetics.json y streak.json) ──
+        rewardsHtml(w) {
+            const RW = Nexus.services.rewards, kpi = (v, l) => `<div class="adm-mini"><b>${v}</b><small>${l}</small></div>`;
+            const VIA = { shop: '🛍 comprado', earned: '🏅 ganado', admin: '🛡️ administrador', migrated: '📦 anterior' };
+            const name = (id) => { const it = RW && RW.item(id); return it ? it.name : id; };
+            const groups = {};
+            for (const o of w.owned) (groups[o.kind] = groups[o.kind] || []).push(o);
+            const kinds = RW ? Object.keys(RW.KINDS) : Object.keys(groups);
+            const eqIds = new Set(Object.values(w.equipped || {}).filter(Boolean));
+            const s = w.streak;
+            return `<section class="adm-rw">
+                <h3 class="adm-h3">💎 Rombos, cosméticos y racha</h3>
+                <div class="adm-minis">
+                    ${kpi(formatNumber(w.rombos), 'Rombos')}${kpi(formatNumber(w.earned), 'ganados')}${kpi(formatNumber(w.spent), 'gastados')}
+                    ${kpi(`🔥 ${formatNumber(s.count)}`, 'racha de Nexito')}${kpi(formatNumber(s.best), 'mejor racha')}${kpi(`🛡 ${s.shields}`, 'escudos')}${kpi(formatNumber(s.caredDays), 'días cuidados')}
+                </div>
+                <p class="muted small">Último día cuidado: ${esc(s.last || '—')}${s.danger ? ' · ⚠️ racha en peligro desde ' + esc(s.danger) : ''} · ${w.owned.length} de ${w.catalog} cosméticos</p>
+                <div class="btn-row adm-rw-btns">
+                    <button type="button" class="btn btn-ghost btn-sm" data-rw="rombos">💎 Ajustar Rombos</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-rw="grant">🎁 Dar cosmético</button>
+                    <button type="button" class="btn btn-ghost btn-sm" data-rw="streak">🔥 Ajustar racha</button>
+                </div>
+                ${kinds.filter(k => groups[k]).map(k => `<div class="adm-rw-kind"><b>${esc((RW && RW.KINDS[k]) || k)}</b><div class="adm-rw-items">
+                    ${groups[k].map(o => `<span class="adm-rw-it${eqIds.has(o.id) ? ' on' : ''}" title="${esc(o.id)} · ${esc(VIA[o.via] || o.via || '')}${o.at ? ' · ' + esc(dateTime(o.at)) : ''}">${eqIds.has(o.id) ? '✓ ' : ''}${esc(name(o.id))}<small>${esc(VIA[o.via] || '')}</small>
+                        <button type="button" data-rw="revoke" data-id="${esc(o.id)}" aria-label="Retirar ${esc(name(o.id))}" title="Retirar">✕</button></span>`).join('')}</div></div>`).join('') || '<p class="muted">No tiene cosméticos.</p>'}
+                <div class="adm-grid2">
+                    <div><h3 class="adm-h3">🧾 Movimientos de Rombos</h3>${w.log.length ? `<ul class="adm-rw-log">${w.log.map(l => `<li><span>${esc(l.why || '')}</span><b class="${l.n < 0 ? 'neg' : ''}">${l.n > 0 ? '+' : ''}${formatNumber(l.n)}</b></li>`).join('')}</ul>` : '<p class="muted">Sin movimientos.</p>'}</div>
+                    <div><h3 class="adm-h3">🛡️ Control del servidor</h3>${w.audit.length ? `<ul class="adm-rw-log">${w.audit.map(a => `<li><span>${a.by === 'control' ? '⚙️' : '🛡️ ' + esc(a.by)} ${esc(a.what)}</span><small>${esc(timeAgo(a.at))}</small></li>`).join('')}</ul>` : '<p class="muted">Sin correcciones ni ajustes.</p>'}</div>
+                </div>
+            </section>`;
+        }
+
+        async rewardsAction(lname, op, id, w) {
+            const name = this.nameOf(lname), RW = Nexus.services.rewards;
+            const done = async (payload, msg) => {
+                try { await this.call(B().rewards, Object.assign({ name: lname }, payload)); Nexus.ui.toast(msg, { type: 'success', icon: '💎' }); }
+                catch (e) { Nexus.ui.toast(e.message, { type: 'error' }); }
+                this.openUser(lname);
+            };
+            if (op === 'revoke') {
+                const it = RW && RW.item(id);
+                if (await Nexus.ui.modal.confirm({ icon: '✕', title: `Retirar «${it ? it.name : id}»`, message: `${name} dejará de tenerlo y no podrá recuperarlo salvo comprándolo de nuevo.`, confirmLabel: 'Retirar' })) await done({ op, id }, 'Cosmético retirado');
+                else this.openUser(lname);
+                return;
+            }
+            const body = document.createElement('div');
+            const reason = `<label class="field"><span class="field-label">Motivo <small>(opcional; aparece en sus movimientos)</small></span><input class="input" id="adm-rw-reason" maxlength="120" /></label>`;
+            if (op === 'rombos') body.innerHTML = `<p class="modal-text">Saldo actual de <b>${esc(name)}</b>: ${formatNumber(w.rombos)} Rombos. Usa un número negativo para quitar.</p>
+                <label class="field"><span class="field-label">Cantidad</span><input class="input" id="adm-rw-n" type="number" step="1" placeholder="500 o -200" /></label>${reason}`;
+            else if (op === 'grant') {
+                const owned = new Set(w.owned.map(o => o.id));
+                const opts = RW ? RW.GROUPS.map(g => g.kinds.map(k => `<optgroup label="${esc(g.name + ' · ' + RW.KINDS[k])}">${RW.CATALOG.filter(c => c.kind === k && !owned.has(c.id)).map(c => `<option value="${esc(c.id)}">${esc(c.name)}${c.price ? ' (' + c.price + ' Rombos)' : ''}</option>`).join('')}</optgroup>`).join('')).join('') : '';
+                body.innerHTML = `<label class="field"><span class="field-label">Cosmético</span><select class="input" id="adm-rw-id">${opts}</select></label>`;
+            } else body.innerHTML = `<p class="modal-text">Racha actual: ${w.streak.count} días · escudos: ${w.streak.shields}. Deja un campo vacío para no cambiarlo.</p>
+                <div class="adm-grid2"><label class="field"><span class="field-label">Racha (días)</span><input class="input" id="adm-rw-count" type="number" min="0" max="4000" placeholder="${w.streak.count}" /></label>
+                <label class="field"><span class="field-label">Escudos (0–3)</span><input class="input" id="adm-rw-shields" type="number" min="0" max="3" placeholder="${w.streak.shields}" /></label></div>${reason}`;
+            const err = document.createElement('p'); err.className = 'form-error'; err.hidden = true; body.appendChild(err);
+            const titles = { rombos: '💎 Ajustar Rombos', grant: '🎁 Dar cosmético', streak: '🔥 Ajustar racha de Nexito' };
+            Nexus.ui.modal.open({
+                title: `${titles[op]} · ${name}`, className: 'modal-sm', body,
+                actions: [{ label: 'Cancelar', kind: 'ghost', onClick: () => { setTimeout(() => this.openUser(lname), 120); } }, { label: 'Guardar', kind: 'primary', onClick: async () => {
+                    const v = (s) => { const el = $(s, body); return el ? el.value.trim() : ''; };
+                    const p = op === 'rombos' ? { op, amount: Number(v('#adm-rw-n')), reason: v('#adm-rw-reason') }
+                        : op === 'grant' ? { op, id: v('#adm-rw-id') } : { op, count: v('#adm-rw-count'), shields: v('#adm-rw-shields'), reason: v('#adm-rw-reason') };
+                    try { await this.call(B().rewards, Object.assign({ name: lname }, p)); }
+                    catch (e) { err.textContent = e.message; err.hidden = false; return false; }
+                    Nexus.ui.toast({ rombos: 'Rombos ajustados', grant: 'Cosmético entregado', streak: 'Racha actualizada' }[op], { type: 'success', icon: '💎' });
+                    setTimeout(() => this.openUser(lname), 120);
+                } }]
             });
         }
 

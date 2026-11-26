@@ -2,6 +2,8 @@
 import worker from '../backend/worker.js';
 
 import { createHash, createHmac } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { build as cosmeticsBlock } from '../tools/cosmetics/sync.mjs';
 // Código TOTP como Google Authenticator (RFC 6238)
 const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 function totp(secret, at = Date.now(), skew = 0) {
@@ -100,7 +102,7 @@ r = await call('GET', '/api/session', null, exp + '.zzz'); ok(r.status === 401, 
 r = await call('PUT', '/api/data', { data: data(1234) }, ana); ok(r.status === 200 && r.json.updatedAt > 0, 'PUT data');
 { // estructura de carpetas
     const names = [...files.keys()].filter(k => k.startsWith('users/ana_01/')).map(k => k.split('/')[2]).sort();
-    ok(JSON.stringify(names) === JSON.stringify(['account.json', 'achievements.json', 'history.json', 'progress.json', 'rewards.json', 'saves.json', 'settings.json', 'stats.json']), 'carpeta de usuario con account/progress/stats/achievements/history/settings/saves/rewards: ' + names.join(','));
+    ok(JSON.stringify(names) === JSON.stringify(['account.json', 'achievements.json', 'cosmetics.json', 'history.json', 'progress.json', 'rewards.json', 'saves.json', 'settings.json', 'stats.json', 'streak.json', 'wallet.json']), 'carpeta de usuario con account/progress/stats/achievements/history/settings/saves/wallet/cosmetics/streak/rewards: ' + names.join(','));
     ok(readJson('users/ana_01/stats.json').snake.bestScore === 1234, 'stats.json contiene las estadísticas');
     ok(JSON.stringify(readJson('users/ana_01/achievements.json')) === JSON.stringify({ a: 1, b: 2 }), 'achievements.json contiene los logros');
     ok(readJson('users/ana_01/progress.json').xp.level === 3 && readJson('users/ana_01/progress.json').updatedAt > 0, 'progress.json contiene XP/nivel y updatedAt');
@@ -238,6 +240,33 @@ r = await call('GET', '/api/leaderboard'); ok(r.headers.get('Access-Control-Allo
     ok(!JSON.stringify(r.json).includes('"hash"') && !JSON.stringify(r.json).includes('salt'), 'admin: la lista no expone credenciales');
     r = await call('GET', '/api/admin/user?name=ana_01', null, adm);
     ok(r.status === 200 && r.json.account.lastLoginAt > 0 && r.json.data.stats.snake && !JSON.stringify(r.json).includes('salt'), 'admin: ficha de una cuenta con sus estadísticas');
+    // Control de Rombos, cosméticos y racha desde el panel
+    ok(r.json.rewards && Array.isArray(r.json.rewards.owned) && r.json.rewards.streak && r.json.rewards.owned.some(o => o.id === 'nx-gorra'), 'admin: la ficha trae Rombos, cosméticos y racha');
+    const rw0 = r.json.rewards;
+    r = await call('POST', '/api/admin/rewards', { name: 'ana_01', op: 'rombos', amount: 500, reason: 'compensación' }, adm);
+    ok(r.status === 200 && r.json.rewards.rombos === rw0.rombos + 500 && r.json.rewards.earned === rw0.earned + 500, 'admin: suma Rombos (cuentan como ganados)');
+    r = await call('POST', '/api/admin/rewards', { name: 'ana_01', op: 'rombos', amount: -999999 }, adm);
+    ok(r.status === 200 && r.json.rewards.rombos === 0 && r.json.rewards.spent === r.json.rewards.earned, 'admin: quita Rombos sin bajar de 0 (cuentan como gastados)');
+    r = await call('POST', '/api/admin/rewards', { name: 'ana_01', op: 'grant', id: 'nx-corona' }, adm);
+    ok(r.status === 200 && r.json.rewards.owned.find(o => o.id === 'nx-corona').via === 'admin', 'admin: da un cosmético');
+    r = await call('POST', '/api/admin/rewards', { name: 'ana_01', op: 'grant', id: 'nx-nada' }, adm); ok(r.status === 400, 'admin: cosmético inexistente → 400');
+    r = await call('POST', '/api/admin/rewards', { name: 'ana_01', op: 'revoke', id: 'nx-gorra' }, adm);
+    ok(r.status === 200 && !r.json.rewards.owned.some(o => o.id === 'nx-gorra') && r.json.rewards.equipped['pet-hat'] === '', 'admin: retira un cosmético (y lo desequipa)');
+    r = await call('POST', '/api/admin/rewards', { name: 'ana_01', op: 'streak', count: 1, shields: 2 }, adm);
+    ok(r.status === 200 && r.json.rewards.streak.count === 1 && r.json.rewards.streak.shields === 2, 'admin: fija la racha y los escudos de Nexito');
+    r = await call('POST', '/api/admin/rewards', { name: 'jefe2', op: 'rombos', amount: 5 }, adm); ok(r.status === 404, 'admin: cuenta inexistente → 404');
+    // El jugador vuelve a mandar sus datos viejos: el servidor mantiene el ajuste del administrador
+    {
+        const s = (await call('GET', '/api/session', null, anaTok)).json.data.rewards;
+        const old = { ...s, rombos: s.earned, earned: s.earned, spent: 0, cosmetics: { owned: s.cosmetics.owned.concat('nx-gorra'), equipped: { 'pet-hat': 'nx-gorra' }, via: { 'nx-gorra': 'shop' } },
+            pet: { ...s.pet, streak: { ...s.pet.streak, count: 40 } } };
+        r = await call('PUT', '/api/data', { data: { ...data(1234), rewards: old } }, anaTok);
+        const back = r.json.rewards;
+        ok(r.status === 200 && back && back.rombos === 0 && !back.cosmetics.owned.includes('nx-gorra') && back.cosmetics.owned.includes('nx-corona') && back.pet.streak.count === 1 && r.json.control.length >= 2,
+            'control: los datos viejos del cliente no deshacen el ajuste (saldo, cosmético retirado y racha) ' + JSON.stringify([r.status, back && back.rombos, back && back.cosmetics.owned, back && back.pet.streak, r.json.control]));
+    }
+    r = await call('GET', '/api/admin/overview', null, adm);
+    ok(r.json.log.some(l => l.action === 'rewards' && l.target === 'Ana_01'), 'admin: los ajustes quedan en el registro');
     // Pop-ups
     r = await call('POST', '/api/admin/message', { to: ['ana_01', 'nadie'], title: 'Hola', body: 'x' }, adm); ok(r.status === 400, 'admin: pop-up a una cuenta inexistente → 400');
     r = await call('POST', '/api/admin/message', { to: ['Ana_01'], title: 'Aviso', body: 'Mañana hay torneo', kind: 'warn' }, adm); ok(r.status === 200 && r.json.sent === 1, 'admin: envía un pop-up');
@@ -279,6 +308,55 @@ r = await call('GET', '/api/leaderboard'); ok(r.headers.get('Access-Control-Allo
     const fake = Buffer.from(JSON.stringify({ u: 'x', n: 'jefe', v: 1, adm: 1, exp: Date.now() + 1e6 })).toString('base64url');
     r = await call('GET', '/api/admin/overview', null, fake + '.' + adm.split('.')[1]); ok(r.status === 401, 'admin: token de administrador falsificado → 401');
 }
+
+// ── Control de Rombos, cosméticos y racha al guardar (users/<nombre>/wallet.json, cosmetics.json, streak.json) ──
+{
+    const cami = (await call('POST', '/api/register', { name: 'Cami', password: 'secreta3' })).json.token;
+    const today = new Date().toISOString().slice(0, 10), yest = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+    const pet = (count, last, caredDays) => ({ name: 'Nexito', born: '2026-01-01', caredDays, streak: { count, best: count, last, shields: 1 } });
+    const save = (rw) => call('PUT', '/api/data', { data: { ...data(10), rewards: rw } }, cami);
+    // Primera vez: se acepta lo que trae (migración de cuentas existentes)
+    r = await save({ rombos: 100, earned: 300, cosmetics: { owned: ['nx-gorra', 'th-oro'], equipped: { 'pet-hat': 'nx-gorra' } }, pet: pet(3, yest, 10) });
+    let w = readJson('users/cami/wallet.json'), c = readJson('users/cami/cosmetics.json'), s = readJson('users/cami/streak.json'), rest = readJson('users/cami/rewards.json');
+    ok(r.status === 200 && w.rombos === 100 && w.earned === 300 && w.spent === 200, 'control: wallet.json con saldo, ganado y gastado (saldo = ganado − gastado)');
+    ok(c.owned.join() === 'nx-gorra' && c.equipped['pet-hat'] === 'nx-gorra' && c.acquired['nx-gorra'].via === 'migrated', 'control: cosmetics.json con lo propio, lo equipado y su origen (sin ids que no existen)');
+    ok(s.streak.count === 3 && s.caredDays === 10 && rest.rombos === undefined && rest.cosmetics === undefined && rest.pet === undefined, 'control: streak.json con Nexito; rewards.json ya sin Rombos, cosméticos ni racha');
+    // Rombos imposibles
+    r = await save({ rombos: 50100, earned: 50300, spent: 200, cosmetics: c, pet: pet(3, yest, 10) });
+    w = readJson('users/cami/wallet.json');
+    ok(w.earned === 300 + 6000 && w.rombos === w.earned - w.spent && r.json.control.some(x => x.includes('recortados')), 'control: lo ganado sube como mucho 2× el tope diario');
+    // Compra sin pagar / pagada
+    r = await save({ rombos: w.rombos, earned: w.earned, spent: w.spent, cosmetics: { owned: ['nx-gorra', 'nx-corona'], equipped: { 'pet-hat': 'nx-corona' }, via: { 'nx-corona': 'shop' } }, pet: pet(3, yest, 10) });
+    c = readJson('users/cami/cosmetics.json');
+    ok(!c.owned.includes('nx-corona') && c.equipped['pet-hat'] === undefined && r.json.rewards && r.json.control.some(x => x.includes('sin pagar')), 'control: un cosmético de pago sin pagar se descarta (y no se puede equipar)');
+    r = await save({ rombos: w.rombos - 900, earned: w.earned, spent: w.spent + 900, cosmetics: { owned: ['nx-gorra', 'nx-corona'], equipped: { 'pet-hat': 'nx-corona' }, via: { 'nx-corona': 'shop' } }, pet: pet(3, yest, 10) });
+    c = readJson('users/cami/cosmetics.json'); w = readJson('users/cami/wallet.json');
+    ok(c.owned.includes('nx-corona') && c.acquired['nx-corona'].via === 'shop' && c.equipped['pet-hat'] === 'nx-corona' && w.rombos === 6300 - 200 - 900 && !r.json.rewards, 'control: compra pagada aceptada (y sin correcciones)');
+    // Premio del pase con precio: se acepta sin pagarlo; equipado en el hueco equivocado: fuera
+    r = await save({ rombos: w.rombos, earned: w.earned, spent: w.spent, cosmetics: { owned: ['nx-gorra', 'nx-corona', 'fr-neon'], equipped: { 'pet-hat': 'fr-neon', frame: 'fr-neon' } }, pet: pet(3, yest, 10) });
+    c = readJson('users/cami/cosmetics.json');
+    ok(c.owned.includes('fr-neon') && c.equipped.frame === 'fr-neon' && c.equipped['pet-hat'] === undefined, 'control: premios sí; lo equipado tiene que ser de su tipo');
+    // Lo gastado no baja y los cosméticos no se pierden aunque el cliente no los mande
+    r = await save({ rombos: 99999, earned: w.earned, spent: 0, cosmetics: { owned: [], equipped: {} }, pet: pet(3, yest, 10) });
+    w = readJson('users/cami/wallet.json'); c = readJson('users/cami/cosmetics.json');
+    ok(w.spent === 1100 && w.rombos === w.earned - 1100 && c.owned.length === 3, 'control: lo gastado no baja y los cosméticos se conservan');
+    // Racha: +1 por día que avanza el último día; sin fechas futuras; datos más antiguos no pisan
+    r = await save({ rombos: w.rombos, earned: w.earned, spent: w.spent, cosmetics: c, pet: pet(50, today, 60) });
+    s = readJson('users/cami/streak.json');
+    ok(s.streak.count === 4 && s.caredDays === 11 && s.streak.best === 4, `control: la racha sube como mucho un día por día (${s.streak.count}, ${s.caredDays})`);
+    r = await save({ rombos: w.rombos, earned: w.earned, spent: w.spent, cosmetics: c, pet: pet(9, '2099-01-01', 11) });
+    s = readJson('users/cami/streak.json');
+    ok(s.streak.count === 4 && s.streak.last === today, 'control: sin fechas futuras en la racha');
+    r = await save({ rombos: w.rombos, earned: w.earned, spent: w.spent, cosmetics: c, pet: pet(1, '2026-01-05', 11) });
+    s = readJson('users/cami/streak.json');
+    ok(s.streak.count === 4 && s.streak.last === today, 'control: una racha más antigua (otro dispositivo) no pisa la guardada');
+    w = readJson('users/cami/wallet.json');
+    ok(Array.isArray(w.audit) && w.audit.length >= 4 && w.audit[0].by === 'control', 'control: registro de correcciones en wallet.json');
+    r = await call('GET', '/api/session', null, cami);
+    ok(r.json.data.rewards.rombos === w.rombos && r.json.data.rewards.cosmetics.owned.length === 3 && r.json.data.rewards.pet.streak.count === 4, 'session junta wallet + cosmetics + streak + rewards');
+}
+
+ok(readFileSync(new URL('../backend/worker.js', import.meta.url), 'utf8').includes(cosmeticsBlock()), 'catálogo de cosméticos del Worker al día con src/services/rewards.js');
 
 let n429 = 0; for (let i = 0; i < 14; i++) { const x = await worker.fetch(new Request('https://api.test/api/login', { method: 'POST', headers: { 'CF-Connecting-IP': '9.9.9.9', Origin: O }, body: JSON.stringify({ name: 'ana_01', password: 'mal' }) }), env); if (x.status === 429) n429++; }
 ok(n429 > 0, 'limitador de intentos de login → 429');

@@ -10,7 +10,10 @@
          history.json                 últimas partidas
          settings.json                ajustes del usuario
          saves.json                   partidas en curso (Wordle, Pasapalabra…)
-         rewards.json                 Rombos, misiones, temporada, cosméticos y Nexito (mascota de racha)
+         wallet.json                  Rombos (saldo, ganado, gastado, movimientos, registro de control)
+         cosmetics.json               cosméticos propios (fecha y origen), equipados y retirados
+         streak.json                  Nexito y su racha
+         rewards.json                 el resto: misiones, temporada, escaparate…
      leaderboard.json                 resumen público de cada jugador
      admin.json                       estado de administración: mantenimiento, cuentas
                                       suspendidas, pop-ups enviados y registro de acciones
@@ -264,20 +267,23 @@ function sanitizeData(d) {
 }
 
 // ── Recompensas (Rombos, misiones, temporada, cosméticos) ─
-// El cliente es de confianza, pero se acotan tipos y tamaños y se ponen topes razonables
-const COSMETIC_RE = /^(?:fr|t|th|pt|bn|sk|nx|av:rw)-[a-z0-9-]{1,40}$/;
+// Se acotan tipos y tamaños; después controlRewards() compara con lo guardado (ver más abajo)
 const ACH_RE = /^[a-z0-9_]{1,32}$/;
 const MAX_ROMBOS = 10000000;
 function sanitizeRewards(r) {
     const out = plain(r);
     out.rombos = clampInt(r.rombos, MAX_ROMBOS);
     out.earned = Math.max(out.rombos, clampInt(r.earned, MAX_ROMBOS * 10));
+    if (r.spent !== undefined) out.spent = clampInt(r.spent, MAX_ROMBOS * 10);
     out.points = clampInt(r.points, 1e7);
     const cos = isObj(r.cosmetics) ? r.cosmetics : {};
     const owned = (Array.isArray(cos.owned) ? cos.owned : []).filter((x) => typeof x === 'string' && COSMETIC_RE.test(x)).slice(0, 400);
     const eq = {};
     for (const [k, v] of Object.entries(isObj(cos.equipped) ? cos.equipped : {}).slice(0, 20)) if (KEY_RE.test(k) && (v === '' || (typeof v === 'string' && owned.includes(v)))) eq[k] = v;
-    out.cosmetics = { owned: [...new Set(owned)], equipped: eq };
+    const via = {};
+    for (const [k, v] of Object.entries(isObj(cos.via) ? cos.via : {}).slice(0, 400)) if (owned.includes(k) && typeof v === 'string') via[k] = v.slice(0, 12);
+    out.cosmetics = { owned: [...new Set(owned)], equipped: eq, via };
+    delete out.srv; delete out.audit;   // campos del servidor: el cliente no los decide
     out.showcase = (Array.isArray(r.showcase) ? r.showcase : []).filter((x) => typeof x === 'string' && ACH_RE.test(x)).slice(0, 3);
     out.tracked = typeof r.tracked === 'string' && ACH_RE.test(r.tracked) ? r.tracked : '';
     const s = isObj(r.season) ? r.season : {};
@@ -324,6 +330,134 @@ function sanitizePet(p) {
     out.stats = { fed: clampInt(st.fed, 1e6), nightFeeds: clampInt(st.nightFeeds, 1e6), wakes: clampInt(st.wakes, 1e6), pokes: clampInt(st.pokes, 1e7) };
     return out;
 }
+// ── Control de Rombos, cosméticos y racha ────────────────────
+// Catálogo copiado de src/services/rewards.js (lo regenera  node tools/cosmetics/sync.mjs).
+// @cosmetics-begin
+const COSMETICS = {"fr-silver":["frame",400],"fr-gold":["frame",700],"fr-neon":["frame",600],"fr-diamond":["frame",900],"fr-fire":["frame",800],"fr-mastery":["frame",0],"fr-legend":["frame",0],"fr-nexito":["frame",0],"t-estratega":["title",250],"t-pixel":["title",250],"t-tahur":["title",250],"t-cerebro":["title",250],"t-campeon":["title",0],"t-explorador":["title",0],"t-coleccionista":["title",0],"t-kamikaze":["title",0],"t-insomne":["title",0],"t-maratoniano":["title",0],"t-buscador":["title",0],"t-cazafantasmas":["title",0],"t-leyenda":["title",0],"t-veterano":["title",0],"t-inseparables":["title",0],"bn-galaxia":["banner",350],"bn-arcade":["banner",350],"bn-oro":["banner",500],"bn-aurora":["banner",450],"bn-atardecer":["banner",400],"bn-oceano":["banner",400],"bn-navidad":["banner",450],"bn-comunidad":["banner",0],"av:rw-pad-gold":["avatar",800],"av:rw-detective-gold":["avatar",800],"av:rw-phoenix-gold":["avatar",0],"av:rw-crown-neon":["avatar",0],"av:rw-nexo-gold":["avatar",0],"av:rw-legend":["avatar",0],"av:rw-ghost":["avatar",0],"av:rw-xmas":["avatar",0],"av:rw-nexito":["avatar",0],"nx-gorra":["pet-hat",400],"nx-auriculares":["pet-hat",500],"nx-copa":["pet-hat",600],"nx-corona":["pet-hat",900],"nx-gorro-navidad":["pet-hat",500],"nx-gorro-lana":["pet-hat",350],"nx-reno":["pet-hat",0],"nx-bruja":["pet-hat",500],"nx-vaquero":["pet-hat",450],"nx-chef":["pet-hat",400],"nx-fiesta":["pet-hat",300],"nx-flores":["pet-hat",450],"nx-pirata":["pet-hat",600],"nx-boina":["pet-hat",300],"nx-aureola":["pet-hat",0],"nx-gafas-sol":["pet-glasses",400],"nx-gafas-pixel":["pet-glasses",600],"nx-gafas-redondas":["pet-glasses",350],"nx-gafas-corazon":["pet-glasses",400],"nx-gafas-3d":["pet-glasses",350],"nx-gafas-esqui":["pet-glasses",450],"nx-monoculo":["pet-glasses",500],"nx-parche":["pet-glasses",300],"nx-bigote":["pet-glasses",250],"nx-bufanda":["pet-scarf",0],"nx-pajarita":["pet-scarf",350],"nx-capa":["pet-scarf",800],"nx-jersey-navidad":["pet-scarf",600],"nx-bufanda-navidad":["pet-scarf",400],"nx-corbata":["pet-scarf",300],"nx-collar-flores":["pet-scarf",350],"nx-medalla":["pet-scarf",500],"nx-bandana":["pet-scarf",300],"nx-capa-mago":["pet-scarf",800],"nx-cupula-navidad":["pet-dome",1500],"nx-cupula-estrellas":["pet-dome",0],"nx-cupula-neon":["pet-dome",600],"nx-cupula-oro":["pet-dome",900],"nx-cupula-arcade":["pet-dome",900],"nx-cupula-oceano":["pet-dome",1000],"nx-cupula-espacio":["pet-dome",1000],"nx-cupula-jardin":["pet-dome",800],"nx-cupula-playa":["pet-dome",800],"nx-cupula-halloween":["pet-dome",1000],"nx-cupula-leyenda":["pet-dome",0]};
+const EARNABLE = new Set(["av:rw-crown-neon","av:rw-ghost","av:rw-legend","av:rw-nexito","av:rw-nexo-gold","av:rw-pad-gold","av:rw-phoenix-gold","av:rw-xmas","bn-arcade","bn-aurora","bn-comunidad","bn-galaxia","bn-oro","fr-diamond","fr-gold","fr-legend","fr-mastery","fr-neon","fr-nexito","fr-silver","nx-aureola","nx-bufanda","nx-corbata","nx-cupula-espacio","nx-cupula-estrellas","nx-cupula-jardin","nx-cupula-leyenda","nx-cupula-neon","nx-fiesta","nx-gafas-redondas","nx-gorro-lana","nx-pajarita","nx-reno","nx-vaquero","t-buscador","t-campeon","t-cazafantasmas","t-coleccionista","t-estratega","t-explorador","t-inseparables","t-insomne","t-kamikaze","t-leyenda","t-maratoniano","t-pixel","t-tahur","t-veterano"]);
+const RETIRED_COSMETICS = {"nx-base-oro":"nx-cupula-oro","nx-base-arcade":"nx-cupula-arcade","nx-base-leyenda":"nx-cupula-leyenda","th-oro":1200,"th-nocturno":1200,"pt-rombos":600,"pt-estrellas":900,"sk-snake-gold":500,"sk-snake-ice":500,"sk-snake-lava":500,"sk-cards-indigo":400,"sk-cards-gold":400,"sk-cards-xmas":400,"sk-chess-wood":500,"sk-chess-ocean":500,"sk-tetris-pastel":500,"sk-tetris-neon":500};
+const DAILY_ROMBOS = 3000;
+// @cosmetics-end
+const COSMETIC_RE = /^(?:fr|t|th|pt|bn|sk|nx|av:rw)-[a-z0-9-]{1,40}$/;
+/** [tipo, precio] de un cosmético del catálogo (los títulos de Maestría t-master-<juego> son gratis), o null. */
+function cosmeticInfo(id) {
+    if (typeof id !== 'string') return null;
+    if (COSMETICS[id]) return COSMETICS[id];
+    return /^t-master-[a-z0-9]{1,24}$/.test(id) ? ['title', 0] : null;
+}
+const utcDay = (t = Date.now()) => new Date(t).toISOString().slice(0, 10);
+const dayNum = (k) => (DAY_RE.test(k || '') ? Math.floor(Date.parse(k + 'T00:00:00Z') / 864e5) : null);
+const AUDIT_MAX = 60;
+
+/**
+ * Compara lo que manda el cliente (next) con lo guardado (prev) y deja sólo lo que se puede justificar:
+ *   · Rombos: lo ganado y lo gastado nunca bajan; lo ganado sube como mucho el doble del tope diario por día (UTC)
+ *     más los reembolsos de cosméticos retirados; el saldo es siempre ganado − gastado.
+ *   · Cosméticos: sólo ids del catálogo; los de pago nuevos tienen que estar pagados (lo gastado sube al menos su
+ *     precio) salvo que también sean premios; lo retirado por un administrador sólo vuelve comprándolo;
+ *     nunca se pierden cosméticos (se une con lo guardado); lo equipado tiene que ser propio y del tipo correcto.
+ *   · Racha de Nexito: la racha y los días cuidados suben como mucho un día por cada día que avanza «último día»,
+ *     que no puede estar en el futuro.
+ * Devuelve { rewards, notes } (notes = correcciones hechas, que se apuntan en el registro de control).
+ */
+function controlRewards(prev, next, now = Date.now()) {
+    const notes = [], today = utcDay(now);
+    const p = isObj(prev) ? prev : {}, n = isObj(next) ? next : {};
+    if (!Object.keys(n).length) return { rewards: p, notes };   // el cliente no manda recompensas: se queda lo guardado
+    const fresh = p.earned === undefined && p.rombos === undefined;   // primera vez que el servidor ve recompensas
+    const out = { ...n };
+
+    // ── Cosméticos retirados que tenía guardados: se convierten o se reembolsan (como hace el cliente) ──
+    const pc = isObj(p.cosmetics) ? p.cosmetics : {}, nc = isObj(n.cosmetics) ? n.cosmetics : {};
+    const prevOwnedRaw = Array.isArray(pc.owned) ? pc.owned.filter((x) => typeof x === 'string') : [];
+    let refund = 0;
+    const converted = [];
+    for (const id of prevOwnedRaw) {
+        const to = RETIRED_COSMETICS[id];
+        if (typeof to === 'number') refund += to; else if (typeof to === 'string') converted.push(to);
+    }
+
+    // ── Rombos ──
+    const pEarned = clampInt(p.earned, 1e9), pRombos = clampInt(p.rombos, 1e9);
+    const pSpent = p.spent !== undefined ? clampInt(p.spent, 1e9) : Math.max(0, pEarned - pRombos);
+    let nEarned = clampInt(n.earned, 1e9);
+    let nSpent = n.spent !== undefined ? clampInt(n.spent, 1e9) : Math.max(0, nEarned - clampInt(n.rombos, 1e9));
+    const srv = isObj(p.srv) && p.srv.day === today ? { day: today, earned: clampInt(p.srv.earned, 1e9) } : { day: today, earned: 0 };
+    let earned, spent;
+    if (fresh) { earned = nEarned; spent = Math.min(nSpent, nEarned); }
+    else {
+        let gain = Math.max(0, nEarned - pEarned);
+        const allow = Math.max(0, 2 * DAILY_ROMBOS - srv.earned) + refund;
+        if (gain > allow) { notes.push(`Rombos ganados recortados: +${gain} → +${allow}`); gain = allow; }
+        srv.earned += gain;
+        earned = pEarned + gain;
+        if (nSpent < pSpent) nSpent = pSpent;      // lo gastado nunca baja (p. ej. datos de otro dispositivo)
+        spent = nSpent;
+    }
+    if (spent > earned) { notes.push(`Gasto mayor que lo ganado (${spent} > ${earned})`); spent = earned; }
+    out.earned = earned; out.spent = spent; out.rombos = earned - spent; out.srv = srv;
+
+    // ── Cosméticos ──
+    const acquired = isObj(pc.acquired) ? { ...pc.acquired } : {};
+    const revoked = new Set(Array.isArray(pc.revoked) ? pc.revoked.filter((x) => typeof x === 'string') : []);
+    const owned = [];
+    const have = new Set();
+    const keep = (id, via) => { if (have.has(id) || !cosmeticInfo(id)) return; have.add(id); owned.push(id); if (!acquired[id]) acquired[id] = { at: now, via }; };
+    for (const id of prevOwnedRaw) if (!RETIRED_COSMETICS[id]) keep(id, 'migrated');
+    for (const id of converted) keep(id, 'migrated');
+    let paid = fresh ? Infinity : Math.max(0, spent - pSpent);
+    const via = isObj(nc.via) ? nc.via : {};
+    for (const id of Array.isArray(nc.owned) ? nc.owned : []) {
+        if (have.has(id) || typeof id !== 'string') continue;
+        const info = cosmeticInfo(id);
+        if (!info) continue;
+        if (fresh && !revoked.has(id)) { keep(id, 'migrated'); continue; }
+        const mustPay = revoked.has(id) || via[id] === 'shop' || !EARNABLE.has(id) && !/^t-master-/.test(id);
+        if (!mustPay) { keep(id, 'earned'); continue; }
+        if (info[1] > 0 && paid >= info[1]) { paid -= info[1]; revoked.delete(id); keep(id, 'shop'); continue; }
+        notes.push(`Cosmético sin pagar descartado: ${id}`);
+    }
+    const eq = {};
+    const neq = isObj(nc.equipped) ? nc.equipped : {};
+    for (const [k, v] of Object.entries(neq).slice(0, 20)) {
+        if (!KEY_RE.test(k)) continue;
+        if (v === '') { eq[k] = ''; continue; }
+        const info = cosmeticInfo(v);
+        if (info && have.has(v) && info[0] === k && k !== 'avatar') eq[k] = v;
+        else notes.push(`Equipado no válido: ${k} = ${String(v).slice(0, 40)}`);
+    }
+    for (const id of Object.keys(acquired)) if (!have.has(id)) delete acquired[id];
+    out.cosmetics = { owned, equipped: eq, via: Object.fromEntries(owned.filter((id) => typeof via[id] === 'string').map((id) => [id, via[id].slice(0, 12)])), acquired, revoked: [...revoked].slice(0, 200) };
+
+    // ── Racha de Nexito ──
+    if (isObj(n.pet) && isObj(p.pet) && isObj(p.pet.streak) && !fresh) {
+        const ps = p.pet.streak, ns = isObj(n.pet.streak) ? { ...n.pet.streak } : {};
+        const pd = dayNum(ps.last), max = dayNum(today) + 1;
+        let nd = dayNum(ns.last);
+        const pet = { ...n.pet };
+        if (nd !== null && nd > max) { notes.push(`Racha con fecha futura (${ns.last})`); ns.last = ps.last || ''; nd = pd; }
+        if (pd !== null && (nd === null || nd < pd)) {
+            // El cliente trae una racha más antigua que la guardada (otro dispositivo): manda la guardada
+            Object.assign(ns, { count: clampInt(ps.count, 4000), last: ps.last, best: Math.max(clampInt(ps.best, 4000), clampInt(ns.best, 4000)) });
+            nd = pd;
+        }
+        const steps = pd === null ? 1 : Math.max(0, nd - pd);
+        const capCount = clampInt(ps.count, 4000) + steps;
+        if (clampInt(ns.count, 4000) > capCount) { notes.push(`Racha recortada: ${ns.count} → ${capCount}`); ns.count = capCount; }
+        const capDays = clampInt(p.pet.caredDays, 4000) + steps;
+        if (clampInt(pet.caredDays, 4000) > capDays) { notes.push(`Días cuidados recortados: ${pet.caredDays} → ${capDays}`); pet.caredDays = capDays; }
+        ns.best = Math.max(clampInt(ps.best, 4000), Math.min(clampInt(ns.best, 4000), Math.max(clampInt(ps.best, 4000), clampInt(ns.count, 4000))));
+        pet.streak = ns;
+        out.pet = pet;
+    }
+
+    // Registro de control (sólo lo escribe el servidor)
+    const audit = Array.isArray(p.audit) ? p.audit.filter(isObj).slice(0, AUDIT_MAX) : [];
+    if (notes.length) audit.unshift({ at: now, by: 'control', what: notes.join(' · ').slice(0, 400) });
+    out.audit = audit.slice(0, AUDIT_MAX);
+    return { rewards: out, notes };
+}
+
 const PET_STAGES = [[365, 'legend'], [100, 'gold'], [30, 'pro'], [7, 'nexito'], [3, 'baby'], [0, 'egg']];
 const bestTime = (t) => (t === null || t === undefined || !Number.isFinite(Number(t)) || Number(t) < 0 ? null : Math.floor(Number(t)));
 const modeStats = (m) => ({ played: clampInt(m && m.played, 1e9), wins: clampInt(m && m.wins, 1e9), bestScore: clampInt(m && m.bestScore, 1e9), bestTime: bestTime(m && m.bestTime) });
@@ -405,14 +539,21 @@ function validatePassword(pw) {
 }
 
 // ── Carpeta de usuario: users/<nombre>/{account,progress,stats,…}.json ──
-const DATA_FILES = ['progress', 'stats', 'achievements', 'history', 'settings', 'saves', 'rewards'];
+// wallet (Rombos), cosmetics (cosméticos) y streak (Nexito y su racha) van antes que rewards: si un guardado se corta a
+// medias, al leer mandan sobre los mismos campos que pudiera tener un rewards.json antiguo.
+const DATA_FILES = ['progress', 'stats', 'achievements', 'history', 'settings', 'saves', 'wallet', 'cosmetics', 'streak', 'rewards'];
+const WALLET_KEYS = ['rombos', 'earned', 'spent', 'day', 'srv', 'log', 'audit'];
 const userDir = (lname) => `users/${lname}`;
 const filePath = (lname, f) => `${userDir(lname)}/${f}.json`;
 const userCache = new Map();     // lname → { archivo: { sha, json } } (se valida con el sha del listado)
 
 function splitData(d, updatedAt) {
+    const rw = isObj(d.rewards) ? { ...d.rewards } : {}, wallet = {};
+    for (const k of WALLET_KEYS) if (rw[k] !== undefined) { wallet[k] = rw[k]; delete rw[k]; }
+    const cosmetics = isObj(rw.cosmetics) ? rw.cosmetics : { owned: [], equipped: {} }, streak = isObj(rw.pet) ? rw.pet : {};
+    delete rw.cosmetics; delete rw.pet;
     return { progress: { v: d.v, xp: d.xp, meta: d.meta, updatedAt }, stats: d.stats, achievements: d.achievements,
-        history: d.history, settings: d.settings, saves: d.saves, rewards: isObj(d.rewards) ? d.rewards : {} };
+        history: d.history, settings: d.settings, saves: d.saves, wallet, cosmetics, streak, rewards: rw };
 }
 function joinData(f) {
     const base = newData(), g = (k) => (f[k] ? f[k].json : undefined), p = isObj(g('progress')) ? g('progress') : {};
@@ -421,7 +562,14 @@ function joinData(f) {
         stats: isObj(g('stats')) ? g('stats') : {}, achievements: isObj(g('achievements')) ? g('achievements') : {},
         history: Array.isArray(g('history')) ? g('history') : [], settings: isObj(g('settings')) ? g('settings') : {},
         saves: isObj(g('saves')) ? g('saves') : {},
-        rewards: isObj(g('rewards')) ? g('rewards') : {}
+        rewards: (() => {
+            // rewards.json (misiones, temporada…) + wallet.json + cosmetics.json + streak.json (las cuentas antiguas lo tenían todo junto)
+            const rw = isObj(g('rewards')) ? { ...g('rewards') } : {}, w = g('wallet'), c = g('cosmetics'), s = g('streak');
+            if (isObj(w)) for (const k of WALLET_KEYS) if (w[k] !== undefined) rw[k] = w[k];
+            if (isObj(c) && Array.isArray(c.owned)) rw.cosmetics = c;
+            if (isObj(s) && Object.keys(s).length) rw.pet = s;
+            return rw;
+        })()
     };
 }
 
@@ -663,6 +811,84 @@ async function mutateAccount(env, name, fn, label, allowAdmin = false) {
     }
     throw new HttpError(409, 'Conflicto al guardar. Inténtalo de nuevo.', { code: 'conflict' });
 }
+/** Abre la cuenta objetivo con todos sus datos, aplica fn(u) y guarda (reintenta si hay conflicto). */
+async function mutateTarget(env, name, fn, label, allowAdmin = false) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const u = await targetUser(env, name, allowAdmin);
+        await loadData(env, u);
+        const out = await fn(u);
+        try { await saveUser(env, u, label); return { u, out }; }
+        catch (e) { if (!(e instanceof Conflict)) throw e; userCache.delete(u.lname); await backoff(attempt); }
+    }
+    throw new HttpError(409, 'Conflicto al guardar. Inténtalo de nuevo.', { code: 'conflict' });
+}
+/** Ficha de Rombos, cosméticos y racha de una cuenta para el panel. */
+function rewardsView(rw) {
+    const r = isObj(rw) ? rw : {}, c = isObj(r.cosmetics) ? r.cosmetics : {}, acq = isObj(c.acquired) ? c.acquired : {};
+    const pet = isObj(r.pet) ? r.pet : {}, s = isObj(pet.streak) ? pet.streak : {};
+    const earned = clampInt(r.earned, 1e9), spent = r.spent !== undefined ? clampInt(r.spent, 1e9) : Math.max(0, earned - clampInt(r.rombos, 1e9));
+    return {
+        rombos: clampInt(r.rombos, 1e9), earned, spent,
+        log: Array.isArray(r.log) ? r.log.slice(0, 15) : [], audit: Array.isArray(r.audit) ? r.audit.slice(0, 30) : [],
+        owned: (Array.isArray(c.owned) ? c.owned : []).filter((id) => cosmeticInfo(id)).map((id) => ({ id, kind: cosmeticInfo(id)[0], price: cosmeticInfo(id)[1], at: (acq[id] || {}).at || null, via: (acq[id] || {}).via || '' })),
+        equipped: isObj(c.equipped) ? c.equipped : {}, revoked: Array.isArray(c.revoked) ? c.revoked : [],
+        streak: { name: typeof pet.name === 'string' ? pet.name : 'Nexito', count: clampInt(s.count, 4000), best: clampInt(s.best, 4000), last: day(s.last),
+            shields: clampInt(s.shields, 3), caredDays: clampInt(pet.caredDays, 4000), danger: day(s.danger) },
+        catalog: Object.keys(COSMETICS).length
+    };
+}
+/** Ajuste de un administrador sobre las recompensas guardadas (no pasa por el control: lo decide el administrador). */
+function adminRewardsOp(rw, body, by, now = Date.now()) {
+    const r = rw, note = cleanText(body.reason, 120);
+    r.earned = clampInt(r.earned, 1e9); r.rombos = clampInt(r.rombos, 1e9);
+    r.spent = r.spent !== undefined ? clampInt(r.spent, 1e9) : Math.max(0, r.earned - r.rombos);
+    r.cosmetics = isObj(r.cosmetics) ? r.cosmetics : { owned: [], equipped: {} };
+    const c = r.cosmetics;
+    c.owned = Array.isArray(c.owned) ? c.owned : []; c.equipped = isObj(c.equipped) ? c.equipped : {};
+    c.acquired = isObj(c.acquired) ? c.acquired : {}; c.revoked = Array.isArray(c.revoked) ? c.revoked : [];
+    let what;
+    if (body.op === 'rombos') {
+        const n = Math.trunc(Number(body.amount) || 0);
+        if (!n || Math.abs(n) > 1000000) throw new HttpError(400, 'Indica una cantidad de Rombos (±1 000 000 como mucho).');
+        // Sumar cuenta como ganado; quitar, como gastado (nunca por debajo de 0): así el control del servidor lo respeta
+        const delta = n > 0 ? n : -Math.min(-n, r.earned - r.spent);
+        if (delta > 0) r.earned += delta; else r.spent -= delta;
+        r.rombos = r.earned - r.spent;
+        what = `${delta >= 0 ? '+' : '−'}${Math.abs(delta)} Rombos`;
+        r.log = [{ at: now, n: delta, why: ('Ajuste del administrador' + (note ? ': ' + note : '')).slice(0, 60) }].concat(Array.isArray(r.log) ? r.log : []).slice(0, 30);
+    } else if (body.op === 'grant' || body.op === 'revoke') {
+        const id = String(body.id || ''), info = cosmeticInfo(id);
+        if (!info) throw new HttpError(400, 'Ese cosmético no existe.');
+        if (body.op === 'grant') {
+            if (!c.owned.includes(id)) c.owned.push(id);
+            c.acquired[id] = { at: now, via: 'admin' }; c.revoked = c.revoked.filter((x) => x !== id);
+            what = `da ${id}`;
+        } else {
+            if (!c.owned.includes(id)) throw new HttpError(400, 'La cuenta no tiene ese cosmético.');
+            c.owned = c.owned.filter((x) => x !== id); delete c.acquired[id];
+            for (const k of Object.keys(c.equipped)) if (c.equipped[k] === id) c.equipped[k] = '';
+            if (!c.revoked.includes(id)) c.revoked.push(id);
+            what = `retira ${id}`;
+        }
+    } else if (body.op === 'streak') {
+        const pet = isObj(r.pet) ? r.pet : null;
+        if (!pet) throw new HttpError(400, 'Esta cuenta todavía no tiene a Nexito.');
+        const s = pet.streak = isObj(pet.streak) ? pet.streak : {};
+        const parts = [];
+        if (body.count !== undefined && body.count !== '') {
+            const n = Math.min(4000, clampInt(body.count, 4000));
+            s.count = n; s.best = Math.max(clampInt(s.best, 4000), n); s.danger = ''; if (n) s.last = utcDay(now);
+            pet.caredDays = Math.max(clampInt(pet.caredDays, 4000), n);
+            parts.push(`racha ${n}`);
+        }
+        if (body.shields !== undefined && body.shields !== '') { s.shields = Math.min(3, clampInt(body.shields, 3)); parts.push(`escudos ${s.shields}`); }
+        if (!parts.length) throw new HttpError(400, 'Indica la racha o los escudos.');
+        what = parts.join(', ');
+    } else throw new HttpError(400, 'Acción desconocida.');
+    r.audit = [{ at: now, by, what: what + (note ? ' · ' + note : '') }].concat(Array.isArray(r.audit) ? r.audit : []).slice(0, AUDIT_MAX);
+    return what;
+}
+
 const cleanText = (v, max) => String(typeof v === 'string' ? v : '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').trim().slice(0, max);
 
 async function adminRoute(env, tok, pathname, method, body, url) {
@@ -695,9 +921,19 @@ async function adminRoute(env, tok, pathname, method, body, url) {
                 admin: isAdminName(env, a.name), totp: !!a.totp, suspended: activeSusp(a.suspended) },
             updatedAt: u.updatedAt,
             data: { xp: d.xp, meta: d.meta, stats: d.stats, achievements: d.achievements, history: d.history.slice(0, 40) },
+            rewards: rewardsView(d.rewards),
             summary: summaryOf(u),
             messages: Array.isArray(st.json.messages[u.lname]) ? st.json.messages[u.lname] : []
         }];
+    }
+
+    if (pathname === '/api/admin/rewards' && method === 'POST') {
+        // Las cuentas administradoras sólo pueden tocar las suyas propias
+        const self = String(body.name || '').toLowerCase() === String(by).toLowerCase();
+        const { u, out } = await mutateTarget(env, body.name, (x) => adminRewardsOp(x.data.rewards = isObj(x.data.rewards) ? x.data.rewards : {}, body, by), `recompensas (admin ${by})`, self);
+        await updateLeaderboard(env, u.account.id, summaryOf(u), u.account.name);
+        await mutateAdmin(env, (j) => logAction(j, by, 'rewards', u.account.name, out), `recompensas ${u.lname}`);
+        return [200, { ok: true, rewards: rewardsView(u.data.rewards) }];
     }
 
     if (pathname === '/api/admin/suspend' && method === 'POST') {
@@ -919,9 +1155,19 @@ async function route(request, env, url, body) {
     if (pathname === '/api/data' && method === 'PUT') {
         if (JSON.stringify(body.data === undefined ? null : body.data).length > MAX_DATA_BYTES) throw new HttpError(413, 'Los datos superan el tamaño máximo (256 KB).');
         const data = sanitizeData(body.data);
-        const { u } = await mutateUser(env, tok, (x) => { x.data = data; x.updatedAt = Date.now(); }, 'datos');
+        let ctl = null;
+        const { u } = await mutateUser(env, tok, (x) => {
+            const d = { ...data };
+            ctl = controlRewards(x.data.rewards, d.rewards);
+            d.rewards = ctl.rewards;
+            x.data = d; x.updatedAt = Date.now();
+        }, 'datos');
         await updateLeaderboard(env, u.account.id, summaryOf(u), u.account.name);
-        return [200, { updatedAt: u.updatedAt }];
+        // Si el servidor corrigió algo o tiene cosas que el cliente no (p. ej. un ajuste del administrador), le devuelve sus recompensas
+        const key = (r) => { const c = isObj(r.cosmetics) ? r.cosmetics : {}, s = isObj(r.pet) && isObj(r.pet.streak) ? r.pet.streak : {};
+            return JSON.stringify([r.rombos | 0, r.earned | 0, (c.owned || []).length, c.equipped || {}, s.count | 0, s.best | 0, s.shields | 0, isObj(r.pet) ? r.pet.caredDays | 0 : 0]); };
+        const differs = key(ctl.rewards) !== key(isObj(body.data.rewards) ? body.data.rewards : {});
+        return [200, { updatedAt: u.updatedAt, ...(ctl.notes.length || differs ? { rewards: u.data.rewards, control: ctl.notes } : {}) }];
     }
 
     if (pathname === '/api/profile' && method === 'PATCH') {

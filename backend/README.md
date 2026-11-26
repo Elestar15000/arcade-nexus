@@ -51,11 +51,32 @@ users/
     history.json          últimas partidas
     settings.json         ajustes
     saves.json            partidas en curso (Wordle, Pasapalabra…)
-    rewards.json          Rombos, misiones, temporada, cosméticos y Nexito (mascota de racha)
+    wallet.json           Rombos: saldo, ganado, gastado, tope diario del servidor, movimientos y registro de control
+    cosmetics.json        cosméticos en propiedad (con fecha y origen: compra, premio, administrador…), equipados y retirados
+    streak.json           Nexito: racha (actual, mejor, último día, escudos, hitos), días cuidados, comida y ajustes
+    rewards.json          el resto de recompensas: misiones, temporada, escaparate, rangos, eventos…
 leaderboard.json          resumen público de todos los jugadores (ranking)
 admin.json                mantenimiento, suspensiones, pop-ups enviados (y si se leyeron) y registro del panel
 ```
-En cada guardado sólo se reescriben los archivos cuyo contenido cambió. Si hubiera cuentas creadas con una versión anterior
+En cada guardado sólo se reescriben los archivos cuyo contenido cambió. Las cuentas antiguas con todo en `rewards.json` se
+separan solas en el siguiente guardado.
+
+### Control de Rombos, cosméticos y racha
+Al guardar, el Worker compara lo que manda el navegador con lo que hay en el repositorio (`controlRewards`):
+- **Rombos**: lo ganado y lo gastado nunca bajan; lo ganado sube como mucho 2× el tope diario por día (UTC), más los reembolsos de
+  cosméticos retirados; el saldo siempre es ganado − gastado.
+- **Cosméticos**: sólo ids del catálogo (`node tools/cosmetics/sync.mjs` lo copia de `src/services/rewards.js`; `--check` comprueba
+  que está al día). Un cosmético de pago nuevo tiene que estar pagado (lo gastado sube al menos su precio), salvo que también sea
+  premio (pase, rangos, logros, rachas, eventos). Lo que retira un administrador sólo vuelve comprándolo. Nunca se pierden
+  cosméticos por mandar datos viejos, y lo equipado tiene que ser propio y del tipo correcto.
+- **Racha de Nexito**: la racha y los días cuidados suben como mucho un día por cada día que avanza «último día», que no puede estar
+  en el futuro; una racha más antigua (otro dispositivo) no pisa la guardada.
+
+Si corrige algo (o el administrador ajustó la cuenta), la respuesta de `PUT /api/data` trae `rewards` y `control` y el navegador
+adopta esas recompensas. Las correcciones y los ajustes quedan en `wallet.json` (`audit`).
+
+**Panel de administración** (`POST /api/admin/rewards`, ficha de la cuenta): sumar o quitar Rombos con motivo, dar o retirar
+cosméticos y fijar la racha y los escudos de Nexito. Cada ajuste queda en el registro del panel y en el de la cuenta. Si hubiera cuentas creadas con una versión anterior
 (un único `users/<nombre>.json`), no se leen: hay que volver a registrarlas.
 
 **Inicio de sesión:** sólo funciona con cuentas que existan en esa carpeta `users/`. Un usuario inexistente recibe «No existe ninguna
@@ -65,7 +86,7 @@ cuenta». Un sitio publicado sin `API_URL` no permite iniciar sesión (el modo l
 Sólo se aceptan peticiones de los orígenes de `ALLOWED_ORIGIN` (lista separada por comas; para probar en local añade `http://localhost:8000`). `*` sólo si lo pones explícitamente.
 
 ## Límites y avisos reales
-- **Los rankings no son a prueba de trampas**: el cliente es de confianza (el navegador envía sus propios datos). El servidor sólo valida forma, tamaño y rangos.
+- **Los rankings no son a prueba de trampas**: el navegador envía sus propios datos. El servidor valida forma, tamaño y rangos, y controla Rombos, cosméticos y racha frente a lo guardado (ver arriba); las estadísticas de juego no se pueden verificar.
 - **Rate limit**: el Worker limita intentos de registro/login por IP en memoria (por instancia, mejorable). Añade una *Rate limiting rule* de Cloudflare sobre `/api/login` y `/api/register` para protegerte de verdad.
 - **API de GitHub**: ~5.000 peticiones/hora por token y escrituras serializadas por repo; cada guardado hace 1–2 commits. El cliente debe agrupar guardados (p. ej. al terminar partida). Si hay escrituras simultáneas el Worker reintenta (hasta 5 veces); el ranking se corrige solo en el siguiente guardado.
 - Las contraseñas se guardan con PBKDF2-SHA256 (100.000 iteraciones, sal aleatoria). No hay recuperación de contraseña.

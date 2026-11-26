@@ -234,7 +234,7 @@
         },
         spend(n, why) {
             const r = this.data(); if (!r || r.rombos < n) return false;
-            r.rombos -= n;
+            r.rombos -= n; r.spent = (r.spent | 0) + n;
             r.log.unshift({ at: Date.now(), n: -n, why: String(why || '').slice(0, 60) });
             if (r.log.length > 30) r.log.length = 30;
             Nexus.bus.emit('rewards:change', { kind: 'spend', n });
@@ -250,6 +250,8 @@
             const it = item(reward);
             if (!it || r.cosmetics.owned.includes(it.id)) return null;
             r.cosmetics.owned.push(it.id);
+            if (!r.cosmetics.via) r.cosmetics.via = {};
+            r.cosmetics.via[it.id] = why === 'Tienda' ? 'shop' : 'earned';   // el servidor exige el pago de lo comprado
             Nexus.bus.emit('rewards:grant', { item: it, why });
             return it;
         },
